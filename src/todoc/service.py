@@ -1,0 +1,118 @@
+"""Application orchestration shared by CLI commands (thin Click layer calls here)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from todoc.adapters.filesystem.scanner import scan_dataset
+from todoc.application.registry import RegistryStore, parse_cache_key, read_parse_cache, write_parse_cache
+from todoc.application.validator import validate_dataset, validate_relations
+from todoc.config import load_dataset, load_rules
+from todoc.domain.models import Document, Folder
+from todoc.errors import ValidationError
+from todoc.typing_system.descriptors import TypeRegistry
+from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
+
+
+class DatasetContext:
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+        self.dataset = load_dataset(self.root)
+        self.dataset_id = self.dataset["dataset_id"]
+        self.dir_rules, self.doc_rules = load_rules(self.root, self.dataset)
+        self.registry_types = TypeRegistry()
+        self.registry_types.load(self.root, self.dataset)
+        self.registry_types.validate_references(self.dir_rules, self.doc_rules)
+        self.store = RegistryStore(self.root)
+
+    def scan_and_validate(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Returns (folders, documents, records, relations, diagnostics) as dicts."""
+        follow = bool(self.dataset.get("follow_symlinks", False))
+        max_bytes = int((self.dataset.get("limits") or {}).get("max_file_bytes", 10485760))
+        scanned_folders, scanned_files = scan_dataset(self.root, follow_symlinks=follow, max_file_bytes=max_bytes)
+        diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules)
+
+        folders: list[dict[str, Any]] = []
+        for folder in scanned_folders:
+            basename = Path(folder.rel_path).name if folder.rel_path != "." else self.root.name
+            dir_type, source, conflicts = resolve_type(
+                self.dir_rules, folder.rel_path, basename, None, "dir_type", RESERVED_DIR_TYPES, "unknown"
+            )
+            for conflict_id in conflicts:
+                diags.append({
+                    "dataset_id": self.dataset_id, "id": f"diag_{abs(hash((folder.rel_path, conflict_id))) % 100000:05d}",
+                    "code": "config.ambiguous_rule", "severity": "warning", "path": folder.rel_path,
+                    "location": {}, "evidence": "", "message": f"Ambiguous rules {conflicts} for {folder.rel_path}.",
+                    "suggested_fixes": [],
+                })
+            folder_id = f"folder:{folder.rel_path}"
+            parent = str(Path(folder.rel_path).parent.as_posix()) if folder.rel_path != "." else None
+            folders.append(Folder(folder_id, self.dataset_id, folder.rel_path, f"folder:{parent}" if parent and parent != "." else None, dir_type, source).to_dict())
+
+        documents: list[dict[str, Any]] = []
+        for scanned in scanned_files:
+            info = doc_info.get(scanned.rel_path, {})
+            doc_id = _document_id(scanned.rel_path, info.get("front_matter") or {})
+            parent = str(Path(scanned.rel_path).parent.as_posix())
+            documents.append(Document(
+                document_id=doc_id, dataset_id=self.dataset_id, path=scanned.rel_path,
+                parent_folder_id=f"folder:{parent}" if parent != "." else "folder:.",
+                format=scanned.format, doc_type=str(info.get("doc_type", "unknown")),
+                rule_source=str(info.get("rule_source", "default")), hash=scanned.hash, size=scanned.size,
+                title=str(info.get("title", "")), status=scanned.status if scanned.status != "ok" else "ok",
+            ).to_dict())
+            # Parse cache (derived, rebuildable).
+            key = parse_cache_key(self.dataset_id, scanned.rel_path, scanned.hash, "todoc-0.1.0")
+            if read_parse_cache(self.root, key) is None:
+                write_parse_cache(self.root, key, {"path": scanned.rel_path, "hash": scanned.hash, "doc_type": info.get("doc_type")})
+
+        # Records + relations from JSON files.
+        records: list[dict[str, Any]] = []
+        relations: list[dict[str, Any]] = []
+        for doc in documents:
+            if doc["format"] != "json" or doc["status"] != "ok":
+                continue
+            try:
+                value = json.loads((self.root / doc["path"]).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(value, dict) or "record_id" not in value:
+                continue
+            records.append({"record_id": str(value["record_id"]), "entity_type": str(value.get("entity_type", "")),
+                            "dataset_id": self.dataset_id, "path": doc["path"], "hash": doc["hash"], "data": value})
+            for rel in (value.get("relations") or []):
+                if isinstance(rel, dict) and (rel.get("target") or {}).get("id"):
+                    relations.append({"type_id": str(rel.get("type_id", "")), "source_id": str(value["record_id"]),
+                                      "target_id": str(rel["target"]["id"]), "dataset_id": self.dataset_id})
+        rel_diags = validate_relations(self.dataset_id, records)
+        diags.extend(d.to_dict() for d in rel_diags)
+        diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]
+        return folders, documents, records, relations, diag_dicts
+
+    def rebuild_index(self) -> dict[str, Any]:
+        folders, documents, records, relations, diagnostics = self.scan_and_validate()
+        gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics)
+        return {"dataset_id": self.dataset_id, "generation_id": gen_id, "folders": len(folders),
+                "documents": len(documents), "records": len(records), "relations": len(relations),
+                "diagnostics": len(diagnostics)}
+
+    def load_index(self) -> dict[str, Any]:
+        return self.store.require_current()
+
+
+def _document_id(rel_path: str, front_matter: dict[str, Any]) -> str:
+    if isinstance(front_matter, dict) and front_matter.get("id"):
+        return str(front_matter["id"])
+    return f"doc:{rel_path}"
+
+
+def resolve_roots(roots: tuple[str, ...]) -> list[Path]:
+    if roots:
+        return [Path(r) for r in roots]
+    import os
+    env = os.environ.get("TODOC_ROOT")
+    if env:
+        return [Path(p) for p in env.split(os.pathsep) if p]
+    raise ValidationError("No --root given and TODOC_ROOT is not set", "usage.missing_root")
