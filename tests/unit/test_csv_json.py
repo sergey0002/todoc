@@ -73,17 +73,26 @@ def test_json_too_deep():
     deep = "[" * 200 + "]" * 200
     value, errors = parse_json(deep, max_depth=10)
     assert value is None
-    assert errors == ["json.too_deep"]
+    assert errors == ["json.too_deep: nesting depth 199 exceeds limit 10"]
 
 
 def test_pointer():
-    value = {"a": {"b": [10, 20]}}
+    value = {"a": {b: [10, 20] for b in ("b",)} , "": "empty-key"}
     assert resolve_pointer(value, "/a/b/1") == 20
     assert resolve_pointer(value, "") == value
-    assert resolve_pointer(value, "/") == value
+    # RFC 6901: "/" is the member with the empty-string key, not the document.
+    assert resolve_pointer(value, "/") == "empty-key"
     with pytest.raises(KeyError):
         resolve_pointer(value, "/missing")
     with pytest.raises(KeyError):
         resolve_pointer(value, "bad")
     with pytest.raises((IndexError, ValueError)):
         resolve_pointer(value, "/a/b/9")
+    # Non-canonical array indices and past-the-end are misses.
+    with pytest.raises(KeyError):
+        resolve_pointer(value, "/a/b/01")
+    with pytest.raises(KeyError):
+        resolve_pointer(value, "/a/b/-")
+    # Tilde escapes.
+    assert resolve_pointer({"a/b": 1, "c~d": 2}, "/a~1b") == 1
+    assert resolve_pointer({"a/b": 1, "c~d": 2}, "/c~0d") == 2

@@ -407,7 +407,8 @@ def test_validate_records_unreadable(root):
 
 def test_validate_relations_non_dict():
     records = [{"record_id": "w:1", "path": "w.json", "data": {"relations": ["notadict", 42]}}]
-    assert validate_relations("ds", records) == []
+    diags = validate_relations("ds", records)
+    assert [d.code for d in diags] == ["relation.malformed", "relation.malformed"]
 
 
 # --- write -----------------------------------------------------------------
