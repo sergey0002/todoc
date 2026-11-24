@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "record_id": "document:audit-implementation",
+  "entity_type": "document",
+  "title": "Audit: аудит реализации MVP",
+  "source_path": "plan/audit-implementation.md",
+  "doc_type": "audit-report",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/audit-implementation.md",
+  "lines": 367,
+  "tags": [
+    "audit-report",
+    "copied",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:implementation-plan"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:no-lsp",
+  "entity_type": "decision",
+  "title": "Не подключать LSP-сервер",
+  "status": "accepted",
+  "decision": "LSP не добавляется: markdown-it-py и jsonschema закрывают задачу в рамках offline CLI.",
+  "rationale": "LSP-сервер — долгоживущий процесс и новый протокол, что противоречит offline/CLI-first контракту.",
+  "sources": [
+    "plan/constitution.md",
+    "plan/audit-implementation.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:audit-implementation"
+      }
+    }
+  ]
+}

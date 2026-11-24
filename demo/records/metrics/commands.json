@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:commands",
+  "entity_type": "metric",
+  "name": "Листовых команд CLI",
+  "aspect": "cli",
+  "value": {
+    "value": 25,
+    "unit": "count"
+  },
+  "source": "Обход дерева Click"
+}

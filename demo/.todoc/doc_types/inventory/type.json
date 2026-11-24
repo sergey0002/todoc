@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "inventory",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Табличный инвентарь (CSV).",
+  "format": "csv"
+}

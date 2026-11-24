@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:08-records-and-relations",
+  "entity_type": "document",
+  "title": "Состояние: записи, отношения, запросы",
+  "source_path": "references/state/08-records-and-relations.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/08-records-and-relations.md",
+  "lines": 117,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

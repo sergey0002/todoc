@@ -1,0 +1,53 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "record_id",
+    "entity_type",
+    "title",
+    "status",
+    "decision",
+    "rationale"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^decision:[a-z0-9][a-z0-9-]*$"
+    },
+    "entity_type": {
+      "const": "decision"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "superseded",
+        "rejected"
+      ]
+    },
+    "decision": {
+      "type": "string",
+      "minLength": 3
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 3
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relations": {
+      "type": "array"
+    }
+  }
+}

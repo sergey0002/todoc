@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:mdkb",
+  "entity_type": "competitor",
+  "name": "mdkb",
+  "category": "cli",
+  "portability": "files-only",
+  "verdict": "см. карточку",
+  "source": "competitors/mdkb.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

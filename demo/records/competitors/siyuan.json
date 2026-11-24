@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:siyuan",
+  "entity_type": "competitor",
+  "name": "SiYuan",
+  "category": "vault-app",
+  "portability": "mostly-portable",
+  "verdict": "см. карточку",
+  "source": "competitors/siyuan.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

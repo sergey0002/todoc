@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "record_id": "guide:guide-markdown-kb",
+  "entity_type": "guide",
+  "title": "Guide: Markdown knowledge base для агентов",
+  "audience": "both",
+  "postulates": 0,
+  "sections": 13,
+  "checklist": false,
+  "source_path": "guides/markdown-knowledge-base.md",
+  "relations": [
+    {
+      "type_id": "describes",
+      "target": {
+        "kind": "record",
+        "id": "document:markdown-knowledge-base"
+      }
+    }
+  ]
+}

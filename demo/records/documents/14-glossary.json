@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:14-glossary",
+  "entity_type": "document",
+  "title": "Состояние: глоссарий",
+  "source_path": "references/state/14-glossary.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/14-glossary.md",
+  "lines": 54,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

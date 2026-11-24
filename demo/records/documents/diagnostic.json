@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:diagnostic",
+  "entity_type": "document",
+  "title": "Диагностика",
+  "source_path": "glossary/diagnostic.md",
+  "doc_type": "glossary-entry",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 15,
+  "tags": [
+    "authored",
+    "glossary-entry",
+    "ru"
+  ],
+  "relations": []
+}

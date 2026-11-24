@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from todoc.adapters.filesystem.scanner import scan_dataset
+from todoc.adapters.formats.jsonfmt import parse_json
 from todoc.application.registry import RegistryStore, parse_cache_key, read_parse_cache, write_parse_cache
 from todoc.application.validator import validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
@@ -75,8 +75,13 @@ class DatasetContext:
             if doc["format"] != "json" or doc["status"] != "ok":
                 continue
             try:
-                value = json.loads((self.root / doc["path"]).read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
+                text = (self.root / doc["path"]).read_text(encoding="utf-8")
+            except OSError:
+                continue
+            # parse_json (not json.loads): hostile nesting must not raise
+            # RecursionError out of the CLI.
+            value, errors = parse_json(text, max_depth=int((self.dataset.get("limits") or {}).get("max_json_depth", 128)))
+            if errors:
                 continue
             if not isinstance(value, dict) or "record_id" not in value:
                 continue

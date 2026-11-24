@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:capacities",
+  "entity_type": "competitor",
+  "name": "Capacities",
+  "category": "vault-app",
+  "portability": "vendor-lock",
+  "verdict": "см. карточку",
+  "source": "competitors/capacities.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

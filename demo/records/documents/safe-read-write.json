@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:safe-read-write",
+  "entity_type": "document",
+  "title": "Reference: safe read/write",
+  "source_path": "references/safe-read-write.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/safe-read-write.md",
+  "lines": 15,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

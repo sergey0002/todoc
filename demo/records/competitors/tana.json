@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:tana",
+  "entity_type": "competitor",
+  "name": "Tana",
+  "category": "vault-app",
+  "portability": "vendor-lock",
+  "verdict": "см. карточку",
+  "source": "competitors/tana.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

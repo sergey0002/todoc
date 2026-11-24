@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:plugins-formats-import-after",
+  "entity_type": "document",
+  "title": "AFTER: плагины форматов и импорт",
+  "source_path": "plan/after/plugins-formats-import.after.md",
+  "doc_type": "after-plan",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/plugins-formats-import.after.md",
+  "lines": 126,
+  "tags": [
+    "after-plan",
+    "copied",
+    "ru"
+  ],
+  "relations": []
+}

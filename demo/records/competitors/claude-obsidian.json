@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:claude-obsidian",
+  "entity_type": "competitor",
+  "name": "AgriciDaniel/claude-obsidian",
+  "category": "agent-skill",
+  "portability": "mostly-portable",
+  "verdict": "см. карточку",
+  "source": "competitors/claude-obsidian.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

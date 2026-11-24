@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:record-schemas",
+  "entity_type": "decision",
+  "title": "Валидация записей по JSON Schema 2020-12",
+  "status": "accepted",
+  "decision": "Схемы лежат в .todoc/schemas/records/<entity_type>.json; нарушение даёт record.schema_violation с JSON Pointer.",
+  "rationale": "Зависимость jsonschema была заявлена, но не использовалась; записи не проверялись.",
+  "sources": [
+    "plan/audit-implementation.md",
+    "references/entities-relations-and-queries.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:audit-implementation"
+      }
+    },
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:entities-relations-and-queries"
+      }
+    }
+  ]
+}

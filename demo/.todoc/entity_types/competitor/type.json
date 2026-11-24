@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "type_id": "competitor",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Конкурентный продукт или Agent Skill со срезом возможностей.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "name",
+    "category",
+    "portability"
+  ],
+  "path_template": "records/competitors/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "name",
+      "category"
+    ]
+  }
+}

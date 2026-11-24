@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:basic-memory",
+  "entity_type": "competitor",
+  "name": "Basic Memory",
+  "category": "mcp-server",
+  "portability": "mostly-portable",
+  "verdict": "см. карточку",
+  "source": "competitors/basic-memory.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

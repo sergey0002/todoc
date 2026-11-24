@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:01-overview",
+  "entity_type": "document",
+  "title": "Состояние: обзор продукта и статус MVP",
+  "source_path": "references/state/01-overview.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/01-overview.md",
+  "lines": 70,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

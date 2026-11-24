@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:source-native",
+  "entity_type": "decision",
+  "title": "Source-native вместо компиляции и перезаписи",
+  "status": "accepted",
+  "decision": "Истина живёт в файлах пользователя; индекс и кэш — производные и пересобираемые.",
+  "rationale": "Перезапись источников делает откат невозможным и ломает доверие к базе.",
+  "sources": [
+    "plan/constitution.md",
+    "plan/competitive-analysis.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    }
+  ]
+}

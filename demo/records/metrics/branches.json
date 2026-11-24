@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:branches",
+  "entity_type": "metric",
+  "name": "Веток под покрытием",
+  "aspect": "tests",
+  "value": {
+    "value": 658,
+    "unit": "count"
+  },
+  "source": "coverage report"
+}

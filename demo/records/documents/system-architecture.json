@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:system-architecture",
+  "entity_type": "document",
+  "title": "Архитектура todoc: слои и адаптеры",
+  "source_path": "architecture/system-architecture.md",
+  "doc_type": "architecture-doc",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 32,
+  "tags": [
+    "architecture-doc",
+    "authored",
+    "ru"
+  ],
+  "relations": []
+}

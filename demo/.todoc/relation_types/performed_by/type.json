@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "type_id": "performed_by",
+  "version": "0.1",
+  "description": "Relation type performed_by."
+}

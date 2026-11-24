@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:memory-llm-wiki-after",
+  "entity_type": "document",
+  "title": "AFTER: память LLM и wiki-профиль",
+  "source_path": "plan/after/memory-llm-wiki.after.md",
+  "doc_type": "after-plan",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/memory-llm-wiki.after.md",
+  "lines": 138,
+  "tags": [
+    "after-plan",
+    "copied",
+    "ru"
+  ],
+  "relations": []
+}

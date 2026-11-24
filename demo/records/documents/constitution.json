@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "record_id": "document:constitution",
+  "entity_type": "document",
+  "title": "Constitution: нормативная конституция todoc",
+  "source_path": "plan/constitution.md",
+  "doc_type": "constitution",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/constitution.md",
+  "lines": 794,
+  "tags": [
+    "constitution",
+    "copied",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:engineering-plan"
+      }
+    }
+  ]
+}

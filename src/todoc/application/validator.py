@@ -32,12 +32,20 @@ def _diag(dataset_id: str, path: str, code: str, message: str, severity: str = "
     )
 
 
-def _basename_index(all_paths: set[str]) -> dict[str, list[str]]:
+def _basename_index(all_paths: set[str]) -> tuple[dict[str, list[str]], list[str]]:
+    """Map basename/stem -> paths, plus the sorted basename universe for fuzzy match.
+
+    Fuzzy matching runs over basenames only: comparing whole relative paths
+    makes two unrelated files in the same folder look similar (``notes/runbok.md``
+    vs ``notes/broken-demo.md`` scores 0.69) and produces misleading fixes.
+    """
     index: dict[str, list[str]] = {}
+    basenames: set[str] = set()
     for path in sorted(all_paths):
         index.setdefault(Path(path).name, []).append(path)
         index.setdefault(Path(path).stem, []).append(path)
-    return index
+        basenames.add(Path(path).name)
+    return index, sorted(basenames)
 
 
 def _wikilink_candidates(target: str, by_basename: dict[str, list[str]]) -> list[str]:
@@ -49,16 +57,33 @@ def _wikilink_candidates(target: str, by_basename: dict[str, list[str]]) -> list
     return candidates
 
 
-def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any,
-                     candidates: list[str], normalized: str, sorted_paths: list[str]) -> Diagnostic:
+FUZZY_CUTOFF = 0.8  # typos score 0.92+; unrelated names ("runbok.md" vs "okf.md") reach 0.67
+
+
+def _fuzzy_candidates(basename: str, by_basename: dict[str, list[str]],
+                      basenames: list[str]) -> list[str]:
+    """Closest basename by difflib, only when it maps to exactly one path.
+
+    Matching runs over basenames (not full relative paths) with a high cutoff:
+    a suggestion that is not near-certain is worse than no suggestion, because
+    ``fix --apply`` rewrites the user's file.
+    """
+    close = difflib.get_close_matches(basename, basenames, n=1, cutoff=FUZZY_CUTOFF)
+    if not close:
+        return []
+    return by_basename.get(close[0], [])
+
+
+def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any, candidates: list[str],
+                     basename: str, by_basename: dict[str, list[str]], basenames: list[str]) -> Diagnostic:
     fixes: tuple[SuggestedFix, ...] = ()
     if len(candidates) == 1:
         fixes = (SuggestedFix(kind="replace_link_target", replacement=candidates[0],
                               basis="Найден единственный кандидат с совпадающим basename."),)
     else:
-        close = difflib.get_close_matches(normalized, sorted_paths, n=1, cutoff=0.6)
-        if close:
-            fixes = (SuggestedFix(kind="replace_link_target", replacement=close[0],
+        fuzzy = _fuzzy_candidates(basename, by_basename, basenames)
+        if len(fuzzy) == 1:
+            fixes = (SuggestedFix(kind="replace_link_target", replacement=fuzzy[0],
                                   basis="Найден ближайший кандидат по имени файла."),)
     evidence = f"[[{link.target}]]" if link.is_wikilink else f"[{link.text}]({link.target})"
     return Diagnostic(
@@ -75,7 +100,7 @@ def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any,
 
 
 def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all_paths: set[str],
-                          by_basename: dict[str, list[str]] | None = None) -> list[Diagnostic]:
+                          basename_index: tuple[dict[str, list[str]], list[str]] | None = None) -> list[Diagnostic]:
     """Report local links whose target is not in the scanned file set.
 
     Targets are normalized by ``resolve_link_target`` (same code path as the
@@ -88,21 +113,21 @@ def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all
     except (OSError, UnicodeDecodeError):
         return [Diagnostic(dataset_id, f"diag_{abs(hash(scanned.rel_path)) % 100000:05d}", "markdown.unreadable", "error", scanned.rel_path, "Cannot read Markdown file.")]
     doc = parse_markdown(text)
-    index = by_basename if by_basename is not None else _basename_index(all_paths)
-    sorted_paths = sorted(all_paths)
+    by_basename, basenames = basename_index if basename_index is not None else _basename_index(all_paths)
     for link in doc.links:
         if link.is_wikilink:
             if not link.target:
                 continue
-            if _wikilink_candidates(link.target, index):
+            if _wikilink_candidates(link.target, by_basename):
                 continue
-            diags.append(_link_diagnostic(dataset_id, scanned, link, [], link.target, sorted_paths))
+            diags.append(_link_diagnostic(dataset_id, scanned, link, [], link.target, by_basename, basenames))
             continue
         normalized = resolve_link_target(scanned.rel_path, link.target)
         if normalized is None or normalized in all_paths:
             continue
-        candidates = _wikilink_candidates(Path(normalized).name, index)
-        diags.append(_link_diagnostic(dataset_id, scanned, link, candidates, normalized, sorted_paths))
+        basename = Path(normalized).name
+        candidates = _wikilink_candidates(basename, by_basename)
+        diags.append(_link_diagnostic(dataset_id, scanned, link, candidates, basename, by_basename, basenames))
     return diags
 
 

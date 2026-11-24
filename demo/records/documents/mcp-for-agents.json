@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:mcp-for-agents",
+  "entity_type": "document",
+  "title": "Guide: MCP для агентов (постулаты и чек-лист)",
+  "source_path": "guides/mcp-for-agents.md",
+  "doc_type": "guide",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": "guide_mcp_for_agents_ru.md",
+  "lines": 403,
+  "tags": [
+    "copied",
+    "guide",
+    "ru"
+  ],
+  "relations": []
+}

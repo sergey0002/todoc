@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "inbox",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Неотсортированные входящие материалы."
+}

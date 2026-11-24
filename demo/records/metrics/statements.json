@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:statements",
+  "entity_type": "metric",
+  "name": "Инструкций под покрытием",
+  "aspect": "tests",
+  "value": {
+    "value": 2014,
+    "unit": "count"
+  },
+  "source": "coverage report"
+}

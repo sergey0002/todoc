@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:portability",
+  "entity_type": "decision",
+  "title": "Портабельность — отдельный критерий оценки",
+  "status": "accepted",
+  "decision": "Продукты оцениваются по 8 подкритериям портабельности (максимум 16 баллов).",
+  "rationale": "Ценность todoc — в переносимости данных, а не в удобстве конкретного приложения.",
+  "sources": [
+    "plan/competitive-analysis.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    }
+  ]
+}

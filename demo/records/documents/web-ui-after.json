@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:web-ui-after",
+  "entity_type": "document",
+  "title": "AFTER: веб-интерфейс",
+  "source_path": "plan/after/web-ui.after.md",
+  "doc_type": "after-plan",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/web-ui.after.md",
+  "lines": 110,
+  "tags": [
+    "after-plan",
+    "copied",
+    "ru"
+  ],
+  "relations": []
+}

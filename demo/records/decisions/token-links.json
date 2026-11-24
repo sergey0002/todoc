@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:token-links",
+  "entity_type": "decision",
+  "title": "Ссылки и заголовки — из токенов парсера, а не регулярками",
+  "status": "accepted",
+  "decision": "markdown-it-py даёт токены; regex используется только для колонок уже найденной ссылки и для wikilinks вне кода.",
+  "rationale": "Регулярки давали ложные ссылки внутри code fence и теряли reference-style ссылки.",
+  "sources": [
+    "plan/audit-implementation.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:audit-implementation"
+      }
+    }
+  ]
+}

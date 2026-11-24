@@ -398,3 +398,73 @@ def test_reference_link_after_two_inline_links():
     doc = parse_markdown("[a](x.md) [b](y.md) [c][rb]\n\n[rb]: z.md\n")
     assert [(link.text, link.target) for link in doc.links] == [("a", "x.md"), ("b", "y.md"), ("c", "z.md")]
     assert [link.column for link in doc.links] == [1, 11, 21]
+
+
+def test_unrelated_missing_target_gets_no_suggestion(root):
+    """Fuzzy matching is basename-based with a high cutoff: a near-miss is not a fix."""
+    (root / "notes").mkdir(parents=True)
+    (root / "ops").mkdir(parents=True)
+    (root / "ops" / "okf.md").write_text("# OKF\n", encoding="utf-8")
+    page = root / "notes" / "a.md"
+    page.write_text("See [runbook](runbok.md).\n", encoding="utf-8")
+    scanned = ScannedFile("notes/a.md", page, "markdown", page.stat().st_size, "sha256:")
+    diags = _check_markdown_links("ds", scanned, root, {"notes/a.md", "ops/okf.md"})
+    assert len(diags) == 1
+    assert diags[0].suggested_fixes == ()
+
+
+def test_typo_target_is_suggested_by_basename(root):
+    (root / "ops").mkdir(parents=True)
+    (root / "ops" / "runbook.md").write_text("# Runbook\n", encoding="utf-8")
+    page = root / "notes" / "a.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text("See [runbook](runbok.md).\n", encoding="utf-8")
+    scanned = ScannedFile("notes/a.md", page, "markdown", page.stat().st_size, "sha256:")
+    diags = _check_markdown_links("ds", scanned, root, {"notes/a.md", "ops/runbook.md"})
+    assert diags[0].suggested_fixes[0].replacement == "ops/runbook.md"
+
+
+def test_ambiguous_basename_gets_no_suggestion(root):
+    (root / "a").mkdir(parents=True)
+    (root / "b").mkdir(parents=True)
+    (root / "a" / "runbook.md").write_text("# A\n", encoding="utf-8")
+    (root / "b" / "runbook.md").write_text("# B\n", encoding="utf-8")
+    page = root / "notes.md"
+    page.write_text("See [runbook](runbok.md).\n", encoding="utf-8")
+    scanned = ScannedFile("notes.md", page, "markdown", page.stat().st_size, "sha256:")
+    diags = _check_markdown_links("ds", scanned, root, {"notes.md", "a/runbook.md", "b/runbook.md"})
+    assert diags[0].suggested_fixes == ()
+
+
+def test_service_skips_hostile_json_without_crash(root):
+    """service.scan_and_validate must not raise RecursionError on nested JSON."""
+    from todoc.service import DatasetContext
+
+    (root / "records").mkdir(parents=True, exist_ok=True)
+    (root / "records" / "deep-hostile.json").write_text("[" * 5000 + "]" * 5000, encoding="utf-8")
+    ctx = DatasetContext(root)
+    _folders, documents, records, _relations, diagnostics = ctx.scan_and_validate()
+    assert records == []
+    assert any(d.get("code") == "json.too_deep" for d in diagnostics)
+    assert any(d["path"] == "records/deep-hostile.json" for d in documents)
+
+
+def test_service_record_read_oserror_is_skipped(root, monkeypatch):
+    from pathlib import Path
+
+    from todoc.service import DatasetContext
+
+    (root / "records").mkdir(parents=True, exist_ok=True)
+    (root / "records" / "r.json").write_text('{"record_id": "r:1", "entity_type": "note"}', encoding="utf-8")
+    real_read = Path.read_text
+
+    def fake_read(self, *args, **kwargs):
+        if self.name == "r.json":
+            raise OSError("permission denied")
+        return real_read(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fake_read)
+    ctx = DatasetContext(root)
+    _folders, _documents, records, _relations, diagnostics = ctx.scan_and_validate()
+    assert records == []
+    assert any(d.get("code") == "file.unreadable" for d in diagnostics)

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "implementation-plan",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Пошаговый план реализации.",
+  "format": "markdown"
+}

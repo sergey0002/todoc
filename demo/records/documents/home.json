@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "record_id": "document:home",
+  "entity_type": "document",
+  "title": "HOME: карта содержимого демо-датасета",
+  "source_path": "HOME.md",
+  "doc_type": "moc",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 95,
+  "tags": [
+    "authored",
+    "moc",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:implementation-plan"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    }
+  ]
+}

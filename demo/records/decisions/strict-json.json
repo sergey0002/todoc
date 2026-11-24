@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:strict-json",
+  "entity_type": "decision",
+  "title": "Строгий JSON: дубли ключей, константы, итеративная глубина",
+  "status": "accepted",
+  "decision": "Дублирующиеся ключи, NaN/Infinity и превышение глубины — ошибки; глубина считается итеративно.",
+  "rationale": "Глубоко вложенный JSON ронял процесс RecursionError (P0 аудита).",
+  "sources": [
+    "plan/audit-implementation.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:audit-implementation"
+      }
+    }
+  ]
+}

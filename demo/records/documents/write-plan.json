@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:write-plan",
+  "entity_type": "document",
+  "title": "WritePlan",
+  "source_path": "glossary/write-plan.md",
+  "doc_type": "glossary-entry",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 15,
+  "tags": [
+    "authored",
+    "glossary-entry",
+    "ru"
+  ],
+  "relations": []
+}

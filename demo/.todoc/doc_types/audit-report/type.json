@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "audit-report",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Отчёт аудита реализации или снимков.",
+  "format": "markdown"
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "plan",
+  "version": "0.1",
+  "description": "Entity type plan.",
+  "format": "json"
+}

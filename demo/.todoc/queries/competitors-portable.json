@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "competitors-portable",
+  "entity_type": "competitor",
+  "filters": {
+    "portability": {
+      "$in": [
+        "files-only",
+        "mostly-portable"
+      ]
+    }
+  },
+  "limit": 50
+}

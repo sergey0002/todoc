@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:sync-collab-export-after",
+  "entity_type": "document",
+  "title": "AFTER: синхронизация, совместная работа, экспорт",
+  "source_path": "plan/after/sync-collab-export.after.md",
+  "doc_type": "after-plan",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/sync-collab-export.after.md",
+  "lines": 118,
+  "tags": [
+    "after-plan",
+    "copied",
+    "ru"
+  ],
+  "relations": []
+}

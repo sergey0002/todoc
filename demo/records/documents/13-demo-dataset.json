@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:13-demo-dataset",
+  "entity_type": "document",
+  "title": "Состояние: демо-датасет",
+  "source_path": "references/state/13-demo-dataset.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/13-demo-dataset.md",
+  "lines": 115,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

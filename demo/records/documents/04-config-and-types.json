@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:04-config-and-types",
+  "entity_type": "document",
+  "title": "Состояние: конфигурация и типовая система",
+  "source_path": "references/state/04-config-and-types.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/04-config-and-types.md",
+  "lines": 129,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

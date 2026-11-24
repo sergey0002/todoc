@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:tests-passed",
+  "entity_type": "metric",
+  "name": "Пройдено тестов",
+  "aspect": "tests",
+  "value": {
+    "value": 295,
+    "unit": "count"
+  },
+  "source": "pytest tests"
+}

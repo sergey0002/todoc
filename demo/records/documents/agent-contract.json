@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:agent-contract",
+  "entity_type": "document",
+  "title": "Контракт CLI для агента",
+  "source_path": "notes/agent-contract.md",
+  "doc_type": "note",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 25,
+  "tags": [
+    "authored",
+    "note",
+    "ru"
+  ],
+  "relations": []
+}

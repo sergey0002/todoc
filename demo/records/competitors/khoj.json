@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:khoj",
+  "entity_type": "competitor",
+  "name": "Khoj",
+  "category": "cli",
+  "portability": "mostly-portable",
+  "verdict": "см. карточку",
+  "source": "competitors/khoj.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

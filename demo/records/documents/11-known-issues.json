@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:11-known-issues",
+  "entity_type": "document",
+  "title": "Состояние: известные проблемы",
+  "source_path": "references/state/11-known-issues.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/11-known-issues.md",
+  "lines": 141,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

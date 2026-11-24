@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "guide",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Гайд с постулатами и чек-листом для агентов.",
+  "format": "markdown"
+}

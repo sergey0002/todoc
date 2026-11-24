@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "attachments",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Вложенные данные: CSV-инвентаризация и прочие файлы."
+}

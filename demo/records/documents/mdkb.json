@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "document:mdkb",
+  "entity_type": "document",
+  "title": "mdkb",
+  "source_path": "competitors/mdkb.md",
+  "doc_type": "competitor-card",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 37,
+  "tags": [
+    "authored",
+    "competitor-card",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "describes",
+      "target": {
+        "kind": "record",
+        "id": "competitor:mdkb"
+      }
+    }
+  ]
+}

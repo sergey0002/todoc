@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:vanillaflava-skills",
+  "entity_type": "competitor",
+  "name": "vanillaflava/llm-wiki-skills",
+  "category": "agent-skill",
+  "portability": "files-only",
+  "verdict": "см. карточку",
+  "source": "competitors/vanillaflava-skills.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

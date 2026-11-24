@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "guides",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Инструктажи и гайды для людей и агентов."
+}

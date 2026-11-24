@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:data-root",
+  "entity_type": "document",
+  "title": "DATA_ROOT",
+  "source_path": "glossary/data-root.md",
+  "doc_type": "glossary-entry",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 15,
+  "tags": [
+    "authored",
+    "glossary-entry",
+    "ru"
+  ],
+  "relations": []
+}

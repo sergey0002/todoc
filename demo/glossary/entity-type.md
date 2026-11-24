@@ -1,0 +1,15 @@
+---
+id: glossary:entity-type
+title: entity_type
+doc_type: glossary-entry
+lang: ru
+---
+
+# entity_type
+
+Тип записи (сущности) JSON: описатель с `required_fields`, `path_template`, `views`, единицами измерения. Записи создаются create-only и валидируются по JSON Schema из `.todoc/schemas/records/`.
+
+## Связи
+
+- [Конституция](../plan/constitution.md) — нормативные определения и требования.
+- [Справка: типы и валидация](../references/types-and-validation.md) — машинный контракт типов.

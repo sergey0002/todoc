@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "document:letta",
+  "entity_type": "document",
+  "title": "Letta (ex-MemGPT)",
+  "source_path": "competitors/letta.md",
+  "doc_type": "competitor-card",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 37,
+  "tags": [
+    "authored",
+    "competitor-card",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "describes",
+      "target": {
+        "kind": "record",
+        "id": "competitor:letta"
+      }
+    }
+  ]
+}

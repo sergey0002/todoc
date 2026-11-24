@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "record_id": "document:competitive-analysis",
+  "entity_type": "document",
+  "title": "Competitive analysis: конкурентный анализ",
+  "source_path": "plan/competitive-analysis.md",
+  "doc_type": "competitive-analysis",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/competitive-analysis.md",
+  "lines": 667,
+  "tags": [
+    "competitive-analysis",
+    "copied",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:engineering-plan"
+      }
+    }
+  ]
+}

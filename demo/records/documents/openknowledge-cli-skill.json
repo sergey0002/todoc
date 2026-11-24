@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "document:openknowledge-cli-skill",
+  "entity_type": "document",
+  "title": "Open Knowledge CLI (снимок)",
+  "source_path": "competitors/openknowledge-cli-skill.md",
+  "doc_type": "competitor-card",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 37,
+  "tags": [
+    "authored",
+    "competitor-card",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "describes",
+      "target": {
+        "kind": "record",
+        "id": "competitor:openknowledge-cli-skill"
+      }
+    }
+  ]
+}

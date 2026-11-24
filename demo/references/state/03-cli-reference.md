@@ -1,0 +1,157 @@
+---
+id: doc:state-cli
+title: Состояние: справочник CLI, 25 команд
+doc_type: reference
+lang: ru
+source: .doc/state/03-cli-reference.md
+copied: true
+---
+# 03. Справочник CLI: 25 команд
+
+Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`
+(или `python -m todoc`).
+
+## Глобальные опции
+
+| Опция | Значение |
+|---|---|
+| `--root TEXT` | DATA_ROOT; можно повторять для нескольких датасетов. Альтернатива: `TODOC_ROOT` |
+| `--output [json\|table\|markdown]` | по умолчанию `json` |
+| `--no-input` | запрет интерактива (команды и так не спрашивают) |
+| `--version` | `todoc, version 0.1.0` |
+
+## Коды выхода
+
+| Код | Смысл | Класс ошибки |
+|---|---|---|
+| 0 | успех | — |
+| 1 | операционная ошибка | `TodocError` |
+| 2 | ошибка использования | `click.ClickException` |
+| 3 | ошибка валидации | `ValidationError` |
+| 4 | отказ в доступе | `AccessError` |
+| 5 | конфликт (хеш/перезапись) | `ConflictError` |
+| 6 | незавершённая генерация | `IncompleteError` |
+
+## Конверт ответа
+
+```json
+{"schema_version": 1, "ok": true, "data": {}, "diagnostics": [], "next_actions": []}
+```
+
+В stdout при `--output json` — ровно один JSON-текст. `next_actions[].argv` — готовые массивы
+аргументов следующего шага.
+
+## Команды
+
+### `init --root PATH`
+Создаёт `.todoc/` (датасет, правила, каталоги типов, шаблоны, пустые `schemas/records/`, `queries/`,
+`generated/`). Данные пользователя не трогает. Повторный вызов — `config.already_initialized` (exit 3).
+`data`: `{dataset_id, root, created}`.
+
+### `check-config`
+Загружает конфигурацию и реестр типов. `data.datasets[]`: `{dataset_id, ok, dir_types, doc_types, entity_types, relation_types}`.
+
+### `check [--strict]`
+Сводка по датасету. `data.datasets[]`: `{dataset_id, documents, errors, warnings, status}`.
+`--strict` превращает предупреждения в провал.
+
+### `scan`
+Обход без публикации индекса. `data.datasets[]`: `{dataset_id, folders, documents, diagnostics}`.
+
+### `validate [--all]`
+Полная валидация. `data.datasets[]`: `{dataset_id, documents, diagnostics[]}`.
+Каждая диагностика: `{dataset_id, id, code, severity, path, location, evidence, message, suggested_fixes[]}`.
+Exit 3, если есть ошибки.
+
+### `index status` / `index rebuild`
+`status` читает последнее опубликованное поколение: `{dataset_id, generation_id, current}`.
+**До первой пересборки возвращает `generation_id: null`** — сначала выполните `index rebuild`.
+`rebuild` публикует новое поколение: `{dataset_id, generation_id, folders, documents, records, relations, diagnostics}`.
+
+### `explain-path PATH`
+Объясняет типизацию пути: `{dataset_id, path, doc_type, format, rule_source, document_id}`.
+`rule_source` показывает, какое правило сработало (`rule:<id>`, `reserved`, `default`, `ambiguous`).
+
+### `docs new --title T [--dir DIR] [--template NAME]`
+Создаёт Markdown-документ (по умолчанию `--dir inbox`, `--template note`).
+`data`: `{dataset_id, path, title, template}`. Конфликт имени — `docs.target_exists` (exit 5).
+
+### `docs search --query Q [--type T] [--limit N] [--within PATH] [--budget BYTES] [--cursor C]`
+Лексический поиск. `data`: `{dataset_id, total, returned, truncated, cursor, items[]}`,
+`items[]`: `{id, path, title, heading_path, rank, relevance{method,matched_by}, matched_terms, snippet{text,line_start,line_end,truncated}}`.
+**`--cursor` в текущей реализации не продолжает выдачу** (см. [11-known-issues.md](11-known-issues.md)).
+
+### `docs read --id ID [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget BYTES]`
+Ограниченное чтение. Поля ответа зависят от формата:
+- Markdown без селектора: `{title, headings[], text}` (`text` усекается до `--budget`, по умолчанию 4000 символов);
+- Markdown с `--section`/`--anchor`: `{section, heading_path, lines[], text}` — окно до 40 строк от заголовка;
+- Markdown с `--line-range`: `{lines[], text}`;
+- JSON: `{value}` (с `--pointer` — значение по RFC 6901);
+- CSV: `{columns, rows[], total}`.
+Общие поля: `{dataset_id, id, path, format, doc_type, hash}`.
+
+### `docs tree [--within PATH] [--max-depth N]`
+`data`: `{dataset_id, folders[], documents[], total_folders, total_documents, max_depth}`.
+
+### `docs edit --id ID --patch-file F [--preview] [--apply] [--if-hash H]`
+Патч: `{"ops": [{"line": 12, "text": "новая строка"}]}` — замена строк по 1-индексации.
+Без `--apply` возвращается `{preview: true, ops}`. С `--apply` — `{applied: true, new_hash}`.
+Несовпадение `--if-hash` — exit 5.
+
+### `records create --type T --input-file F [--preview] [--apply] [--if-hash-new]`
+Create-only. `--preview`: `{preview: true, plan{target_path, new_content, expected_hash, new_hash, basis, validations}}`.
+`--apply`: `{created, new_hash}`. Повторный `record_id` — exit 5; неизвестный тип — exit 3.
+
+### `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N]`
+`data`: `{dataset_id, total, returned, truncated, items[]}`.
+
+### `records query --query-file F`
+QuerySpec: `{entity_type, filters, limit}`; фильтры поддерживают равенство, `$in`, `$gte`, `$lte`.
+`data`: `{dataset_id, total, truncated, items[]}`.
+
+### `records aggregate --metric FIELD --type T [--group-by FIELD]`
+`data`: `{entity_type, metric, units, formula, groups, incoming_ids, completeness, dataset_id}`.
+Смешение единиц измерения в одной агрегации — `query.unit_mismatch` (exit 3).
+
+### `records read --id ID [--view NAME]`
+`data`: `{dataset_id, record_id, path, data}`. `--view` берёт список полей из `views` описателя типа.
+
+### `relations graph --from ID [--type T] [--depth N] [--limit N]`
+BFS по типизированным рёбрам (обход ненаправленный). `data`: `{dataset_id, from, edges[{type_id, from, to}]}`.
+
+### `types list` / `types show TYPE_ID` / `types guide [--format markdown|json] [--out PATH]`
+`list`: `{dataset_id, dir_types[], doc_types[], entity_types[], relation_types[]}`.
+`show`: `{dataset_id, type{...}}`. `guide`: `{dataset_id, guide}` — сгенерированное описание типовой системы.
+
+### `fix --diagnostic ID [--preview] [--apply] [--if-hash H]`
+Применяет один предложенный фикс (замена цели ссылки). `--preview`: `{diagnostic, preview: true, fix}`;
+`--apply`: `{diagnostic, applied: true, new_hash}`. Неизвестный ID — `fix.diagnostic_not_found` (exit 3).
+**ID диагностики живёт только в рамках одного запуска `validate`** — берите его из того же процесса.
+
+### `doctor [--check IDS] [--scope S] [--fix]`
+Только чтение: проверки `config`, `index`, `python`. `data.datasets[]`:
+`{dataset_id, checks_total, passed, checks[{id,status,message}], fix_mode}`.
+
+### `status`
+Быстрый снимок: `data.datasets[]`: `{dataset_id, generation_id, documents, records}`.
+Читает опубликованное поколение, не пересобирая индекс.
+
+## Типовые последовательности
+
+```bash
+todoc init --root KB && todoc check-config --root KB
+todoc index rebuild --root KB && todoc status --root KB
+todoc validate --root KB --all          # взять diag id из этого же вывода
+todoc fix --root KB --diagnostic diag_0042 --preview
+todoc fix --root KB --diagnostic diag_0042 --apply
+todoc docs search --root KB --query "refresh token" --limit 3
+todoc docs read --root KB --id doc:design --section "Decision"
+todoc records create --root KB --type note --input-file note.json --preview
+todoc records create --root KB --type note --input-file note.json --apply
+```
+
+## Связанные разделы
+
+- [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) — коды диагностик.
+- [07-search-and-read.md](07-search-and-read.md) — детали поиска и чтения.
+- [12-agent-operations.md](12-agent-operations.md) — как этим пользоваться агенту.

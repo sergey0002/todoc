@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:data-roots-and-config",
+  "entity_type": "document",
+  "title": "Reference: data roots and config",
+  "source_path": "references/data-roots-and-config.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/data-roots-and-config.md",
+  "lines": 16,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

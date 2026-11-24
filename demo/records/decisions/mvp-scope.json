@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:mvp-scope",
+  "entity_type": "decision",
+  "title": "Узкий MVP: валидатор, типизированные записи, ограниченный поиск",
+  "status": "accepted",
+  "decision": "MVP — source-native валидатор с типизированными записями и bounded search/read; память и wiki-профиль вынесены в AFTER-планы.",
+  "rationale": "Иначе продукт расползается в клон Obsidian и general RAG; узкий срез проверяем и переносим.",
+  "sources": [
+    "plan/constitution.md",
+    "plan/implementation-plan.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:implementation-plan"
+      }
+    }
+  ]
+}
