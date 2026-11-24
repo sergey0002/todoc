@@ -1,19 +1,30 @@
-"""Markdown adapter: headings/links/front matter from tokens, never regex.
+"""Markdown adapter: headings/links/front matter from tokens, never regex for links.
 
-Uses markdown-it-py (CommonMark) token stream. Front matter is a separate
-YAML-lite layer (simple ``key: value`` pairs) validated independently.
+Uses markdown-it-py (CommonMark) token stream as the authority for headings
+and links (so code fences, inline code, reference links and autolinks are
+handled by the parser, not by ad-hoc patterns). Regex is used only to locate
+the column of an already-confirmed inline link on its raw line, and for
+Obsidian wikilinks (which CommonMark does not parse) outside code regions.
+Front matter is a separate YAML-lite layer (simple ``key: value`` pairs)
+validated independently.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 from typing import Any
+from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
 
-_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+_MD = MarkdownIt("commonmark")  # shared parser instance (parse is stateless per call)
+
+# Only for column location of token-confirmed inline links, never for discovery.
+_INLINE_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 _WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
+_EXTERNAL_PREFIXES = ("http://", "https://", "mailto:")
 
 
 @dataclass
@@ -33,6 +44,7 @@ class Link:
     line: int
     column: int
     is_wikilink: bool = False
+    end_column: int = 0  # 1-based column of the last char of the markdown span
 
 
 @dataclass
@@ -51,7 +63,13 @@ def _slugify(title: str) -> str:
 
 
 def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int]:
-    """Return (front_matter, body, body_start_line_1based)."""
+    """Return (front_matter, body, body_start_line_1based).
+
+    YAML-lite subset: ``key: value`` pairs, ``true``/``false`` booleans and
+    inline ``[a, b]`` lists. Numbers stay strings; nested maps and multiline
+    blocks are not supported (minimal front matter schema, MD-KB guide).
+    Duplicate keys: last wins.
+    """
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return {}, text, 1
@@ -68,7 +86,9 @@ def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int]:
             continue
         key, _, value = raw.partition(":")
         key = key.strip()
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
+            value = value[1:-1]
         if value in ("true", "false"):
             fm[key] = value == "true"
         elif value.startswith("[") and value.endswith("]"):
@@ -80,10 +100,149 @@ def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int]:
     return fm, body, end + 2
 
 
+def _inline_text(children: list[Any]) -> str:
+    """Plain text of inline children (markup stripped, code kept)."""
+    parts: list[str] = []
+    for child in children:
+        if child.type in ("text", "code_inline"):
+            parts.append(child.content or "")
+        elif child.type in ("softbreak", "hardbreak"):
+            parts.append(" ")
+    return "".join(parts)
+
+
+def _code_regions(tokens: list[Any], body_start: int) -> list[tuple[int, int]]:
+    """1-based inclusive line ranges of fenced/indented code and HTML blocks."""
+    regions: list[tuple[int, int]] = []
+    for tok in tokens:
+        if tok.type in ("fence", "code_block", "html_block") and tok.map:
+            regions.append((tok.map[0] + body_start, tok.map[1] - 1 + body_start))
+    return regions
+
+
+def _in_regions(line: int, regions: list[tuple[int, int]]) -> bool:
+    return any(start <= line <= end for start, end in regions)
+
+
+def _inline_code_spans(line_text: str) -> list[tuple[int, int]]:
+    """0-based [start, end) spans of backtick code spans on one line."""
+    spans: list[tuple[int, int]] = []
+    i = 0
+    n = len(line_text)
+    while i < n:
+        if line_text[i] == "`":
+            j = i
+            while j < n and line_text[j] == "`":
+                j += 1
+            ticks = j - i
+            close = line_text.find("`" * ticks, j)
+            if close == -1:
+                break
+            spans.append((i, close + ticks))
+            i = close + ticks
+        else:
+            i += 1
+    return spans
+
+
+def _token_links(tokens: list[Any], body_start: int) -> list[tuple[str, str, int]]:
+    """Authoritative (text, href, line_1based) links/images from inline tokens."""
+    found: list[tuple[str, str, int]] = []
+    for tok in tokens:
+        if tok.type != "inline" or not tok.children:
+            continue
+        line = (tok.map[0] + body_start) if tok.map else body_start
+        current_href: str | None = None
+        current_text: list[str] = []
+        current_line = line
+        for child in tok.children:
+            if child.type in ("softbreak", "hardbreak"):
+                line += 1
+                if current_href is not None:
+                    current_text.append(" ")
+            elif child.type == "link_open":
+                current_href = str((child.attrs or {}).get("href", ""))
+                current_text = []
+                current_line = line
+            elif child.type == "image":
+                href = str((child.attrs or {}).get("src", ""))
+                found.append(((child.content or "").strip(), href, line))
+            elif child.type == "link_close":
+                # markdown-it always pairs link_close with a preceding link_open.
+                found.append(("".join(current_text).strip(), current_href or "", current_line))
+                current_href = None
+                current_text = []
+            elif current_href is not None and child.type in ("text", "code_inline"):
+                current_text.append(child.content or "")
+    return found
+
+
+def _locate_columns(
+    raw_links: list[tuple[str, str, int]], body_lines: list[str], body_start: int
+) -> list[Link]:
+    """Attach columns to token links via per-line regex correlation.
+
+    Inline links get exact columns from the raw line; reference links and
+    autolinks (no regex match) fall back to searching for ``[``/``<``.
+    """
+    by_line: dict[int, list[int]] = {}
+    for idx, (_text, _href, line) in enumerate(raw_links):
+        by_line.setdefault(line, []).append(idx)
+    columns: dict[int, tuple[int, int]] = {}
+    for line, idxs in by_line.items():
+        raw_line = body_lines[line - body_start] if 0 <= line - body_start < len(body_lines) else ""
+        matches = list(_INLINE_LINK_RE.finditer(raw_line))
+        used: set[int] = set()
+        for idx in idxs:
+            text, href, _line = raw_links[idx]
+            match = None
+            for mi, m in enumerate(matches):
+                if mi not in used and m.group(2) == href:
+                    match = m
+                    used.add(mi)
+                    break
+            if match is None:
+                for mi, m in enumerate(matches):
+                    if mi not in used:
+                        match = m
+                        used.add(mi)
+                        break
+            if match is not None:
+                columns[idx] = (match.start() + 1, match.end())
+            elif href.startswith(_EXTERNAL_PREFIXES) or text == href:
+                pos = raw_line.find("<")
+                columns[idx] = (pos + 1, pos + 1 + len(text) + 1) if pos >= 0 else (1, 1)
+            else:
+                pos = raw_line.find("[" + text)
+                columns[idx] = (pos + 1, pos + 1 + len(text) + 2) if pos >= 0 else (1, 1)
+    links: list[Link] = []
+    for idx, (text, href, line) in enumerate(raw_links):
+        column, end_column = columns.get(idx, (1, 1))
+        target = href if href.startswith(_EXTERNAL_PREFIXES) else unquote(href)
+        links.append(Link(text=text, target=target, line=line, column=column, end_column=end_column))
+    return links
+
+
+def _wikilinks(body_lines: list[str], body_start: int, regions: list[tuple[int, int]]) -> list[Link]:
+    links: list[Link] = []
+    for offset, raw_line in enumerate(body_lines):
+        lineno = body_start + offset
+        if _in_regions(lineno, regions):
+            continue
+        code_spans = _inline_code_spans(raw_line)
+        for m in _WIKILINK_RE.finditer(raw_line):
+            if any(start <= m.start() < end for start, end in code_spans):
+                continue
+            links.append(Link(text=m.group(1).strip(), target=m.group(1).strip(),
+                              line=lineno, column=m.start() + 1, is_wikilink=True, end_column=m.end()))
+    return links
+
+
 def parse_markdown(text: str) -> MarkdownDoc:
+    if text.startswith("\ufeff"):
+        text = text[1:]
     front_matter, body, body_start = _parse_front_matter(text)
-    md = MarkdownIt("commonmark")
-    tokens = md.parse(body)
+    tokens = _MD.parse(body)
     headings: list[Heading] = []
     stack: list[tuple[int, int]] = []  # (level, index)
     seen_anchors: dict[str, int] = {}
@@ -93,8 +252,10 @@ def parse_markdown(text: str) -> MarkdownDoc:
         if tok.type == "heading_open":
             level = int(tok.tag[1])
             line = (tok.map[0] + body_start) if tok.map else body_start
-            # markdown-it always emits an inline token after heading_open.
-            title = (tokens[i + 1].content or "").strip() if i + 1 < len(tokens) else ""
+            # markdown-it always emits an inline token after heading_open;
+            # `children or []` keeps this safe if a plugin changes that.
+            inline = tokens[i + 1] if i + 1 < len(tokens) else None
+            title = _inline_text(inline.children or []).strip() if inline is not None else ""
             base = _slugify(title)
             count = seen_anchors.get(base, 0)
             anchor = base if count == 0 else f"{base}-{count}"
@@ -110,12 +271,11 @@ def parse_markdown(text: str) -> MarkdownDoc:
         if h.parent_index is not None:
             headings[h.parent_index].children.append(h)
 
-    links: list[Link] = []
-    for lineno, raw_line in enumerate(body.splitlines(), start=body_start):
-        for m in _LINK_RE.finditer(raw_line):
-            links.append(Link(text=m.group(1), target=m.group(2), line=lineno, column=m.start() + 1))
-        for m in _WIKILINK_RE.finditer(raw_line):
-            links.append(Link(text=m.group(1).strip(), target=m.group(1).strip(), line=lineno, column=m.start() + 1, is_wikilink=True))
+    body_lines = body.splitlines()
+    raw_links = _token_links(tokens, body_start)
+    links = _locate_columns(raw_links, body_lines, body_start)
+    links.extend(_wikilinks(body_lines, body_start, _code_regions(tokens, body_start)))
+    links.sort(key=lambda link: (link.line, link.column))
 
     title = ""
     if front_matter.get("title"):
@@ -123,6 +283,42 @@ def parse_markdown(text: str) -> MarkdownDoc:
     elif headings:
         title = headings[0].title
     return MarkdownDoc(title=title, front_matter=front_matter, headings=headings, links=links, text=text)
+
+
+def resolve_link_target(source_path: str, target: str) -> str | None:
+    """Normalize a link target to a root-relative path (pure, no filesystem).
+
+    Returns None for external URLs, mailto, anchor-only and empty targets.
+    Fragments (``#section``) are stripped; ``.``/``..`` are resolved lexically.
+    """
+    if target.startswith(_EXTERNAL_PREFIXES + ("#",)):
+        return None
+    target_path = target.split("#")[0]
+    if not target_path:
+        return None
+    parent_dir = PurePosixPath(source_path).parent
+    resolved = (parent_dir / target_path).as_posix()
+    parts: list[str] = []
+    for part in resolved.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if parts:
+                parts.pop()
+        else:
+            parts.append(part)
+    return "/".join(parts)
+
+
+def build_backlink_index(documents: dict[str, MarkdownDoc]) -> dict[str, list[str]]:
+    """Map normalized target path -> sorted source paths linking to it."""
+    index: dict[str, set[str]] = {}
+    for source_path, doc in documents.items():
+        for link in doc.links:
+            target = resolve_link_target(source_path, link.target)
+            if target:
+                index.setdefault(target, set()).add(source_path)
+    return {target: sorted(sources) for target, sources in sorted(index.items())}
 
 
 def heading_path_for(headings: list[Heading], index: int) -> list[str]:

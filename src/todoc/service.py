@@ -86,7 +86,7 @@ class DatasetContext:
                 if isinstance(rel, dict) and (rel.get("target") or {}).get("id"):
                     relations.append({"type_id": str(rel.get("type_id", "")), "source_id": str(value["record_id"]),
                                       "target_id": str(rel["target"]["id"]), "dataset_id": self.dataset_id})
-        rel_diags = validate_relations(self.dataset_id, records)
+        rel_diags = validate_relations(self.dataset_id, records, set(self.registry_types.relation_types))
         diags.extend(d.to_dict() for d in rel_diags)
         diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]
         return folders, documents, records, relations, diag_dicts
