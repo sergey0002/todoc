@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "reference",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Справочник по одной подсистеме.",
+  "format": "markdown"
+}

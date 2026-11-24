@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:search-embeddings-vector-after",
+  "entity_type": "document",
+  "title": "AFTER: поиск, эмбеддинги и векторный слой",
+  "source_path": "plan/after/search-embeddings-vector.after.md",
+  "doc_type": "after-plan",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/search-embeddings-vector.after.md",
+  "lines": 115,
+  "tags": [
+    "after-plan",
+    "copied",
+    "ru"
+  ],
+  "relations": []
+}

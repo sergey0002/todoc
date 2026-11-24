@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:logseq",
+  "entity_type": "competitor",
+  "name": "Logseq",
+  "category": "vault-app",
+  "portability": "files-only",
+  "verdict": "см. карточку",
+  "source": "competitors/logseq.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

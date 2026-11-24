@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:entity-type",
+  "entity_type": "document",
+  "title": "entity_type",
+  "source_path": "glossary/entity-type.md",
+  "doc_type": "glossary-entry",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 15,
+  "tags": [
+    "authored",
+    "glossary-entry",
+    "ru"
+  ],
+  "relations": []
+}

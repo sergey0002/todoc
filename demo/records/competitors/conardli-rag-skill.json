@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:conardli-rag-skill",
+  "entity_type": "competitor",
+  "name": "ConardLi/rag-skill",
+  "category": "agent-skill",
+  "portability": "files-only",
+  "verdict": "см. карточку",
+  "source": "competitors/conardli-rag-skill.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

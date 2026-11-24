@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:dir-types",
+  "entity_type": "metric",
+  "name": "Типов папок в демо",
+  "aspect": "types",
+  "value": {
+    "value": 14,
+    "unit": "count"
+  },
+  "source": "todoc check-config --root demo"
+}

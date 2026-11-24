@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:07-search-and-read",
+  "entity_type": "document",
+  "title": "Состояние: поиск и чтение",
+  "source_path": "references/state/07-search-and-read.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/07-search-and-read.md",
+  "lines": 90,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

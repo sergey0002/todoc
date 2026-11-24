@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "documents",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Запись документирует целевой документ/решение.",
+  "endpoints": {
+    "source": [
+      "*"
+    ],
+    "target": [
+      "*"
+    ]
+  }
+}

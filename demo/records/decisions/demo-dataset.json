@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:demo-dataset",
+  "entity_type": "decision",
+  "title": "Демо-датасет в репозитории как живой пример",
+  "status": "accepted",
+  "decision": "Папка demo/ — полноценный DATA_ROOT с типами, правилами, схемами, записями и копиями документации.",
+  "rationale": "Документация без работающего примера быстро расходится с кодом; демо проверяется тем же CLI.",
+  "sources": [
+    "README.md",
+    "HOME.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:readme"
+      }
+    },
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:home"
+      }
+    }
+  ]
+}

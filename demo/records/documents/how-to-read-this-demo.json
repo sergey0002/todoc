@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:how-to-read-this-demo",
+  "entity_type": "document",
+  "title": "Как читать этот демо-датасет",
+  "source_path": "notes/how-to-read-this-demo.md",
+  "doc_type": "note",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 37,
+  "tags": [
+    "authored",
+    "note",
+    "ru"
+  ],
+  "relations": []
+}

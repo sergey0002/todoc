@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:mcp-cli-agents-research",
+  "entity_type": "document",
+  "title": "Research: MCP и CLI для агентов",
+  "source_path": ".research/mcp-cli-agents-research.md",
+  "doc_type": "research-report",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": "research_mcp_cli_agents_ru.md",
+  "lines": 551,
+  "tags": [
+    "copied",
+    "research-report",
+    "ru"
+  ],
+  "relations": []
+}

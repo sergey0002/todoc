@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:02-architecture",
+  "entity_type": "document",
+  "title": "Состояние: архитектура, слои и модули",
+  "source_path": "references/state/02-architecture.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/02-architecture.md",
+  "lines": 86,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

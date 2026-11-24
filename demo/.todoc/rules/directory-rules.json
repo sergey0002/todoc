@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "id": "reserved-research",
+      "match": {
+        "kind": "directory",
+        "basename": ".research"
+      },
+      "assign": {
+        "dir_type": "research"
+      },
+      "priority": 100
+    },
+    {
+      "id": "reserved-plan",
+      "match": {
+        "kind": "directory",
+        "glob": "**/plan"
+      },
+      "assign": {
+        "dir_type": "plan"
+      },
+      "priority": 100
+    },
+    {
+      "id": "reserved-architecture",
+      "match": {
+        "kind": "directory",
+        "basename": "architecture"
+      },
+      "assign": {
+        "dir_type": "architecture"
+      },
+      "priority": 100
+    },
+    {
+      "id": "reserved-constitution",
+      "match": {
+        "kind": "directory",
+        "basename": "constitution"
+      },
+      "assign": {
+        "dir_type": "constitution"
+      },
+      "priority": 100
+    },
+    {
+      "id": "reserved-harness",
+      "match": {
+        "kind": "directory",
+        "basename": "harness"
+      },
+      "assign": {
+        "dir_type": "harness"
+      },
+      "priority": 100
+    },
+    {
+      "id": "reserved-glossary",
+      "match": {
+        "kind": "directory",
+        "basename": "glossary"
+      },
+      "assign": {
+        "dir_type": "glossary"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-attachments",
+      "match": {
+        "kind": "directory",
+        "basename": "attachments"
+      },
+      "assign": {
+        "dir_type": "attachments"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-competitors",
+      "match": {
+        "kind": "directory",
+        "basename": "competitors"
+      },
+      "assign": {
+        "dir_type": "competitors"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-guides",
+      "match": {
+        "kind": "directory",
+        "basename": "guides"
+      },
+      "assign": {
+        "dir_type": "guides"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-inbox",
+      "match": {
+        "kind": "directory",
+        "basename": "inbox"
+      },
+      "assign": {
+        "dir_type": "inbox"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-notes",
+      "match": {
+        "kind": "directory",
+        "basename": "notes"
+      },
+      "assign": {
+        "dir_type": "notes"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-records",
+      "match": {
+        "kind": "directory",
+        "basename": "records"
+      },
+      "assign": {
+        "dir_type": "records"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-references",
+      "match": {
+        "kind": "directory",
+        "basename": "references"
+      },
+      "assign": {
+        "dir_type": "references"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-skill",
+      "match": {
+        "kind": "directory",
+        "basename": "skill"
+      },
+      "assign": {
+        "dir_type": "skill"
+      },
+      "priority": 100
+    }
+  ]
+}

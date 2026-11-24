@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dataset_id": "dataset-80c70868",
+  "enabled_formats": [
+    "csv",
+    "json",
+    "markdown"
+  ],
+  "directory_rules": "rules/directory-rules.json",
+  "document_rules": "rules/document-rules.json",
+  "directory_types": "dir_types",
+  "document_types": "doc_types",
+  "entity_types": "entity_types",
+  "relation_types": "relation_types",
+  "queries": "queries",
+  "templates": "templates",
+  "trusted_workflows": {
+    "record-capture-v1": {
+      "kind": "external-skill",
+      "workflow_id": "todoc-record-capture",
+      "version": "0.1.0"
+    }
+  },
+  "follow_symlinks": false,
+  "limits": {
+    "max_file_bytes": 10485760,
+    "max_json_depth": 128,
+    "max_csv_rows": 1000000,
+    "max_query_results": 200,
+    "max_record_create_path": 512
+  }
+}

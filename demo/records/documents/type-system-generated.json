@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:type-system-generated",
+  "entity_type": "document",
+  "title": "Reference: type system (generated)",
+  "source_path": "references/type-system.generated.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/type-system.generated.md",
+  "lines": 19,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

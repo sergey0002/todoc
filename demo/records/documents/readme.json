@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:readme",
+  "entity_type": "document",
+  "title": "Состояние системы todoc: оглавление",
+  "source_path": "references/state/README.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/README.md",
+  "lines": 48,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

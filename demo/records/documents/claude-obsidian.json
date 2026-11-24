@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "document:claude-obsidian",
+  "entity_type": "document",
+  "title": "AgriciDaniel/claude-obsidian",
+  "source_path": "competitors/claude-obsidian.md",
+  "doc_type": "competitor-card",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 37,
+  "tags": [
+    "authored",
+    "competitor-card",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "describes",
+      "target": {
+        "kind": "record",
+        "id": "competitor:claude-obsidian"
+      }
+    }
+  ]
+}

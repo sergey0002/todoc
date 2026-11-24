@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:REPLACE",
+  "entity_type": "metric",
+  "name": "",
+  "aspect": "",
+  "value": {
+    "value": 0,
+    "unit": "count"
+  }
+}

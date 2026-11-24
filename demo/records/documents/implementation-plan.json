@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "record_id": "document:implementation-plan",
+  "entity_type": "document",
+  "title": "Implementation plan: план реализации MVP",
+  "source_path": "plan/implementation-plan.md",
+  "doc_type": "implementation-plan",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/plan/implementation-plan.md",
+  "lines": 744,
+  "tags": [
+    "copied",
+    "implementation-plan",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:engineering-plan"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:audit-implementation"
+      }
+    }
+  ]
+}

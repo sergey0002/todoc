@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "records",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Типизированные JSON-записи (сущности предметной области)."
+}

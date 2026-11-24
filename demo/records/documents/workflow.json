@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:workflow",
+  "entity_type": "document",
+  "title": "Reference: workflow",
+  "source_path": "references/workflow.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/workflow.md",
+  "lines": 16,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

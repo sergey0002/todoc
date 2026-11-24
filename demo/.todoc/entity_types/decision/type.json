@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "type_id": "decision",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Зафиксированное решение по продукту или реализации.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "status",
+    "decision",
+    "rationale"
+  ],
+  "path_template": "records/decisions/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "title",
+      "status"
+    ],
+    "full": null
+  }
+}

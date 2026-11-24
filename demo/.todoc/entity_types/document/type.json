@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "type_id": "document",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Документ датасета: метаданные файла с типом и связями.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "source_path",
+    "doc_type"
+  ],
+  "path_template": "records/documents/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "title",
+      "doc_type",
+      "lang"
+    ],
+    "full": [
+      "record_id",
+      "entity_type",
+      "title",
+      "source_path",
+      "doc_type",
+      "lang",
+      "tags",
+      "origin",
+      "relations"
+    ]
+  }
+}

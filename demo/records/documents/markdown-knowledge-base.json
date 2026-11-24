@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:markdown-knowledge-base",
+  "entity_type": "document",
+  "title": "Guide: Markdown knowledge base для агентов",
+  "source_path": "guides/markdown-knowledge-base.md",
+  "doc_type": "guide",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": "guide_markdown_knowledge_for_agents_ru.md",
+  "lines": 1261,
+  "tags": [
+    "copied",
+    "guide",
+    "ru"
+  ],
+  "relations": []
+}

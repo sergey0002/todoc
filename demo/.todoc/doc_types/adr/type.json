@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "adr",
+  "version": "0.1",
+  "description": "Document type adr.",
+  "format": "markdown"
+}

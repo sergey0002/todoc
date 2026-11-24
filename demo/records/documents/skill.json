@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:skill",
+  "entity_type": "document",
+  "title": "Agent Skill todoc: точка входа",
+  "source_path": "skill/SKILL.md",
+  "doc_type": "skill",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "SKILL.md",
+  "lines": 57,
+  "tags": [
+    "copied",
+    "en",
+    "skill"
+  ],
+  "relations": []
+}

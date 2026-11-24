@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:cli-first",
+  "entity_type": "decision",
+  "title": "CLI-first контракт без демона",
+  "status": "accepted",
+  "decision": "Основная поверхность — CLI с конвертом JSON и стабильными кодами выхода; фоновых процессов нет.",
+  "rationale": "Агенту нужен предсказуемый контракт; демон добавляет состояние и отказы.",
+  "sources": [
+    "guides/cli-for-agents.md",
+    "plan/constitution.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:cli-for-agents"
+      }
+    },
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    }
+  ]
+}

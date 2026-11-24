@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "competitors",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Карточки конкурентных продуктов и Agent Skills."
+}

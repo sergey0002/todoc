@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:03-cli-reference",
+  "entity_type": "document",
+  "title": "Состояние: справочник CLI, 25 команд",
+  "source_path": "references/state/03-cli-reference.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/03-cli-reference.md",
+  "lines": 157,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

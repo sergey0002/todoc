@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "id": "adr-markdown",
+      "match": {
+        "kind": "file",
+        "glob": "**/adr/*.md"
+      },
+      "assign": {
+        "doc_type": "adr"
+      },
+      "priority": 50
+    },
+    {
+      "id": "glossary-by-front-matter",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "glossary-entry"
+        }
+      },
+      "assign": {
+        "doc_type": "glossary-entry"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-after-plan",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "after-plan"
+        }
+      },
+      "assign": {
+        "doc_type": "after-plan"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-architecture-doc",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "architecture-doc"
+        }
+      },
+      "assign": {
+        "doc_type": "architecture-doc"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-audit-report",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "audit-report"
+        }
+      },
+      "assign": {
+        "doc_type": "audit-report"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-competitive-analysis",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "competitive-analysis"
+        }
+      },
+      "assign": {
+        "doc_type": "competitive-analysis"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-competitor-card",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "competitor-card"
+        }
+      },
+      "assign": {
+        "doc_type": "competitor-card"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-constitution",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "constitution"
+        }
+      },
+      "assign": {
+        "doc_type": "constitution"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-demo-readme",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "demo-readme"
+        }
+      },
+      "assign": {
+        "doc_type": "demo-readme"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-guide",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "guide"
+        }
+      },
+      "assign": {
+        "doc_type": "guide"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-implementation-plan",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "implementation-plan"
+        }
+      },
+      "assign": {
+        "doc_type": "implementation-plan"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-inventory",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "inventory"
+        }
+      },
+      "assign": {
+        "doc_type": "inventory"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-moc",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "moc"
+        }
+      },
+      "assign": {
+        "doc_type": "moc"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-record",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "record"
+        }
+      },
+      "assign": {
+        "doc_type": "record"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-reference",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "reference"
+        }
+      },
+      "assign": {
+        "doc_type": "reference"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-research-report",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "research-report"
+        }
+      },
+      "assign": {
+        "doc_type": "research-report"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-skill",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "skill"
+        }
+      },
+      "assign": {
+        "doc_type": "skill"
+      },
+      "priority": 200
+    },
+    {
+      "id": "glob-guides",
+      "match": {
+        "kind": "file",
+        "glob": "guides/**"
+      },
+      "assign": {
+        "doc_type": "guide"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-references",
+      "match": {
+        "kind": "file",
+        "glob": "references/**"
+      },
+      "assign": {
+        "doc_type": "reference"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-competitors",
+      "match": {
+        "kind": "file",
+        "glob": "competitors/**"
+      },
+      "assign": {
+        "doc_type": "competitor-card"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-glossary",
+      "match": {
+        "kind": "file",
+        "glob": "glossary/**"
+      },
+      "assign": {
+        "doc_type": "glossary-entry"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-notes",
+      "match": {
+        "kind": "file",
+        "glob": "notes/**"
+      },
+      "assign": {
+        "doc_type": "note"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-architecture",
+      "match": {
+        "kind": "file",
+        "glob": "architecture/**"
+      },
+      "assign": {
+        "doc_type": "architecture-doc"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-research",
+      "match": {
+        "kind": "file",
+        "glob": ".research/**"
+      },
+      "assign": {
+        "doc_type": "research-report"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-plan-after",
+      "match": {
+        "kind": "file",
+        "glob": "plan/after/**"
+      },
+      "assign": {
+        "doc_type": "after-plan"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-records",
+      "match": {
+        "kind": "file",
+        "glob": "records/**"
+      },
+      "assign": {
+        "doc_type": "record"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-attachments",
+      "match": {
+        "kind": "file",
+        "glob": "attachments/**"
+      },
+      "assign": {
+        "doc_type": "inventory"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-skill",
+      "match": {
+        "kind": "file",
+        "glob": "skill/**"
+      },
+      "assign": {
+        "doc_type": "skill"
+      },
+      "priority": 100
+    }
+  ]
+}

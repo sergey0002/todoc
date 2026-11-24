@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:zep-graphiti",
+  "entity_type": "competitor",
+  "name": "Zep / Graphiti",
+  "category": "mcp-server",
+  "portability": "vendor-lock",
+  "verdict": "см. карточку",
+  "source": "competitors/zep-graphiti.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

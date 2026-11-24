@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "skill",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Agent Skill: точка входа и референсы навыка."
+}

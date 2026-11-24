@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "analyzes",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Документ анализирует конкурента или снимок.",
+  "endpoints": {
+    "source": [
+      "*"
+    ],
+    "target": [
+      "*"
+    ]
+  }
+}

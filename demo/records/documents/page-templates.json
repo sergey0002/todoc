@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:page-templates",
+  "entity_type": "document",
+  "title": "Reference: page templates",
+  "source_path": "references/page-templates.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/page-templates.md",
+  "lines": 17,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

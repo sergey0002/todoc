@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "record_id": "guide:guide-cli",
+  "entity_type": "guide",
+  "title": "Guide: CLI для агентов (постулаты и чек-лист)",
+  "audience": "ai-agent",
+  "postulates": 26,
+  "sections": 3,
+  "checklist": true,
+  "source_path": "guides/cli-for-agents.md",
+  "relations": [
+    {
+      "type_id": "describes",
+      "target": {
+        "kind": "record",
+        "id": "document:cli-for-agents"
+      }
+    }
+  ]
+}

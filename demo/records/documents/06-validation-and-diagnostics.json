@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:06-validation-and-diagnostics",
+  "entity_type": "document",
+  "title": "Состояние: валидация и каталог диагностик",
+  "source_path": "references/state/06-validation-and-diagnostics.md",
+  "doc_type": "reference",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": ".doc/state/06-validation-and-diagnostics.md",
+  "lines": 174,
+  "tags": [
+    "copied",
+    "reference",
+    "ru"
+  ],
+  "relations": []
+}

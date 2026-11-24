@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:open-notebook",
+  "entity_type": "competitor",
+  "name": "Open Notebook",
+  "category": "rag-platform",
+  "portability": "mostly-portable",
+  "verdict": "см. карточку",
+  "source": "competitors/open-notebook.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

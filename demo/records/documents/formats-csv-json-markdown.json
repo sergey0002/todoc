@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:formats-csv-json-markdown",
+  "entity_type": "document",
+  "title": "Reference: formats CSV/JSON/Markdown",
+  "source_path": "references/formats-csv-json-markdown.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/formats-csv-json-markdown.md",
+  "lines": 15,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

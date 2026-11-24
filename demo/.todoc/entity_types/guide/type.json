@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "type_id": "guide",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Гайд для агентов: аудитория, постулаты, чек-лист.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "audience",
+    "postulates"
+  ],
+  "path_template": "records/guides/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "title",
+      "audience"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:doc-types",
+  "entity_type": "metric",
+  "name": "Типов документов в демо",
+  "aspect": "types",
+  "value": {
+    "value": 19,
+    "unit": "count"
+  },
+  "source": "todoc check-config --root demo"
+}

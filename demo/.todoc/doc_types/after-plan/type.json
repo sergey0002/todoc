@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "after-plan",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Пост-MVP план по отдельному направлению (*.after.md).",
+  "format": "markdown"
+}

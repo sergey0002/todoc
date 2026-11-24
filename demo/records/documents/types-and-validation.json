@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:types-and-validation",
+  "entity_type": "document",
+  "title": "Reference: types and validation",
+  "source_path": "references/types-and-validation.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/types-and-validation.md",
+  "lines": 15,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

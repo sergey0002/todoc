@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "record_id": "document:engineering-plan",
+  "entity_type": "document",
+  "title": "Engineering plan: исходный инженерный набросок",
+  "source_path": ".research/engineering-plan.md",
+  "doc_type": "research-report",
+  "lang": "ru",
+  "origin": "copied",
+  "repo_source": "plan.md",
+  "lines": 1265,
+  "tags": [
+    "copied",
+    "research-report",
+    "ru"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:markdown-knowledge-base"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

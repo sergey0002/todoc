@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:silverbullet",
+  "entity_type": "competitor",
+  "name": "SilverBullet",
+  "category": "vault-app",
+  "portability": "mostly-portable",
+  "verdict": "см. карточку",
+  "source": "competitors/silverbullet.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

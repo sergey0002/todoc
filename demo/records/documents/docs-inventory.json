@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:docs-inventory",
+  "entity_type": "document",
+  "title": "docs-inventory",
+  "source_path": "attachments/docs-inventory.csv",
+  "doc_type": "unknown",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 75,
+  "tags": [
+    "authored",
+    "ru",
+    "unknown"
+  ],
+  "relations": []
+}

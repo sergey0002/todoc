@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:copied-documents",
+  "entity_type": "metric",
+  "name": "Скопировано документов из репозитория",
+  "aspect": "docs",
+  "value": {
+    "value": 41,
+    "unit": "count"
+  },
+  "source": "Front matter copied: true"
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "research-note",
+  "version": "0.1",
+  "description": "Document type research-note.",
+  "format": "markdown"
+}

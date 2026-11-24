@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:ingest-query-lint",
+  "entity_type": "document",
+  "title": "Reference: ingest, query, write, lint",
+  "source_path": "references/ingest-query-lint.md",
+  "doc_type": "reference",
+  "lang": "en",
+  "origin": "copied",
+  "repo_source": "references/ingest-query-lint.md",
+  "lines": 15,
+  "tags": [
+    "copied",
+    "en",
+    "reference"
+  ],
+  "relations": []
+}

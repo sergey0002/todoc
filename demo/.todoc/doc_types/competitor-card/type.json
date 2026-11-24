@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "competitor-card",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Карточка одного конкурента/Skill.",
+  "format": "markdown"
+}

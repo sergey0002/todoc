@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "name": "documents-by-doc-type",
+  "entity_type": "document",
+  "filters": {
+    "doc_type": {
+      "$in": [
+        "guide",
+        "reference",
+        "after-plan"
+      ]
+    }
+  },
+  "limit": 50
+}

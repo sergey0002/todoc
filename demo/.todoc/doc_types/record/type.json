@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "record",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Типизированная JSON-запись как документ.",
+  "format": "json"
+}

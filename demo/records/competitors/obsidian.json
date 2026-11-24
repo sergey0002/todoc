@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:obsidian",
+  "entity_type": "competitor",
+  "name": "Obsidian",
+  "category": "vault-app",
+  "portability": "vendor-lock",
+  "verdict": "см. карточку",
+  "source": "competitors/obsidian.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

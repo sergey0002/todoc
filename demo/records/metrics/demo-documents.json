@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:demo-documents",
+  "entity_type": "metric",
+  "name": "Markdown и CSV документов в демо",
+  "aspect": "docs",
+  "value": {
+    "value": 89,
+    "unit": "count"
+  },
+  "source": "Обход demo/ без .todoc"
+}

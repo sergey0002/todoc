@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:data-model",
+  "entity_type": "document",
+  "title": "Модель данных todoc",
+  "source_path": "architecture/data-model.md",
+  "doc_type": "architecture-doc",
+  "lang": "ru",
+  "origin": "authored",
+  "repo_source": "",
+  "lines": 29,
+  "tags": [
+    "architecture-doc",
+    "authored",
+    "ru"
+  ],
+  "relations": []
+}

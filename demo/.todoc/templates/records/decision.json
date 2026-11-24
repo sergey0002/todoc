@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:REPLACE",
+  "entity_type": "decision",
+  "title": "",
+  "status": "accepted",
+  "decision": "",
+  "rationale": "",
+  "sources": []
+}

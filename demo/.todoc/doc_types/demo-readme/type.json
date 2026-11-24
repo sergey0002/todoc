@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "demo-readme",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "README демо-датасета: что это и как проверить.",
+  "format": "markdown"
+}

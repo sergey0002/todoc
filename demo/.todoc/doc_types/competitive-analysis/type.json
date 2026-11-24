@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "competitive-analysis",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Конкурентный анализ и сравнительные таблицы.",
+  "format": "markdown"
+}

@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "type_id": "derived_from",
+  "version": "0.1",
+  "description": "Relation type derived_from."
+}

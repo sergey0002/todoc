@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "describes",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Документ описывает подсистему или аспект.",
+  "endpoints": {
+    "source": [
+      "*"
+    ],
+    "target": [
+      "*"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "competitor:mem0",
+  "entity_type": "competitor",
+  "name": "Mem0 / OpenMemory MCP",
+  "category": "mcp-server",
+  "portability": "vendor-lock",
+  "verdict": "см. карточку",
+  "source": "competitors/mem0.md",
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:competitive-analysis"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:comparative-audit"
+      }
+    }
+  ]
+}

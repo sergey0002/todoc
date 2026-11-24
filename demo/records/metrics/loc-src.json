@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:loc-src",
+  "entity_type": "metric",
+  "name": "Строк в src/todoc",
+  "aspect": "code",
+  "value": {
+    "value": 2973,
+    "unit": "count"
+  },
+  "source": "Итог wc -l по модулям пакета"
+}

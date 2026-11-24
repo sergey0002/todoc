@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "decision:review-first-writes",
+  "entity_type": "decision",
+  "title": "Запись только после предпросмотра",
+  "status": "accepted",
+  "decision": "Все записи идут через WritePlan: --preview показывает план, --apply применяет, create-only без перезаписи.",
+  "rationale": "Агент не должен переписывать данные пользователя без явного подтверждения.",
+  "sources": [
+    "references/safe-read-write.md"
+  ],
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:safe-read-write"
+      }
+    }
+  ]
+}

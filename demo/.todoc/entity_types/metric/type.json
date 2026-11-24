@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "type_id": "metric",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Измеримый показатель с единицей измерения (демо агрегации).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "name",
+    "value",
+    "aspect"
+  ],
+  "path_template": "records/metrics/{slug}.json",
+  "metric_fields": {
+    "value": {
+      "unit": "count",
+      "formula": "sum(value)"
+    }
+  },
+  "views": {
+    "summary": [
+      "record_id",
+      "name",
+      "value"
+    ]
+  }
+}
