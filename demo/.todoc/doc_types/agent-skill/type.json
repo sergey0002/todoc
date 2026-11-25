@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "type_id": "agent-skill",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Скил агента по открытому стандарту Agent Skills (SKILL.md в хранилище skills/). Собственный SKILL.md демо несёт todoc-поля (id/title/doc_type) в том же YAML-блоке, что и стандартные name/description; чужие SKILL.md приходят без todoc-полей — их ловит glob-правило vault-skills-glob. required_sections отсутствует намеренно: чужой SKILL.md не обязан иметь секции движка (аудит 25.11.2026: doc_type skill с 5 required_sections даёт 5×markdown.section.missing на SKILL.md без секций).",
+  "format": "markdown",
+  "template": "template.md"
+}

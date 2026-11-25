@@ -244,7 +244,7 @@ suggested_fix в духе существующих): `skills.missing_front_matte
   (диагностики — словари того же shape, что отдаёт `validate_dataset`);
   `effective_name(folder: str) -> str` (= `folder.lstrip("!")`).
 
-- [ ] **Шаг 1: падающий тест сканера** (fixtures — tmp_path, не демо)
+- [x] **Шаг 1: падающий тест сканера** (fixtures — tmp_path, не демо)
 
 ```python
 # tests/unit/test_skills_scan.py
@@ -269,18 +269,18 @@ def test_scan_detects_skill_and_sections(tmp_path):
     assert diags == []
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/python -m pytest tests/unit/test_skills_scan.py -v`
 Expected: FAIL — `ModuleNotFoundError: todoc.application.skills`
 
-- [ ] **Шаг 3: реализовать `skills.py`** — сигнатуры из Produces выше; leaf-детект:
+- [x] **Шаг 3: реализовать `skills.py`** — сигнатуры из Produces выше; leaf-детект:
   каталог содержит `SKILL.md` → скил, иначе — раздел; `section` = относительный
   путь папки-родителя; счётчики `refs/scripts/assets` — len() по подкаталогам;
   front matter — существующим парсером; ошибки парсинга → диагностика
   `skills.missing_front_matter` (не исключение).
 
-- [ ] **Шаг 4: тест валидатора кодов**
+- [x] **Шаг 4: тест валидатора кодов**
 
 ```python
 # tests/unit/test_validator_skills.py
@@ -309,17 +309,17 @@ def test_all_skill_codes(tmp_path):
     assert loc.get("suggested_fix")
 ```
 
-- [ ] **Шаг 5: убедиться, что падает; реализовать `validate_skills`** — правила
+- [x] **Шаг 5: убедиться, что падает; реализовать `validate_skills`** — правила
   §3/§4 (regex `^[a-z0-9]+(-[a-z0-9]+)*$`, ≤64; description непустой ≤1024;
   name == effective_name(папка); глобальный дедуп name по vault; мьют-папка
   валидируется как обычная).
 
-- [ ] **Шаг 6: интеграция в `validate`** — в `validate_dataset` (validator.py:278):
+- [x] **Шаг 6: интеграция в `validate`** — в `validate_dataset` (validator.py:278):
   для каждого root — vault `<root>/skills` (если существует) →
   `validate_skills`; мерж в общий список диагностик. Тест: vault с плохим
   скилом → `validate --all` отдаёт `skills.*`; без vault — ноль новых диагностик.
 
-- [ ] **Шаг 7: правила doc_type и doc_type `agent-skill`** — условно: если
+- [x] **Шаг 7: правила doc_type и doc_type `agent-skill`** — условно: если
   `demo/.todoc/doc_types/agent-skill/type.json` уже существует (softdoc-план,
   Задача 6) — НЕ создавать, только правила. Иначе создать минимальный type.json
   (копия структуры соседнего doc_type, `required_sections` отсутствует —
@@ -341,7 +341,7 @@ def test_all_skill_codes(tmp_path):
  "assign": {"doc_type": "agent-skill"}, "priority": 200}
 ```
 
-- [ ] **Шаг 8: полный прогон и коммит**
+- [x] **Шаг 8: полный прогон и коммит**
 
 Run: `.venv/bin/python -m pytest tests/unit/test_skills_scan.py tests/unit/test_validator_skills.py -v && .venv/bin/todoc validate --root demo --all`
 Expected: PASS; 0 диагностик (vault `demo/skills` ещё не создан — шаг игнорируется)

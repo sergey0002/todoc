@@ -387,7 +387,38 @@ def validate_dataset(
     # Record validation: JSON files with record_id/entity_type.
     records = _validate_records(dataset_id, root, scanned_files, doc_info, dataset, registry)
     diags.extend(records[0])
+    diags.extend(_skills_diagnostics(dataset_id, root))
     return diags, doc_info
+
+
+def _skills_diagnostics(dataset_id: str, root: Path) -> list[Diagnostic]:
+    """Merge skills-vault diagnostics into a dataset validate run.
+
+    The vault is ``<root>/skills``; an absent vault contributes nothing. The
+    scanner returns vault-relative dict diagnostics — here they become house
+    Diagnostic objects with dataset binding and root-relative paths.
+    """
+    vault = root / "skills"
+    if not vault.is_dir():
+        return []
+    from todoc.application.skills import scan_skills, validate_skills
+
+    skills, vault_diags = scan_skills(vault)
+    vault_diags.extend(validate_skills(vault, skills))
+    out: list[Diagnostic] = []
+    for d in vault_diags:
+        path = f"skills/{d['path']}"
+        out.append(Diagnostic(
+            dataset_id=dataset_id,
+            id=stable_id(path, d["code"], d["message"]),
+            code=d["code"], severity=d["severity"], path=path, message=d["message"],
+            location=d["location"], evidence=d["evidence"],
+            suggested_fixes=tuple(
+                SuggestedFix(kind="manual", replacement=fix, basis="skills standard",
+                             autofixable=False, requires_review=True)
+                for fix in d["suggested_fixes"]),
+        ))
+    return out
 
 
 def _load_schemas(root: Path, registry: Any, dataset: dict[str, Any], kind: str,

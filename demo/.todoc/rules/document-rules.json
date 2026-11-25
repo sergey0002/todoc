@@ -401,6 +401,30 @@
         "doc_type": "bug-report"
       },
       "priority": 200
+    },
+    {
+      "id": "vault-skills-glob",
+      "match": {
+        "kind": "file",
+        "glob": "skills/**/SKILL.md"
+      },
+      "assign": {
+        "doc_type": "agent-skill"
+      },
+      "priority": 60
+    },
+    {
+      "id": "fm-agent-skill",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "agent-skill"
+        }
+      },
+      "assign": {
+        "doc_type": "agent-skill"
+      },
+      "priority": 200
     }
   ]
 }
