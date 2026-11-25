@@ -26,16 +26,23 @@ lang: ru
 
 ### Баг-репорты (`bugs/`, doc_type `bug-report`)
 
-Дефекты и недочёты, найденные при эксплуатации системы. Один файл = один баг;
-статус и критичность во front matter; репорты не удаляются. Создание:
-`todoc docs new --type bug-report --title "BUG-NNN: суть" --dir bugs`
-(промпт: `todoc types prompt bug-report --op create`).
+Дефекты и недочёты, найденные при эксплуатации системы, **включая фрикцию
+агента**: всё, что потребовало повторных вызовов, обходных путей или перерасхода
+токенов против прямого взаимодействия с файлами без CLI. Один файл = один баг;
+`status`, `severity` и `agent_impact` (`none|friction|token_overrun`) во front
+matter; репорты не удаляются. Создание: `todoc docs new --type bug-report
+--title "BUG-NNN: суть" --dir bugs` (промпт: `todoc types prompt bug-report
+--op create`).
 
-- [BUG-001: Явный doc_type без fm-правила резолвится в unknown](bugs/bug-001--явный-doc_type-без-fm-правила-резолвится-в-unknown.md) — `major`, triaged
-- [BUG-002: change open создаёт файлы с doc_type note без правила](bugs/bug-002--change-open-создаёт-файлы-с-doc_type-note-без-правила---резолвится-в-unknown.md) — `major`, triaged
-- [BUG-003: Счётчики демо в README разошлись с фактом](bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md) — `major`, triaged
-- [BUG-004: docs edit не умеет вставку и удаление строк](bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md) — `major`, open
-- [BUG-005: docs read --section игнорирует --budget](bugs/bug-005--docs-read---section-игнорирует---budget.md) — `minor`, open
+Фильтрация: `todoc records query --root demo --query-file demo/.todoc/queries/bugs-agent-friction.json`
+(фрикция) · `…/bugs-token-overrun.json` (перерасход токенов) ·
+`docs search --type bug-report --query "agent_impact friction"` (ранжирующе).
+
+- [BUG-001: Явный doc_type без fm-правила резолвится в unknown](bugs/bug-001--явный-doc_type-без-fm-правила-резолвится-в-unknown.md) — `major`, triaged, friction
+- [BUG-002: change open создаёт файлы с doc_type note без правила](bugs/bug-002--change-open-создаёт-файлы-с-doc_type-note-без-правила---резолвится-в-unknown.md) — `major`, triaged, friction
+- [BUG-003: Счётчики демо в README разошлись с фактом](bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md) — `major`, triaged, friction
+- [BUG-004: docs edit не умеет вставку и удаление строк](bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md) — `major`, open, friction + token_overrun
+- [BUG-005: docs read --section игнорирует --budget](bugs/bug-005--docs-read---section-игнорирует---budget.md) — `minor`, open, friction + token_overrun
 
 ## Пост-MVP направления (`plan/after/`)
 

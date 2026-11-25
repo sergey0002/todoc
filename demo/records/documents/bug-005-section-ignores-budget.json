@@ -11,5 +11,10 @@
     "bug-report",
     "session-2026-11-25"
   ],
-  "relations": []
+  "relations": [],
+  "agent_impact": [
+    "friction",
+    "token_overrun"
+  ],
+  "tokens_extra_est": 1500
 }

@@ -6,6 +6,8 @@ lang: ru
 bug_id: BUG-005
 status: open
 severity: minor
+agent_impact: friction, token_overrun
+tokens_extra_est: 1500
 component: cli
 found: 2026-11-25
 ---
@@ -71,6 +73,7 @@ $ todoc docs read --root demo --id doc:plan-softdoc-profile --line-range 186-200
   при авто-парсинге).
 - Недочёт, не порча данных: `--line-range` полностью обходит. Частота —
   каждый длинный раздел; именно поэтому severity minor.
+Цена для агента за эпизод: второй вызов `docs read --line-range` и чтение кода cli.py, чтобы понять источник усечения — против одного дешёвого read/sed файла напрямую.
 
 ## Предложение по исправлению
 

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "name": "bugs-token-overrun",
+  "entity_type": "document",
+  "filters": {"agent_impact": {"$in": [["token_overrun"], ["friction", "token_overrun"]]}},
+  "sort_hint": "record_id",
+  "limit": 50
+}

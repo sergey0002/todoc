@@ -19,5 +19,10 @@ todoc docs read --root KB --id doc:bugs/<файл> --section "Доказател
 
 - Список всех репортов и статусов: `todoc docs search --root KB --type bug-report --query "BUG-" --limit 20`
   или `todoc docs tree --root KB --within bugs`.
+- **Фильтр по влиянию на агента** (атрибут `agent_impact` во front matter):
+  - быстрый, ранжирующий: `docs search --type bug-report --query "agent_impact friction" --limit 20`
+    (или `token_overrun`);
+  - точный, по записям-документам: `todoc records query --root KB --query-file KB/.todoc/queries/bugs-agent-friction.json`
+    (или `bugs-token-overrun.json`).
 - Доказательства не воспроизводятся? Сначала воспроизведи шаги из репорта,
   потом делай выводы; расхождение — новый репорт или дополнение этого.

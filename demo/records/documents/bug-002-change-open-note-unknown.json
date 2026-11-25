@@ -19,5 +19,8 @@
         "id": "document:plan-softdoc-profile"
       }
     }
+  ],
+  "agent_impact": [
+    "friction"
   ]
 }
