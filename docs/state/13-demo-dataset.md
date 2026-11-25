@@ -8,7 +8,7 @@
 
 | Показатель | Значение |
 |---|---|
-| Документов | 255 |
+| Документов | 256 |
 | Записей | 159 |
 | Отношений | 138 |
 | Папок | 21 |
@@ -17,7 +17,7 @@
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 128 (32 × 4) |
 
-Состав документов: 95 Markdown + 1 CSV + 159 JSON-записей.
+Состав документов: 96 Markdown + 1 CSV + 159 JSON-записей.
 Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3.
 
 У 11 из 19 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
@@ -74,7 +74,7 @@
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 14/19/12/9
-todoc index rebuild --root demo                         # 22 папки, 255 документов, 159 записей, 138 отношений
+todoc index rebuild --root demo                         # 22 папки, 256 документов, 159 записей, 138 отношений
 todoc docs tree --root demo --max-depth 1               # 22 папки, у 16 назначен dir_type
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
