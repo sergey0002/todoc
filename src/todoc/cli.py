@@ -35,8 +35,8 @@ from todoc.application.validator import _entity_types_of, _load_schemas, stable_
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
-from todoc.errors import (EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError,
-                          TodocError, ValidationError)
+from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError,
+                          ConflictError, TodocError, ValidationError)
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics,
@@ -436,6 +436,55 @@ def skills_read(roots: tuple[str, ...], vault: str, p: str, line_range: str | No
                            {"argv": _root_argv(roots) + ["docs", "read", "--id",
                                                          f"doc:{skill.skill_md.removesuffix('/SKILL.md')}"],
                             "purpose": "Прочитать скил как документ датасета (bounded)"}])
+
+
+@skills.command("attach")
+@click.option("--to", "to_dir", required=True,
+              help="Каталог скилов платформы (.claude/skills/, .agents/skills/, .cursor/skills/, ...).")
+@click.option("--root", "roots", multiple=True, help="DATA_ROOT, вшиваемый в тело диспетчера ({ROOT}).")
+@click.option("--force", is_flag=True, help="Перезаписать существующий скил todoc.")
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def skills_attach(roots: tuple[str, ...], to_dir: str, force: bool, output: str, no_input: bool) -> None:
+    """Диспетчер-скил todoc → одна точка входа для любого агента.
+
+    Копирует пакетную папку `todoc/` в платформенный каталог скилов, подставляя
+    DATA_ROOT вместо {ROOT}. Витрина скилов в платформу НЕ монтируется —
+    L1-контекст несёт ровно один скил (~100 токенов) при vault любого размера.
+    """
+    from importlib import resources
+
+    if not roots:
+        raise TodocError("Укажите --root DATA_ROOT (вшивается в тело диспетчера).",
+                         EXIT_USAGE, "usage.error")
+    root_resolved = Path(_effective_roots(roots)[0]).resolve()
+    dest = Path(to_dir) / "todoc"
+    if dest.exists() and not force:
+        raise TodocError(f"{dest} уже существует; обновление — с --force.",
+                         EXIT_CONFLICT, "attach.exists")
+    dest.mkdir(parents=True, exist_ok=force)
+    pkg = resources.files("todoc") / "data" / "agent-skill" / "todoc"
+    copied = 0
+    with resources.as_file(pkg) as src_dir:
+        for src in sorted(Path(src_dir).rglob("*")):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(src_dir)
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if rel.name == "SKILL.md":
+                target.write_text(src.read_text(encoding="utf-8")
+                                  .replace("{ROOT}", str(root_resolved)), encoding="utf-8")
+            else:
+                target.write_bytes(src.read_bytes())
+            copied += 1
+    _emit_ok({"installed": str(dest / "SKILL.md"), "skill": "todoc", "files": copied,
+              "root_embedded": str(root_resolved),
+              "mount_hint": "для платформ без нативных скилов — строка роутинга в AGENTS.md "
+                            "(demo/notes/agent-contract.md → «Скилы»)"},
+             output, None,
+             next_actions=[{"argv": ["todoc", "skills", "tree", "--root", str(root_resolved)],
+                            "purpose": "Проверить, что дерево хранилища доступно диспетчеру"}])
 
 
 @cli.command("stale")

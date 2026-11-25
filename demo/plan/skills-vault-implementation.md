@@ -614,7 +614,7 @@ metadata:
 - Воспроизведённая команда из SKILL.md дала ожидаемый результат.
 ```
 
-- [ ] **Шаг 1: падающий тест attach**
+- [x] **Шаг 1: падающий тест attach**
 
 ```python
 # tests/cli/test_cli_skills_attach.py — house-паттерн
@@ -646,17 +646,17 @@ def test_attach_copies_and_embeds_root(tmp_path):
     assert r3.exit_code == 0
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (команды нет)
-- [ ] **Шаг 3: реализовать** — чтение пакетной папки:
+- [x] **Шаг 2: убедиться, что падает** (команды нет)
+- [x] **Шаг 3: реализовать** — чтение пакетной папки:
   `importlib.resources.files("todoc") / "data" / "agent-skill" / "todoc"`;
   `pyproject.toml`: секция `[tool.setuptools.package-data]` →
   `todoc = ["data/**/*"]` (packages.find без package-data не пакует данные —
   иначе в wheel нет SKILL.md); `{ROOT}` → абсолютный `--root`; copytree
   no-overwrite; `--force` — перезапись.
-- [ ] **Шаг 4: проходят; приёмка экономики** — attach в tmp-платформу: в
+- [x] **Шаг 4: проходят; приёмка экономики** — attach в tmp-платформу: в
   платформенном каталоге ровно ОДНА папка скила (`todoc/`) — L1 = ~100 токенов
   при vault на 10+ скилов; тело содержит вшитый root и refusal floor.
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/data src/todoc/cli.py pyproject.toml tests/cli/test_cli_skills_attach.py

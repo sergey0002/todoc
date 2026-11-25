@@ -32,6 +32,11 @@ todoc = "todoc.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# Пакетный диспетчер-скил (todoc skills attach): SKILL.md обязан попасть в
+# wheel — packages.find без package-data данные не пакует (план skills-vault §4).
+todoc = ["data/**/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
