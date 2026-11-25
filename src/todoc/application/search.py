@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from todoc.adapters.formats.markdown import Heading, heading_path_for, parse_markdown
+from todoc.application.folder_config import load_folder_configs
 from todoc.domain.models import SearchHit
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_\u0400-\u04ff]+")
@@ -127,6 +128,15 @@ def search_documents(
     terms = _terms(query)
     if not terms:
         return [], 0, False
+    # Задача 5 плана folder-config: низковесный буст по конфигам папок-предков.
+    # Один load_folder_configs на вызов; токены конфига считаются один раз.
+    folder_configs, _fc_diags = load_folder_configs(root)
+    cfg_tokens: dict[str, frozenset[str]] = {}
+    for rel, fc in folder_configs.items():
+        toks = set(tokenize(" ".join([fc.title or "", fc.description or "", " ".join(fc.tags)])))
+        for alias in fc.aliases:
+            toks.update(tokenize(alias))
+        cfg_tokens[rel] = frozenset(toks)
     candidates: list[tuple[int, dict[str, Any], str, list[str]]] = []
     for doc in documents:
         if doc.get("status") not in ("ok", None):
@@ -149,6 +159,13 @@ def search_documents(
         title = str(doc.get("title", ""))
         title_hits = sum(1 for t in matched if t in title.lower())
         score = title_hits * 10 + len(matched)
+        if cfg_tokens:
+            rel_path = Path(str(doc.get("path", "")))
+            for anc in rel_path.parents:
+                key = anc.as_posix()
+                if key != "." and key in cfg_tokens:
+                    if any(term in tok for tok in cfg_tokens[key] for term in terms):
+                        score += 2  # несколько конфигов-предков суммируются
         candidates.append((score, doc, source_text, matched))
     candidates.sort(key=lambda c: (-c[0], str(c[1].get("document_id", ""))))
     total = len(candidates)
