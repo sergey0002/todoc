@@ -3,7 +3,7 @@ id: doc:comparative-audit
 title: "Comparative audit: статический аудит Agent Skills"
 doc_type: research-report
 lang: ru
-source: todoc_knowledge_base_comparative_audit.md
+source: docs/research/knowledge-base-comparative-audit.md
 copied: true
 ---
 
@@ -11,7 +11,7 @@ copied: true
 
 **Дата:** 24 ноября 2026 года  
 **Связанный план:** [`plan.md`](engineering-plan.md)  
-**Загруженные материалы:** `/home/user/tmp_kb_skills_audit/`  
+**Загруженные материалы:** `/home/user/docs/research/skills-audit/`  
 **Вывод в одну строку:** план хорошо задаёт будущий локальный CLI для диагностики, поиска и адресного чтения файлов; он **не проектирует готовую систему памяти с объектами Task / Plan / Idea / Session и их жизненным циклом**. И, независимо от архитектуры, в `/home/user/todoc/` пока нет реализации — там только `.gitkeep`.
 
 ## 1. Что проверено и чего аудит не доказывает

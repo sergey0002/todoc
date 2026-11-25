@@ -89,14 +89,14 @@ todoc doctor --root demo                                # config/index/python: 3
 
 | Источник | Куда скопировано |
 |---|---|
-| `.doc/plan/*.md` | `demo/plan/` (4 документа) |
-| `.doc/plan/*.after.md` | `demo/plan/after/` (6 документов) |
-| `plan.md`, `research_mcp_cli_agents_ru.md`, `todoc_knowledge_base_comparative_audit.md` | `demo/.research/` |
+| `docs/plan/*.md` | `demo/plan/` (4 документа) |
+| `docs/plan/*.after.md` | `demo/plan/after/` (6 документов) |
+| `plan.md`, `docs/research/mcp-cli-agents.md`, `docs/research/knowledge-base-comparative-audit.md` | `demo/.research/` |
 | `guide_*_ru.md` | `demo/guides/` |
 | `references/*.md` | `demo/references/` |
 | `SKILL.md` | `demo/skill/SKILL.md` |
-| `tmp_kb_skills_audit/` (8 снимков) | карточки в `demo/competitors/` |
-| `.doc/state/*.md` | `demo/references/state/` |
+| `docs/research/skills-audit/` (8 снимков) | карточки в `demo/competitors/` |
+| `docs/state/*.md` | `demo/references/state/` |
 
 Копии содержат front matter (`id`, `title`, `doc_type`, `lang`, `source`, `copied`) и исправленные
 относительные ссылки; текст документов не изменён.

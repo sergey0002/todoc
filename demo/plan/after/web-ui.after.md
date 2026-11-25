@@ -3,7 +3,7 @@ id: doc:after-web-ui
 title: "AFTER: веб-интерфейс"
 doc_type: after-plan
 lang: ru
-source: .doc/plan/web-ui.after.md
+source: docs/plan/web-ui.after.md
 copied: true
 ---
 

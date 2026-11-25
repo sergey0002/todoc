@@ -3,7 +3,7 @@ id: doc:constitution
 title: "Constitution: нормативная конституция todoc"
 doc_type: constitution
 lang: ru
-source: .doc/plan/constitution.md
+source: docs/plan/constitution.md
 copied: true
 ---
 
@@ -11,7 +11,7 @@ copied: true
 
 **Статус:** нормативный документ-основа. При конфликте с `plan.md` приоритет имеет этот файл; `plan.md` остаётся подробным инженерным наброском и историей решений.
 **Дата:** 24 ноября 2026 года. **Версия:** 0.1 (первая конституция, до реализации).
-**Связанные документы:** [`../plan.md`](../.research/engineering-plan.md) — инженерный план; [`competitive-analysis.md`](competitive-analysis.md) — конкурентный анализ, CLI-вход/выход, мастер-список возможностей и сравнительные таблицы; [`../todoc_knowledge_base_comparative_audit.md`](../.research/comparative-audit.md) — статический аудит Agent Skills; гайды `guide_cli_for_agents_ru.md`, `guide_mcp_for_agents_ru.md`, `guide_markdown_knowledge_for_agents_ru.md`, `research_mcp_cli_agents_ru.md` — принципы CLI/MCP/Markdown для агентов.
+**Связанные документы:** [`../plan.md`](../.research/engineering-plan.md) — инженерный план; [`competitive-analysis.md`](competitive-analysis.md) — конкурентный анализ, CLI-вход/выход, мастер-список возможностей и сравнительные таблицы; [`../docs/research/knowledge-base-comparative-audit.md`](../.research/comparative-audit.md) — статический аудит Agent Skills; гайды `docs/guides/cli-for-agents.md`, `docs/guides/mcp-for-agents.md`, `docs/guides/markdown-knowledge-for-agents.md`, `docs/research/mcp-cli-agents.md` — принципы CLI/MCP/Markdown для агентов.
 
 > **Как читать.** Слова **MUST / SHOULD / MAY** — нормативные: MUST — обязательно для соответствия конституции, SHOULD — рекомендуется, отклонение требует обоснования, MAY — опционально. Идентификаторы требований: **FR** (функциональные), **NFR** (нефункциональные), **P** (принципы), **S** (сценарии). Все пути в примерах — POSIX-style relative от `DATA_ROOT`, если не сказано иначе.
 
@@ -47,7 +47,7 @@ copied: true
 
 - **Typed capture для любых доменов:** `Task`/`Idea`/`Project`/`Workout` как пользовательские `entity_type` + generic `create/validate/list/filter/link/aggregate`. Богатые lifecycle/dashboards — отдельные профили/Skills, не core.
 - **Search-эволюция:** offline lexical → graph traversal → embeddings/hybrid fusion → reranking → external vector/graph adapters. Порты заложены, провайдеры — только opt-in после benchmark/privacy gate.
-- **MCP-адаптер:** тот же application-слой отдаётся как MCP tools/resources (см. `guide_mcp_for_agents_ru.md`). CLI остаётся первичным контрактом; MCP — транспорт, а не второй источник истины.
+- **MCP-адаптер:** тот же application-слой отдаётся как MCP tools/resources (см. `docs/guides/mcp-for-agents.md`). CLI остаётся первичным контрактом; MCP — транспорт, а не второй источник истины.
 - **Веб-интерфейс:** дерево + граф + фильтры + редактирование без дублирования истины. Входной критерий — стабильные JSON-контракты CLI.
 - **Memory-профиль / LLM Wiki:** накопительная компиляция `raw/ → wiki/`, claim/evidence ledger, session bootstrap — **отдельный профиль**, не «включённый search». См. §0.5.
 - **Плагины и форматы:** entry-point plugins (allowlist), YAML/XLSX/PDF, watch mode, import/AI enrichment — только по подтверждённой боли.
@@ -786,9 +786,9 @@ todoc-web/                           # отдельный пакет/репоз�
 ## 16. Источники и связь с конкурентным анализом
 
 - Инженерный набросок: [`../plan.md`](../.research/engineering-plan.md) (§1–§18, особенно §1.3 — пользовательское видение, §3 — аналоги, §3.6 — аудит Skills, §5–§16 — архитектура/CLI/этапы).
-- Статический аудит Skills: [`../todoc_knowledge_base_comparative_audit.md`](../.research/comparative-audit.md) (snapshot commit hashes, coverage matrix, пробелы memory-профиля).
+- Статический аудит Skills: [`../docs/research/knowledge-base-comparative-audit.md`](../.research/comparative-audit.md) (snapshot commit hashes, coverage matrix, пробелы memory-профиля).
 - Конкурентный анализ: [`competitive-analysis.md`](competitive-analysis.md) — полный список CLI команд (вход/выход), мастер-список возможностей с вердиктом «нужен ли todoc», сравнительные таблицы, портабельность как критерий, аудитория, сравнение между собой и с `todoc`.
-- Принципы CLI/MCP/Markdown: `guide_cli_for_agents_ru.md`, `guide_mcp_for_agents_ru.md`, `guide_markdown_knowledge_for_agents_ru.md`, `research_mcp_cli_agents_ru.md`.
+- Принципы CLI/MCP/Markdown: `docs/guides/cli-for-agents.md`, `docs/guides/mcp-for-agents.md`, `docs/guides/markdown-knowledge-for-agents.md`, `docs/research/mcp-cli-agents.md`.
 - Первичные спецификации: Agent Skills specification, PyPA (src layout, `pyproject.toml`, entry points), Click, Python `typing.Protocol`, `pluggy`, JSON Schema 2020-12 + `jsonschema`, Python `csv`, `markdown-it-py`/CommonMark, `pathlib`, OWASP Input Validation, SQLite FTS5. Полные ссылки — в `plan.md` §18.
 
 > **Граница применимости.** Техническая документация показывает контракты и официально описанные функции, но не гарантирует корректность продукта на конкретном корпусе. Конкурентная таблица — feature audit, не market sizing, adoption/demand research или независимый quality benchmark. Всё из конкурентного среза надо проверять на закреплённых версиях реальных инструментов, одинаковых данных и пользовательских задачах.

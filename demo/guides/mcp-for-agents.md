@@ -3,7 +3,7 @@ id: doc:guide-mcp
 title: "Guide: MCP для агентов (постулаты и чек-лист)"
 doc_type: guide
 lang: ru
-source: guide_mcp_for_agents_ru.md
+source: docs/guides/mcp-for-agents.md
 copied: true
 ---
 

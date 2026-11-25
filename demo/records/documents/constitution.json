@@ -7,7 +7,7 @@
   "doc_type": "constitution",
   "lang": "ru",
   "origin": "copied",
-  "repo_source": ".doc/plan/constitution.md",
+  "repo_source": "docs/plan/constitution.md",
   "lines": 794,
   "tags": [
     "constitution",

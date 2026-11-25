@@ -160,34 +160,41 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 ## Структура репозитория
 
 ```
+SKILL.md              точка входа Agent Skill
+README.md             этот файл
+pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, adapters, typing_system, output
 tests/                419 теста: unit, cli, integration (покрытие 100%)
+docs/
+├── plan/             конституция, план реализации, конкурентный анализ, аудит, AFTER-планы,
+│                     engineering-draft.md — инженерный набросок §1–§18
+├── state/            документация текущего состояния системы (15 разделов)
+├── guides/           гайды для агентов: CLI, MCP, Markdown KB
+└── research/         исследования и аудиты, skills-audit/ — материалы аудита
+references/           справка по подсистемам (входит в Skill)
+assets/               шаблон DATA_ROOT для Skill
 bench/                бенчмарк качества: 30 критериев, скрипт, результаты
 demo/                 демо-датасет (DATA_ROOT) — живой пример всех возможностей
-.doc/
-├── plan/             конституция, план реализации, конкурентный анализ, аудит, AFTER-планы
-└── state/            документация текущего состояния системы (15 разделов)
-references/           справка по подсистемам (входит в Skill)
-SKILL.md              точка входа Agent Skill
-guides (корень)       гайды для агентов: CLI, MCP, Markdown KB
-assets/               шаблон DATA_ROOT для Skill
 ```
+
+В корне нет отдельных документов: план — в `docs/plan/`, состояние — в `docs/state/`,
+гайды — в `docs/guides/`, исследования — в `docs/research/`.
 
 ## Документация
 
 | Что читать | Где |
 |---|---|
-| Текущее состояние системы | [`.doc/state/README.md`](.doc/state/README.md) |
-| Справочник CLI для агента | [`.doc/state/03-cli-reference.md`](.doc/state/03-cli-reference.md) |
-| Как агенту работать безопасно | [`.doc/state/12-agent-operations.md`](.doc/state/12-agent-operations.md) |
-| Известные проблемы | [`.doc/state/11-known-issues.md`](.doc/state/11-known-issues.md) |
-| Бенчмарк качества и сравнение с конкурентами | [`.doc/state/15-benchmark.md`](.doc/state/15-benchmark.md) |
-| Норматив (что строить) | [`.doc/plan/constitution.md`](.doc/plan/constitution.md) |
-| План реализации (как строить) | [`.doc/plan/implementation-plan.md`](.doc/plan/implementation-plan.md) |
-| Конкурентный анализ | [`.doc/plan/competitive-analysis.md`](.doc/plan/competitive-analysis.md) |
-| Аудит реализации | [`.doc/plan/audit-implementation.md`](.doc/plan/audit-implementation.md) |
-| Пост-MVP направления | `.doc/plan/*.after.md` (MCP, память, векторный поиск, веб, импорт, синхронизация) |
-| Гайды для агентов | `guide_cli_for_agents_ru.md`, `guide_mcp_for_agents_ru.md`, `guide_markdown_knowledge_for_agents_ru.md` |
+| Текущее состояние системы | [`docs/state/README.md`](docs/state/README.md) |
+| Справочник CLI для агента | [`docs/state/03-cli-reference.md`](docs/state/03-cli-reference.md) |
+| Как агенту работать безопасно | [`docs/state/12-agent-operations.md`](docs/state/12-agent-operations.md) |
+| Известные проблемы | [`docs/state/11-known-issues.md`](docs/state/11-known-issues.md) |
+| Бенчмарк качества и сравнение с конкурентами | [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md) |
+| Норматив (что строить) | [`docs/plan/constitution.md`](docs/plan/constitution.md) |
+| План реализации (как строить) | [`docs/plan/implementation-plan.md`](docs/plan/implementation-plan.md) |
+| Конкурентный анализ | [`docs/plan/competitive-analysis.md`](docs/plan/competitive-analysis.md) |
+| Аудит реализации | [`docs/plan/audit-implementation.md`](docs/plan/audit-implementation.md) |
+| Пост-MVP направления | `docs/plan/*.after.md` (MCP, память, векторный поиск, веб, импорт, синхронизация) |
+| Гайды для агентов | `docs/guides/cli-for-agents.md`, `docs/guides/mcp-for-agents.md`, `docs/guides/markdown-knowledge-for-agents.md` |
 | Справка Skill | [`SKILL.md`](SKILL.md) и [`references/`](references/) |
 
 ## Тесты
@@ -212,9 +219,9 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 Текущий результат: **29.5 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
 419 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
-разбор и план улучшений — [`.doc/state/15-benchmark.md`](.doc/state/15-benchmark.md).
+разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 
 ## Ограничения MVP
 
 Нет MCP-сервера, векторного поиска, веб-интерфейса, импорта PDF/DOCX, синхронизации и LSP.
-Всё это описано как отдельные AFTER-планы в [`.doc/plan/`](.doc/plan/).
+Всё это описано как отдельные AFTER-планы в [`docs/plan/`](docs/plan).
