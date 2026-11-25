@@ -1,12 +1,12 @@
 ---
 id: doc:state-cli
-title: "Состояние: справочник CLI, 25 команд"
+title: "Состояние: справочник CLI, 26 команд"
 doc_type: reference
 lang: ru
 source: docs/state/03-cli-reference.md
 copied: true
 ---
-# 03. Справочник CLI: 25 команд
+# 03. Справочник CLI: 26 команд
 
 Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`
 (или `python -m todoc`).
