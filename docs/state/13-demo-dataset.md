@@ -8,8 +8,8 @@
 
 | Показатель | Значение |
 |---|---|
-| Документов | 251 |
-| Записей | 157 |
+| Документов | 254 |
+| Записей | 159 |
 | Отношений | 138 |
 | Папок | 21 |
 | Диагностик | 0 |
@@ -17,7 +17,7 @@
 | Стартовых шаблонов типов | 32 (20 doc + 12 entity) |
 | CRUD-промптов типов | 128 (32 × 4) |
 
-Состав документов: 93 Markdown + 1 CSV + 157 JSON-записей.
+Состав документов: 94 Markdown + 1 CSV + 159 JSON-записей.
 Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3.
 
 У 11 из 19 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
@@ -52,7 +52,7 @@
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 157 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 159 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.
@@ -74,8 +74,8 @@
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 14/19/12/9
-todoc index rebuild --root demo                         # 21 папка, 251 документов, 157 записей, 138 отношений
-todoc docs tree --root demo --max-depth 1               # 21 папка, у 15 назначен dir_type
+todoc index rebuild --root demo                         # 22 папки, 254 документов, 159 записей, 138 отношений
+todoc docs tree --root demo --max-depth 1               # 22 папки, у 16 назначен dir_type
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
 todoc records list --root demo --type decision --limit 3           # total 10
