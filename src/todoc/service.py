@@ -7,6 +7,7 @@ from typing import Any
 
 from todoc.adapters.filesystem.scanner import scan_dataset
 from todoc.adapters.formats.jsonfmt import parse_json
+from todoc.application.history import observe_external_changes, open_backend, record_write
 from todoc.application.registry import RegistryStore, corpus_digest, parse_cache_key, read_parse_cache, write_parse_cache
 from todoc.application.validator import stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
@@ -14,6 +15,26 @@ from todoc.domain.models import Document, Folder
 from todoc.errors import IncompleteError, ValidationError
 from todoc.typing_system.descriptors import TypeRegistry
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
+
+
+class HistoryRecorder:
+    """Пишет событие журнала на каждую запись файла.
+
+    Отдельный объект, а не вызов внутри ``write.py``, чтобы слой записи не знал ни о
+    конфигурации, ни о бэкенде: он принимает рекодер и ничего больше. ``None`` вместо
+    рекодера означает «история не ведётся» и сохраняет прежнее поведение для тестов.
+    """
+
+    def __init__(self, root: Path, backend: Any | None = None, git_head: str | None = None,
+                 change_id: str | None = None) -> None:
+        self.root = root
+        self.backend = backend
+        self.git_head = git_head
+        self.change_id = change_id
+
+    def record(self, rel_path: str, before: bytes | None, after: bytes, kind: str, basis: str = "") -> None:
+        record_write(self.root, rel_path, before, after, kind=kind, basis=basis,
+                     backend=self.backend, git_head=self.git_head, change_id=self.change_id)
 
 
 class DatasetContext:
@@ -101,6 +122,27 @@ class DatasetContext:
         diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]
         return folders, documents, records, relations, diag_dicts
 
+    def history_recorder(self, change_id: str | None = None) -> HistoryRecorder:
+        """Рекодер с бэкендом из конфигурации; деградация в embedded видна в `degraded`."""
+        backend, degraded = open_backend(self.root, self.dataset)
+        recorder = HistoryRecorder(self.root, backend=backend, change_id=change_id)
+        recorder.degraded = degraded  # type: ignore[attr-defined]
+        return recorder
+
+    def observe_history(self, scanned_files: tuple[Any, ...]) -> list[str]:
+        """Режим `observed`: расхождение хеша без записи журнала — событие `external.change`.
+
+        Вызывается только там, где скан уже показал расхождение с дайджестом корпуса,
+        поэтому команда чтения на неизменном корпусе не пишет в журнал ничего.
+        """
+        section = self.dataset.get("history")
+        mode = "observed"
+        if isinstance(section, dict) and isinstance(section.get("mode"), str) and section["mode"]:
+            mode = str(section["mode"])
+        backend = self.history_recorder().backend
+        return observe_external_changes(self.root, [(f.rel_path, f.hash) for f in scanned_files],
+                                        backend=backend, mode=mode)
+
     def scan(self) -> tuple[Any, Any]:
         """Walk the corpus once, reusing cached hashes for files whose mtime+size held."""
         follow = bool(self.dataset.get("follow_symlinks", False))
@@ -127,6 +169,7 @@ class DatasetContext:
         folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
         gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest)
         self.store.write_stats(scanned[1])
+        self.observe_history(scanned[1])
         return {"dataset_id": self.dataset_id, "generation_id": gen_id, "corpus_digest": digest,
                 "reused": False, "folders": len(folders), "documents": len(documents),
                 "records": len(records), "relations": len(relations), "diagnostics": len(diagnostics)}
@@ -147,6 +190,7 @@ class DatasetContext:
         folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
         self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest)
         self.store.write_stats(scanned[1])
+        self.observe_history(scanned[1])
         payload = self.store.load_current()
         if payload is None:
             raise IncompleteError("Index publish produced no readable snapshot. Run `todoc index rebuild`.")

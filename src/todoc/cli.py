@@ -11,10 +11,16 @@ from typing import Any
 import click
 
 from todoc import __version__
-from todoc.adapters.filesystem.scanner import atomic_write, file_hash
+from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root
+from todoc.adapters.history.journal import read_events
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
 from todoc.adapters.formats.markdown import heading_path_for, parse_markdown
+from todoc.application.history import (add_tag, blame as history_blame, content_at, diff_texts,
+                                       export as history_export_run, gc as history_gc_run,
+                                       adopt as history_adopt_run, journal_diagnostics,
+                                       log as history_log, resolve_rev,
+                                       revert_plan, show as history_show)
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
@@ -22,7 +28,8 @@ from todoc.application.validator import _load_record_schemas, stable_id
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
-from todoc.errors import EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError, TodocError, ValidationError
+from todoc.errors import (EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError,
+                          TodocError, ValidationError)
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics, prompt_files,
@@ -327,19 +334,231 @@ def _stale_ack(ctx: DatasetContext, ack_path: str, reason: str | None, apply_ack
         _emit_ok({"dataset_id": ctx.dataset_id, "path": ack_path, "applied": False,
                   "reason": reason, "acknowledged_hashes": current}, output, None)
         return
-    new_hash = _write_whole(ctx.root, ack_path, new_text, expected_hash)
+    new_hash = _write_whole(ctx.root, ack_path, new_text, expected_hash,
+                            history=ctx.history_recorder(), basis="stale --ack")
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "path": ack_path, "applied": True, "new_hash": new_hash,
               "reason": reason, "acknowledged_hashes": current}, output, None)
 
 
-def _write_whole(root: Path, rel_path: str, text: str, expected_hash: str | None) -> str:
+# --- история: журнал, откат, метки -------------------------------------------
+
+
+@cli.command("log")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--path", default=None)
+@click.option("--section", default=None, help="Только события, пересекающие этот заголовок.")
+@click.option("--change", "change_id", default=None)
+@click.option("--tag", default=None)
+@click.option("--kind", default=None)
+@click.option("--since", default=None)
+@click.option("--until", default=None)
+@click.option("--limit", type=int, default=20)
+@click.option("--cursor", default=None)
+def log_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str | None, section: str | None,
+            change_id: str | None, tag: str | None, kind: str | None, since: str | None, until: str | None,
+            limit: int, cursor: str | None) -> None:
+    """Журнал событий записи: что, когда и в каких строках менялось."""
+    ctx = _contexts(roots)[0]
+    ctx.ensure_index()
+    if section and not path:
+        raise TodocError("--section требует --path: раздел ищется внутри файла", EXIT_USAGE, "usage.error")
+    events, total, truncated = history_log(ctx.root, path=path, section=section, kind=kind,
+                                           change_id=change_id, tag=tag, since=since, until=until,
+                                           limit=limit, cursor=_parse_offset(cursor))
+    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "truncated": truncated,
+              "cursor": str(_parse_offset(cursor) + len(events)), "events": events}, output, None,
+             [d.to_dict() for d in journal_diagnostics(ctx.dataset_id, ctx.root)])
+
+
+@cli.command("show")
+@click.argument("rev", required=False, default=None)
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--path", required=True)
+@click.option("--budget", type=int, default=None)
+def show_cmd(rev: str | None, roots: tuple[str, ...], output: str, no_input: bool, path: str,
+             budget: int | None) -> None:
+    """Содержимое файла на ревизии (или текущее, если rev не задан)."""
+    ctx = _contexts(roots)[0]
+    resolved = resolve_rev(ctx.root, rev) if rev else None
+    text, status = history_show(ctx.root, resolved, path, backend=ctx.history_recorder().backend)
+    if text is None:
+        raise _history_unavailable(status, path)
+    if budget is not None:
+        text = text[:budget]
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": resolved, "content": text}, output, None)
+
+
+@cli.command("diff")
+@click.argument("rev_a", required=False, default=None)
+@click.argument("rev_b", required=False, default=None)
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--path", required=True)
+@click.option("--context", "ctx_lines", type=int, default=3)
+@click.option("--budget", type=int, default=None)
+def diff_cmd(rev_a: str | None, rev_b: str | None, roots: tuple[str, ...], output: str, no_input: bool,
+             path: str, ctx_lines: int, budget: int | None) -> None:
+    """Разница между двумя ревизиями файла; без rev_b — против текущего состояния."""
+    ctx = _contexts(roots)[0]
+    backend = ctx.history_recorder().backend
+    left, status_a = history_show(ctx.root, resolve_rev(ctx.root, rev_a) if rev_a else None, path, backend=backend)
+    right, status_b = history_show(ctx.root, resolve_rev(ctx.root, rev_b) if rev_b else None, path, backend=backend)
+    if left is None:
+        raise _history_unavailable(status_a, path)
+    if right is None:
+        raise _history_unavailable(status_b, path)
+    lines = diff_texts(left, right, context=ctx_lines)
+    if budget is not None:
+        lines = lines[: max(budget // 40, 1)]
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev_a": rev_a, "rev_b": rev_b,
+              "changed": bool(lines), "lines": len(lines), "diff": lines}, output, None)
+
+
+@cli.command("blame")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--path", required=True)
+@click.option("--section", default=None)
+def blame_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str, section: str | None) -> None:
+    """Кто и когда менял файл или его раздел."""
+    ctx = _contexts(roots)[0]
+    ctx.ensure_index()
+    entries = history_blame(ctx.root, path, section)
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "section": section,
+              "entries": entries}, output, None)
+
+
+@cli.command("revert")
+@click.argument("rev")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--path", required=True)
+@click.option("--apply", "apply_revert", is_flag=True)
+@click.option("--expected-hash", default=None)
+def revert_cmd(rev: str, roots: tuple[str, ...], output: str, no_input: bool, path: str,
+               apply_revert: bool, expected_hash: str | None) -> None:
+    """Откат файла к ревизии. Без --apply — только план (review-first)."""
+    ctx = _contexts(roots)[0]
+    recorder = ctx.history_recorder()
+    plan = revert_plan(ctx.root, resolve_rev(ctx.root, rev), path, backend=recorder.backend)
+    if plan["status"] != "ok":
+        raise _history_unavailable(plan["status"], path)
+    if not apply_revert:
+        _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": rev, "applied": False,
+                  "current_hash": plan["current_hash"], "new_hash": plan["new_hash"]}, output, None)
+        return
+    if expected_hash is not None and expected_hash != plan["current_hash"]:
+        raise ConflictError(f"Hash mismatch for {path}", "write.hash_mismatch")
+    new_hash = _write_whole(ctx.root, path, plan["content"], None, history=recorder,
+                            basis=f"revert {rev}")
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": rev, "applied": True,
+              "new_hash": new_hash}, output, None)
+
+
+@cli.command("tag")
+@click.argument("name")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--rev", default=None, help="По умолчанию — последнее событие журнала.")
+@click.option("--message", default="")
+def tag_cmd(name: str, roots: tuple[str, ...], output: str, no_input: bool, rev: str | None,
+            message: str) -> None:
+    """Метка на ревизии: привязка истории к релизу."""
+    ctx = _contexts(roots)[0]
+    target = resolve_rev(ctx.root, rev) if rev else (read_events(ctx.root)[-1]["rev"] if read_events(ctx.root) else None)
+    if not target:
+        raise TodocError("Журнал пуст: метку ставить не на что", EXIT_INCOMPLETE, "history.revision_unknown")
+    entry = add_tag(ctx.root, name, target, message)
+    _emit_ok({"dataset_id": ctx.dataset_id, "tag": name, **entry}, output, None)
+
+
+@cli.group()
+@click.pass_context
+def history(ctx: click.Context) -> None:
+    """Обслуживание истории: сборка мусора, миграция, бэкап."""
+
+
+@history.command("gc")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--keep-objects", type=int, default=None)
+@click.option("--purge-before", default=None)
+@click.option("--dry-run", is_flag=True)
+def history_gc(roots: tuple[str, ...], output: str, no_input: bool, keep_objects: int | None,
+               purge_before: str | None, dry_run: bool) -> None:
+    """Удаляет события и снимки, на которые больше никто не ссылается."""
+    ctx = _contexts(roots)[0]
+    result = history_gc_run(ctx.root, keep_objects=keep_objects, purge_before=purge_before, dry_run=dry_run)
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+@history.command("adopt")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def history_adopt(roots: tuple[str, ...], output: str, no_input: bool) -> None:
+    """Миграция: снимок текущего состояния как базовая линия журнала."""
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    files = [{"path": d["path"], "hash": d["hash"]} for d in payload["documents"]]
+    result = history_adopt_run(ctx.root, files)
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+@history.command("export")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--to", "destination", required=True)
+def history_export(roots: tuple[str, ...], output: str, no_input: bool, destination: str) -> None:
+    """Бэкап истории для бэкенда embedded."""
+    ctx = _contexts(roots)[0]
+    target = Path(destination)
+    if not target.is_absolute():
+        target = ctx.root / target
+    if not is_within_root(ctx.root, target):
+        raise AccessError("--to указывает вне DATA_ROOT", "access.outside_data_root")
+    result = history_export_run(ctx.root, target)
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+def _history_unavailable(status: str, path: str) -> TodocError:
+    """Ошибка чтения истории: текст говорит, что именно произошло, код — из списка плана (§8)."""
+    if status == "object_missing":
+        return TodocError(f"Снимок содержимого для {path} утрачен: нужна пересборка истории",
+                          EXIT_INCOMPLETE, "history.object_missing")
+    if status == "no_before":
+        return TodocError(f"У события нет состояния «до» для {path}: это создание файла или базовая "
+                          f"линия — откатывать некуда", EXIT_INCOMPLETE, "history.revision_unknown")
+    if status == "unreadable":
+        return TodocError(f"Содержимое {path} не читается как текст", EXIT_INCOMPLETE,
+                          "history.journal_unreadable")
+    return TodocError(f"Содержимое для {path} на этой ревизии недоступно ({status})",
+                      EXIT_INCOMPLETE, "history.revision_unknown")
+
+
+def _write_whole(root: Path, rel_path: str, text: str, expected_hash: str | None, *,
+                 history: Any, basis: str) -> str:
+    """Запись файла целиком с обязательной записью события: молчаливых правок не бывает."""
     target = root / rel_path
     if expected_hash is not None:
         actual = file_hash(target) if target.is_file() else ""
         if actual != expected_hash:
             raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
+    before = target.read_bytes() if target.is_file() else None
     atomic_write(target, text)
+    history.record(rel_path, before, text.encode("utf-8"), "doc.edit", basis)
     return file_hash(target)
 
 
@@ -433,7 +652,7 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
               "id": f"doc:{rel}", "format": "markdown"}
     plan = create_document_plan(ctx.dataset, ctx.registry_types.doc_types, type_id, title, rel,
                                 template_text, values)
-    apply_write_plan(ctx.root, plan)
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "path": rel, "title": title, "doc_type": type_id,
               "template": source, "hash": plan.new_hash}, output, None,
@@ -590,7 +809,12 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
-    patch_text = Path(patch_file).read_text(encoding="utf-8")
+    try:
+        patch_text = Path(patch_file).read_text(encoding="utf-8")
+    except OSError as exc:
+        # P11: отсутствующий --patch-file — ошибка контракта, а не трейсбек интерпретатора.
+        raise TodocError(f"Не удалось прочитать --patch-file {patch_file}: {exc}",
+                         EXIT_USAGE, "usage.error") from exc
     try:
         patch = json.loads(patch_text)
     except json.JSONDecodeError as exc:
@@ -605,7 +829,8 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     if not apply_:
         _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "preview": True, "ops": ops}, output, None)
         return
-    new_hash = apply_edit_ops(ctx.root, doc["path"], ops, expected_hash=if_hash)
+    new_hash = apply_edit_ops(ctx.root, doc["path"], ops, expected_hash=if_hash,
+                             history=ctx.history_recorder())
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "applied": True, "new_hash": new_hash}, output, None)
 
@@ -641,7 +866,7 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
     if not apply_:
         _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan.to_dict()}, output, None)
         return
-    new_hash = apply_write_plan(ctx.root, plan)
+    new_hash = apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "created": plan.target_path, "new_hash": new_hash}, output, None)
 
@@ -930,7 +1155,8 @@ def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, pr
     new_target = str(fix0.get("replacement", ""))
     if not old_target or not new_target:
         raise ValidationError("Cannot derive link targets from diagnostic", "fix.cannot_apply")
-    new_hash = apply_fix(ctx.root, rel_path, old_target, new_target, expected_hash=if_hash)
+    new_hash = apply_fix(ctx.root, rel_path, old_target, new_target, expected_hash=if_hash,
+                         history=ctx.history_recorder())
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "diagnostic": diagnostic, "applied": True, "new_hash": new_hash}, output, None)
 

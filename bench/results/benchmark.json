@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 12:55:51",
+    "date": "2026-11-25 13:37:00",
     "corpus": "/tmp/todoc-bench-corpus",
     "documents": 256,
     "records": 159,
     "relations": 140,
     "latency_ms": {
-      "status": 163,
-      "types list": 162,
-      "docs search": 624,
+      "status": 155,
+      "types list": 153,
+      "docs search": 628,
       "docs read": 168,
-      "records list": 160,
-      "validate": 975
+      "records list": 186,
+      "validate": 1022
     },
     "seeded_defects": 9
   },
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note-bench-safety-1683096d.json, файлов изменено: 0"
+      "detail": "target=records/note/note-bench-safety-e979eb42.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -210,7 +210,7 @@
       "name": "Пагинация через --cursor продолжает выдачу без повторов",
       "status": "pass",
       "score": 1.0,
-      "detail": "cursor=2, вторая страница вернула 2 из total=32, пересечений с первой: 0"
+      "detail": "cursor=2, вторая страница вернула 2 из total=33, пересечений с первой: 0"
     },
     {
       "id": "K25",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=163мс, types list=162мс, docs search=624мс, docs read=168мс, records list=160мс, validate=975мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=155мс, types list=153мс, docs search=628мс, docs read=168мс, records list=186мс, validate=1022мс"
     },
     {
       "id": "K28",
@@ -242,7 +242,7 @@
       "name": "Тестовый набор проходит",
       "status": "pass",
       "score": 1.0,
-      "detail": "513 passed"
+      "detail": "656 passed"
     },
     {
       "id": "K29",
@@ -433,7 +433,7 @@
         },
         {
           "query": "диагностика",
-          "relevant_total": 17,
+          "relevant_total": 18,
           "top3": [
             "glossary:diagnostic",
             "doc:after-mcp-adapter",
@@ -483,7 +483,7 @@
         },
         {
           "query": "front matter",
-          "relevant_total": 23,
+          "relevant_total": 25,
           "top3": [
             "competitor:okf",
             "doc:after-mcp-adapter",
@@ -496,19 +496,19 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 163,
+        "median_ms": 155,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "types list",
-        "median_ms": 162,
+        "median_ms": 153,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "docs search",
-        "median_ms": 624,
+        "median_ms": 628,
         "limit_ms": 2500,
         "within": true
       },
@@ -520,13 +520,13 @@
       },
       {
         "command": "records list",
-        "median_ms": 160,
+        "median_ms": 186,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "validate",
-        "median_ms": 975,
+        "median_ms": 1022,
         "limit_ms": 4000,
         "within": true
       }
@@ -544,7 +544,7 @@
   },
   "competitors": {
     "obsidiantools": {
-      "elapsed_s": 6.58,
+      "elapsed_s": 6.975,
       "notes": 91,
       "local_md_links": 286,
       "broken_links_detected": 1,
@@ -562,21 +562,21 @@
       "commands": {
         "help": {
           "exit_code": 0,
-          "elapsed_s": 0.503,
+          "elapsed_s": 0.536,
           "stdout_bytes": 4967,
           "stderr_bytes": 0,
           "first_line": "Usage: open-knowledge [options] [file | command]"
         },
         "status": {
           "exit_code": 0,
-          "elapsed_s": 0.603,
+          "elapsed_s": 0.636,
           "stdout_bytes": 40,
           "stderr_bytes": 0,
           "first_line": "server  not running"
         },
         "diagnose": {
           "exit_code": 1,
-          "elapsed_s": 0.52,
+          "elapsed_s": 0.661,
           "stdout_bytes": 0,
           "stderr_bytes": 714,
           "first_line": ""
