@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-004-docs-edit-line-ops",
+  "entity_type": "document",
+  "title": "BUG-004: docs edit не умеет вставку и удаление строк",
+  "source_path": "bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": []
+}

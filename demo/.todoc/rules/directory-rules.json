@@ -198,6 +198,17 @@
         "dir_type": "projects"
       },
       "priority": 90
+    },
+    {
+      "id": "demo-dir-bugs",
+      "match": {
+        "kind": "directory",
+        "basename": "bugs"
+      },
+      "assign": {
+        "dir_type": "bugs"
+      },
+      "priority": 100
     }
   ]
 }

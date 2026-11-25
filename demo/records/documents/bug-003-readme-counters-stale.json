@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-003-readme-counters-stale",
+  "entity_type": "document",
+  "title": "BUG-003: Счётчики демо в README разошлись с фактом",
+  "source_path": "bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:plan-softdoc-profile"
+      }
+    }
+  ]
+}

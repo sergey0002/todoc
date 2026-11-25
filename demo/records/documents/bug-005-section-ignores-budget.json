@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-005-section-ignores-budget",
+  "entity_type": "document",
+  "title": "BUG-005: docs read --section игнорирует --budget",
+  "source_path": "bugs/bug-005--docs-read---section-игнорирует---budget.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": []
+}

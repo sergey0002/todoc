@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-001-fm-doc-type-unknown",
+  "entity_type": "document",
+  "title": "BUG-001: Явный doc_type без fm-правила резолвится в unknown",
+  "source_path": "bugs/bug-001--явный-doc_type-без-fm-правила-резолвится-в-unknown.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:plan-softdoc-profile"
+      }
+    }
+  ]
+}

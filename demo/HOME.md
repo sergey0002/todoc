@@ -24,6 +24,19 @@ lang: ru
 - [Скилы взаимодействия: захват, план, исполнение, переходы](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — статусы в документах/записях, 4 скила, relation `implements`.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
 
+### Баг-репорты (`bugs/`, doc_type `bug-report`)
+
+Дефекты и недочёты, найденные при эксплуатации системы. Один файл = один баг;
+статус и критичность во front matter; репорты не удаляются. Создание:
+`todoc docs new --type bug-report --title "BUG-NNN: суть" --dir bugs`
+(промпт: `todoc types prompt bug-report --op create`).
+
+- [BUG-001: Явный doc_type без fm-правила резолвится в unknown](bugs/bug-001--явный-doc_type-без-fm-правила-резолвится-в-unknown.md) — `major`, triaged
+- [BUG-002: change open создаёт файлы с doc_type note без правила](bugs/bug-002--change-open-создаёт-файлы-с-doc_type-note-без-правила---резолвится-в-unknown.md) — `major`, triaged
+- [BUG-003: Счётчики демо в README разошлись с фактом](bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md) — `major`, triaged
+- [BUG-004: docs edit не умеет вставку и удаление строк](bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md) — `major`, open
+- [BUG-005: docs read --section игнорирует --budget](bugs/bug-005--docs-read---section-игнорирует---budget.md) — `minor`, open
+
 ## Пост-MVP направления (`plan/after/`)
 
 - [MCP-адаптер](plan/after/mcp-adapter.after.md)

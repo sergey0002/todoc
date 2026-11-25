@@ -377,6 +377,30 @@
         "doc_type": "record"
       },
       "priority": 150
+    },
+    {
+      "id": "glob-bugs",
+      "match": {
+        "kind": "file",
+        "glob": "bugs/**"
+      },
+      "assign": {
+        "doc_type": "bug-report"
+      },
+      "priority": 100
+    },
+    {
+      "id": "fm-bug-report",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "bug-report"
+        }
+      },
+      "assign": {
+        "doc_type": "bug-report"
+      },
+      "priority": 200
     }
   ]
 }
