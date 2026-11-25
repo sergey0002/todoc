@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "type_id": "idea",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Документ-идея: предложение, ещё не ставшее планом. Фиксирует суть, проблему, принципы, предложение и план внедрения.",
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": ["Суть", "Проблема", "Предложение"],
+  "prompts": {
+    "read": "prompts/read.md",
+    "create": "prompts/create.md",
+    "edit": "prompts/edit.md",
+    "delete": "prompts/delete.md"
+  }
+}

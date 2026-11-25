@@ -154,6 +154,17 @@
         "dir_type": "skill"
       },
       "priority": 100
+    },
+    {
+      "id": "demo-dir-ideas",
+      "match": {
+        "kind": "directory",
+        "basename": "ideas"
+      },
+      "assign": {
+        "dir_type": "idea"
+      },
+      "priority": 100
     }
   ]
 }

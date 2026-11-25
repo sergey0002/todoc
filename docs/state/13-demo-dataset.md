@@ -8,16 +8,16 @@
 
 | Показатель | Значение |
 |---|---|
-| Документов | 248 |
+| Документов | 249 |
 | Записей | 157 |
 | Отношений | 138 |
-| Папок | 20 |
+| Папок | 21 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 14 / 19 / 12 / 9 |
-| Стартовых шаблонов типов | 31 (19 doc + 12 entity) |
-| CRUD-промптов типов | 124 (31 × 4) |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 15 / 20 / 12 / 9 |
+| Стартовых шаблонов типов | 32 (20 doc + 12 entity) |
+| CRUD-промптов типов | 128 (32 × 4) |
 
-Состав документов: 90 Markdown + 1 CSV + 157 JSON-записей.
+Состав документов: 91 Markdown + 1 CSV + 157 JSON-записей.
 Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3.
 
 У 11 из 19 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
@@ -74,8 +74,8 @@
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 14/19/12/9
-todoc index rebuild --root demo                         # 20 папок, 248 документов, 157 записей, 138 отношений
-todoc docs tree --root demo --max-depth 1               # 20 папок, у 14 назначен dir_type
+todoc index rebuild --root demo                         # 21 папка, 249 документов, 157 записей, 138 отношений
+todoc docs tree --root demo --max-depth 1               # 21 папка, у 15 назначен dir_type
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
 todoc records list --root demo --type decision --limit 3           # total 10

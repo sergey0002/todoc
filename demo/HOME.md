@@ -32,6 +32,10 @@ lang: ru
 - [Исследование MCP и CLI](.research/mcp-cli-agents-research.md)
 - [Сравнительный аудит Agent Skills](.research/comparative-audit.md)
 
+## Идеи (`ideas/`)
+
+- [Система документирования кодовой базы через агента](ideas/documentation-system.md) — git-дифы и Jira API → типизированные черновики todoc, очередь сбора, версии правил через `supersedes`.
+
 ## Гайды
 
 - [CLI для агентов](guides/cli-for-agents.md)

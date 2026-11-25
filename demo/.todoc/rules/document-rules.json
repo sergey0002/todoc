@@ -340,6 +340,30 @@
         "doc_type": "skill"
       },
       "priority": 100
+    },
+    {
+      "id": "idea-markdown",
+      "match": {
+        "kind": "file",
+        "glob": "**/ideas/*.md"
+      },
+      "assign": {
+        "doc_type": "idea"
+      },
+      "priority": 50
+    },
+    {
+      "id": "idea-by-front-matter",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "idea"
+        }
+      },
+      "assign": {
+        "doc_type": "idea"
+      },
+      "priority": 200
     }
   ]
 }
