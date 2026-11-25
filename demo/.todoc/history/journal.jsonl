@@ -1,0 +1,1 @@
+{"actor":"cli","at":"2026-11-25T17:36:57Z","basis":"Create task record task:shop-0002","change_id":null,"kind":"record.create","paths":[{"after":"sha256:abebb1ec0a76bb0c2eacb3c27a1902fe21305216df38c47356ddec0659a4b817","before":null,"git_head":"d5c062d199002e66aaf3fd7c03b26547d2e043c0","path":"tasks/shop-0002.json","ranges":[]}],"schema_version":1}

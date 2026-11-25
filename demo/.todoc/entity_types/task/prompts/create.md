@@ -1,38 +1,54 @@
 # Создание: `task`
 
-Снимок задачи Jira в JSON. Create-only: перезапись запрещена; обновление снимка =
-новая версия записи (по конвенции датасета) или новый снимок с новым `fetched_at` в
-задаче-коллекции. Ничего не выдумывать: все поля — из ответа трекера.
+Задача — запись-дело. Минимум для создания: заголовок (`title`). Всё остальное —
+опционально и добавляется по мере появления. Ничего не выдумывать: нет данных —
+поле не пишется.
 
-## Перед созданием
+## Быстрый кейс: TODO из чата
 
-1. Дедуп: `todoc records list --root KB --type task --output json` — задача с этим
-   `jira_key` уже есть? Тогда обновлять существующий снимок по ревью, не плодить дубль.
-2. Определить проект хранилища (папка `tasks/<project>/` или текущий проект из
-   `.todoc/state/current-project.json` — см. идею folder-config).
+Пользователь сказал «запиши задачу: …» — создаются только:
+
+```json
+{
+  "schema_version": 1,
+  "record_id": "task:<slug>",
+  "entity_type": "task",
+  "title": "<постановка пользователя>",
+  "source": "user",
+  "status": "open",
+  "relations": []
+}
+```
+
+`source` — свободный текст об источнике; значение по умолчанию `user` (задача
+поставлена пользователем в чате). Для задач из других каналов — `jira`, `telegram`,
+`email`, `звонок <дата>` — как сказал пользователь.
+
+## Расширенный кейс: снимок Jira
+
+При выгрузке из трекера заполняются поля Jira (`jira_key`, `issue_type`, `assignee`,
+`reporter`, `labels`, `components`, `fix_versions`, `story_points`, `description`,
+`updated`, `url`, `fetched_at`, `comments[]`, `attachments[]`). Сопоставление с
+REST v3: `summary→title`, `status.name→status`, `duedate→due`, комментарий —
+`{author, created, body}` как есть, вложение — `{name, path, mime, url}`
+(`path: attachments/tasks/<key>/<имя>` при скачивании).
 
 ## Как создавать
 
-1. Взять шаблон: `.todoc/entity_types/task/template.json`.
-2. Заполнить поля из ответа API трекера:
-   - скаляры — как есть (`status_at_fetch`, `priority`, `assignee`, `story_points`);
-   - `description` и `comments[].body` — текст как есть, без пересказа;
-   - `fetched_at` — момент захвата UTC, не дата правки;
-   - `record_id` — `task:<project>-<key>`, slug = `<project>-<key>`.
-3. Вложения: сохранить файлы в `attachments/tasks/<PROJECT>-<key>/<имя>` и указать
-   относительный `path`; при отказе от скачивания — только `url` и `mime`.
-4. Связи: `belongs_to` на запись проекта, `blocks`/`blocks_by` на другие задачи,
-   `documents` на флоу/правила, затронутые задачей.
-5. Создать (review-first):
+1. Дедуп: `todoc records list --root KB --type task --output json` — нет ли задачи
+   с тем же заголовком/jira_key.
+2. Проект задачи — поле `origin.project` (строка); в пути сейчас не участвует: движок подставляет только `{record_id}`/`{slug}` — группировка по проектам через origin-поле и запросы до расширения path_template.
+3. Create-only, review-first:
 
    ```bash
    todoc records create --root KB --type task --input-file draft.json --preview
    todoc records create --root KB --type task --input-file draft.json --apply
-   todoc validate --root KB --all   # 0 диагностик: relation.*, record.schema_violation
+   todoc validate --root KB --all   # 0 диагностик
    ```
 
 ## Правила качества
 
-- JSON только строгий: дубли ключей и NaN отклоняются парсером датасета.
-- Комментарии не суммаризировать — сохранять как есть (это архив, не выжимка).
-- Не хранить секреты/токены из описаний; при обнаружении — маскировать и сообщить.
+- Заголовок — глагол + объект («Проверить экспорт задач»), не «баг».
+- Статусы — по конвенции датасета/проекта (по умолчанию `open`); этапы — `stage`.
+- Чек-лист подшагов: `checklist[]` с `{text, done}` — для задач с этапами.
+- Секреты из текста — маскировать и сообщить пользователю.

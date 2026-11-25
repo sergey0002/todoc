@@ -1,30 +1,26 @@
 # Чтение: `task`
 
-Снимок задачи трекера. Снимок фиксирует состояние на момент захвата (`fetched_at`);
-живая истина — в трекере. Не называть статус из снимка «текущим».
+Задача может быть простым TODO (только заголовок) или полным снимком Jira.
+Формат читается по наличию полей.
 
 ## Как читать
 
-1. Ограничиться проектом и типом — bounded, не весь датасет:
+```bash
+todoc records list --root KB --type task --output json            # список дел
+todoc records query --root KB --query-file KB/.todoc/queries/tasks-by-project.json
+todoc records read --root KB --id task:<slug> --view summary --output json
+todoc records read --root KB --id task:<slug> --output json        # целиком
+```
 
-   ```bash
-   todoc records list --root KB --type task --output json
-   todoc records query --root KB --query-file KB/.todoc/queries/tasks-by-project.json
-   ```
+## Что читать в каком случае
 
-2. Прочитать целиком или проекцию:
+- **TODO-list**: список → `title`, `status`, `source` (проекция `summary`).
+- **Снимок Jira**: поля `jira_*`/`comments`/`attachments` заполнены →
+  `fetched_at` — момент снимка; живой статус — в трекере по `jira_key`, не из записи.
+- Комментарии и вложения — внутри записи; путь вложения валиден в том же корне.
 
-   ```bash
-   todoc records read --root KB --id task:<project>-<key> --output json
-   todoc records read --root KB --id task:<project>-<key> --view summary --output json
-   ```
+## Типичные вопросы
 
-3. Комментарии и вложения — внутри записи (`comments[]`, `attachments[]`);
-   даты — на момент захвата. Для актуального статуса — трекер (MCP/REST) по `jira_key`.
-
-## Перед использованием
-
-- `fetched_at` старше пары недель → помни, что статус/назначенец могли измениться;
-  при споре — переполучить снимок из трекера.
-- Вложения читаются по `path` (файл в датасете) или `url` (внешняя ссылка) —
-  путь валиден только в том же корне хранилища.
+- «что в работе?» → list + фильтр по `status` (конвенция проекта);
+- «откуда задача?» → поле `source` (`user` — поставлена в чате);
+- «что внутри?» → `description` + `checklist[]` (подшаги с `done`).
