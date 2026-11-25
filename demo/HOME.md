@@ -51,7 +51,7 @@ lang: ru
 - [Ingest/query/write/lint](references/ingest-query-lint.md)
 - [Шаблоны страниц](references/page-templates.md)
 
-## Состояние системы (`.doc/state/` → `references/state/`)
+## Состояние системы (`docs/state/` → `references/state/`)
 
 - [Оглавление](references/state/README.md)
 - [Обзор и статус MVP](references/state/01-overview.md)

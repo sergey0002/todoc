@@ -2,7 +2,7 @@
 
 **Статус:** план реализации. При конфликте с [`constitution.md`](constitution.md) приоритет имеет конституция; этот файл — **как** строить, конституция — **что** строить.
 **Дата:** 24 ноября 2026 года. **Версия:** 0.3 (до реализации; §13–§15 — финальный аудит и ресерч по референсам, §16 — лучшие традиции MCP и хранилища памяти по корневому гайду MCP, research MCP/CLI, гайдам CLI/Markdown и аудиту Skills, дополнено 24 ноября 2026).
-**Связанные документы:** [`constitution.md`](constitution.md) — требования FR/NFR, принципы P1–P14, сценарии S1–S12, CLI-контракт, структура файлов; [`competitive-analysis.md`](competitive-analysis.md) — CLI вход/выход конкурентов, мастер-список C01–C60, сравнительные таблицы, портабельность; [`../plan.md`](../../plan.md) — инженерный набросок (§15 — этапы, §14 — тесты, §17 — открытые вопросы); [`../todoc_knowledge_base_comparative_audit.md`](../../todoc_knowledge_base_comparative_audit.md) — аудит Skills.
+**Связанные документы:** [`constitution.md`](constitution.md) — требования FR/NFR, принципы P1–P14, сценарии S1–S12, CLI-контракт, структура файлов; [`competitive-analysis.md`](competitive-analysis.md) — CLI вход/выход конкурентов, мастер-список C01–C60, сравнительные таблицы, портабельность; [`../plan.md`](engineering-draft.md) — инженерный набросок (§15 — этапы, §14 — тесты, §17 — открытые вопросы); [`../docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md) — аудит Skills.
 
 > **Как читать.** Слова **MUST / SHOULD / MAY** — нормативные (см. конституцию). **MVP** — то, что строится сейчас (Этап 0 → Этап 7 ниже). Всё, помеченное «перспектива», **не реализуется сейчас** и вынесено в отдельные файлы с постфиксом **`.after.md`** (см. §9). Архитектура MVP спроектирована так, чтобы каждая перспектива вставлялась **без переписывания ядра** — через заранее заложенные порты и точки расширения (§2).
 
@@ -449,9 +449,9 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 
 - Конституция: [`constitution.md`](constitution.md) (§0–§16).
 - Конкурентный анализ: [`competitive-analysis.md`](competitive-analysis.md) (§1–§12, особенно §5 CLI, §6 C01–C60, §7 таблицы, §8 портабельность, §10 копировать/не копировать).
-- Инженерный набросок: [`../plan.md`](../../plan.md) (§1–§18, особенно §3 аналоги, §3.6 аудит Skills, §5–§16 архитектура/CLI/этапы).
-- Аудит Skills: [`../todoc_knowledge_base_comparative_audit.md`](../../todoc_knowledge_base_comparative_audit.md).
-- Принципы CLI/MCP/Markdown (корень репозитория, срез 24 ноября 2026): `guide_cli_for_agents_ru.md` (постулаты 1–26, часть II — безопасный вызов агентом, часть III — оценка + pre-release чек-лист), `guide_mcp_for_agents_ru.md` (постулаты 1–26, часть II — вызов агентом/клиентом, часть III — оценка + чек-лист; редакция MCP 2026-07-28), `guide_markdown_knowledge_for_agents_ru.md` (§I слои и LLM Wiki, §II диалекты, §III архитектура хранилища, §IV структура/ID/front matter/шаблоны, §V provenance/конфликты/свежесть, §VI ссылки/граф, §VII процедуры ingest/query/write/lint, §VIII ступени поиска, §IX docs-as-code/CI, §X trust/authority/freshness/access, §XI сравнение качества/токенов/времени + протокол benchmark-а, §XII план внедрения, §XIII Python CLI-каталог), `research_mcp_cli_agents_ru.md` (§1 как читать рекомендации, §2 базовая модель, §3 набор tools, §4 входы, §5 выходы, §6 CLI-входы, §7 CLI-выходы, §8 экономия контекста, §9 безопасность, §10 практическая карта MCP/CLI, §11 проверка качества, §12 анти-паттерны, §13 чек-лист).
+- Инженерный набросок: [`../plan.md`](engineering-draft.md) (§1–§18, особенно §3 аналоги, §3.6 аудит Skills, §5–§16 архитектура/CLI/этапы).
+- Аудит Skills: [`../docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md).
+- Принципы CLI/MCP/Markdown (корень репозитория, срез 24 ноября 2026): `docs/guides/cli-for-agents.md` (постулаты 1–26, часть II — безопасный вызов агентом, часть III — оценка + pre-release чек-лист), `docs/guides/mcp-for-agents.md` (постулаты 1–26, часть II — вызов агентом/клиентом, часть III — оценка + чек-лист; редакция MCP 2026-07-28), `docs/guides/markdown-knowledge-for-agents.md` (§I слои и LLM Wiki, §II диалекты, §III архитектура хранилища, §IV структура/ID/front matter/шаблоны, §V provenance/конфликты/свежесть, §VI ссылки/граф, §VII процедуры ingest/query/write/lint, §VIII ступени поиска, §IX docs-as-code/CI, §X trust/authority/freshness/access, §XI сравнение качества/токенов/времени + протокол benchmark-а, §XII план внедрения, §XIII Python CLI-каталог), `docs/research/mcp-cli-agents.md` (§1 как читать рекомендации, §2 базовая модель, §3 набор tools, §4 входы, §5 выходы, §6 CLI-входы, §7 CLI-выходы, §8 экономия контекста, §9 безопасность, §10 практическая карта MCP/CLI, §11 проверка качества, §12 анти-паттерны, §13 чек-лист).
 - Первичные спецификации: Agent Skills specification, PyPA (src layout, `pyproject.toml`, entry points), Click, Python `typing.Protocol`, `pluggy`, JSON Schema 2020-12 + `jsonschema`, Python `csv`, `markdown-it-py`/CommonMark, `pathlib`, OWASP Input Validation, SQLite FTS5. Полные ссылки — в `plan.md` §18 и `competitive-analysis.md` §12.
 
 > **Граница применимости.** Этот план — спецификация, не гарантия рыночного успеха. Конкурентные таблицы — feature audit, не benchmark. Всё надо проверять на закреплённых версиях реальных инструментов, одинаковых данных и пользовательских задачах (Этап 0).
@@ -462,7 +462,7 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 
 ### 13.1. Метод
 
-Проверены: конституция (§0–§16), конкурентный анализ (§1–§12), `plan.md` (§1–§18), статический аудит Skills (`todoc_knowledge_base_comparative_audit.md`), гайды `guide_cli_for_agents_ru.md` (постулаты 1–26 + pre-release чек-лист), `guide_mcp_for_agents_ru.md` (1–26), `guide_markdown_knowledge_for_agents_ru.md` (§I–§XII), `research_mcp_cli_agents_ru.md` (§1–§13), README ConardLi rag-skill (единственный локально доступный референс из `tmp_kb_skills_audit/`; остальные 7 папок — пустые submodule-заглушки, их содержимое сверено по аудиту + веб-поиску конкурентного анализа). Аудит — статический (документы и описанные контракты), не runtime-тест и не benchmark.
+Проверены: конституция (§0–§16), конкурентный анализ (§1–§12), `plan.md` (§1–§18), статический аудит Skills (`docs/research/knowledge-base-comparative-audit.md`), гайды `docs/guides/cli-for-agents.md` (постулаты 1–26 + pre-release чек-лист), `docs/guides/mcp-for-agents.md` (1–26), `docs/guides/markdown-knowledge-for-agents.md` (§I–§XII), `docs/research/mcp-cli-agents.md` (§1–§13), README ConardLi rag-skill (единственный локально доступный референс из `docs/research/skills-audit/`; остальные 7 папок — пустые submodule-заглушки, их содержимое сверено по аудиту + веб-поиску конкурентного анализа). Аудит — статический (документы и описанные контракты), не runtime-тест и не benchmark.
 
 ### 13.2. Находки F1–F12 и где исправлено
 
@@ -556,7 +556,7 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 
 ## 15. Правила-чек-лист (из гайдов, нормативные для реализации)
 
-### 15.1. CLI-правила (MVP, `guide_cli_for_agents_ru.md`)
+### 15.1. CLI-правила (MVP, `docs/guides/cli-for-agents.md`)
 
 1. CLI — стабильный контракт, не текстовый экран для парсинга; машинный интерфейс документирован (грамматика, входы, выход, exit codes, побочные эффекты).
 2. Одна предсказуемая команда на действие (`noun verb`/`verb noun`); одинаковые флаги для одинакового смысла; неизвестная команда — не catch-all.
@@ -585,7 +585,7 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 25. Проектировать входы CLI по решению, а не regex-понятии пользователя.
 26. Выходные поля — по следующему шагу агента, не выгрузка объекта целиком; `next_actions` — только конкретные, ограниченные подсказки (`argv`-массив, не auto-execution); абляция полей на реальных workflow.
 
-### 15.2. MCP-правила (для `mcp-adapter.after.md`, `guide_mcp_for_agents_ru.md`; полные M1–M26 — в `mcp-adapter.after.md` §3, сводка традиций — §16)
+### 15.2. MCP-правила (для `mcp-adapter.after.md`, `docs/guides/mcp-for-agents.md`; полные M1–M26 — в `mcp-adapter.after.md` §3, сводка традиций — §16)
 
 1. Для каждой задачи — правильная поверхность (tools — действия, resources — контекст, prompts — шаблоны).
 2. Дизайн tools с намерений, не копированием endpoint; имя различает действие и область; каталог стабилен.
@@ -603,7 +603,7 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 14. Резюмировать tool-результат; ошибки исправимые; большие деревья — summary → оглавление → ветвь.
 15. Возвращать ровно достаточный контракт результата; измерять стоимость каждого поля (абляция).
 
-### 15.3. Markdown/KB-правила (MVP + `.after.md`, `guide_markdown_knowledge_for_agents_ru.md`)
+### 15.3. Markdown/KB-правила (MVP + `.after.md`, `docs/guides/markdown-knowledge-for-agents.md`)
 
 1. Разделять документацию/знания/память (разные читатели и критерии качества).
 2. LLM Wiki Карпати — архитектурная идея, не готовый стандарт/продукт (не называть `todoc` LLM Wiki).
@@ -632,7 +632,7 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 - [ ] Тесты: unit/contract/integration/CLI/packaging/agent-eval (§6); wheel вне checkout; Obsidian smoke test; Skill validator; generated marker/version/diff.
 - [ ] Документация: shipped vs planned разделены (R21); generated файлы с marker/version/reproducible diff.
 
-### 15.5. Анти-паттерны (из `research_mcp_cli_agents_ru.md` §12 + гайдов)
+### 15.5. Анти-паттерны (из `docs/research/mcp-cli-agents.md` §12 + гайдов)
 
 - Парсить меняющуюся human-таблицу как контракт.
 - Непредсказуемые команды/флаги, скрытый catch-all, угадывание сокращений.

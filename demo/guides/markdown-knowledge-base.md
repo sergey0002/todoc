@@ -3,7 +3,7 @@ id: doc:guide-markdown-kb
 title: "Guide: Markdown knowledge base для агентов"
 doc_type: guide
 lang: ru
-source: guide_markdown_knowledge_for_agents_ru.md
+source: docs/guides/markdown-knowledge-for-agents.md
 copied: true
 ---
 

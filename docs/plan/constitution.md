@@ -2,7 +2,7 @@
 
 **Статус:** нормативный документ-основа. При конфликте с `plan.md` приоритет имеет этот файл; `plan.md` остаётся подробным инженерным наброском и историей решений.
 **Дата:** 24 ноября 2026 года. **Версия:** 0.1 (первая конституция, до реализации).
-**Связанные документы:** [`../plan.md`](../../plan.md) — инженерный план; [`competitive-analysis.md`](competitive-analysis.md) — конкурентный анализ, CLI-вход/выход, мастер-список возможностей и сравнительные таблицы; [`../todoc_knowledge_base_comparative_audit.md`](../../todoc_knowledge_base_comparative_audit.md) — статический аудит Agent Skills; гайды `guide_cli_for_agents_ru.md`, `guide_mcp_for_agents_ru.md`, `guide_markdown_knowledge_for_agents_ru.md`, `research_mcp_cli_agents_ru.md` — принципы CLI/MCP/Markdown для агентов.
+**Связанные документы:** [`../plan.md`](engineering-draft.md) — инженерный план; [`competitive-analysis.md`](competitive-analysis.md) — конкурентный анализ, CLI-вход/выход, мастер-список возможностей и сравнительные таблицы; [`../docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md) — статический аудит Agent Skills; гайды `docs/guides/cli-for-agents.md`, `docs/guides/mcp-for-agents.md`, `docs/guides/markdown-knowledge-for-agents.md`, `docs/research/mcp-cli-agents.md` — принципы CLI/MCP/Markdown для агентов.
 
 > **Как читать.** Слова **MUST / SHOULD / MAY** — нормативные: MUST — обязательно для соответствия конституции, SHOULD — рекомендуется, отклонение требует обоснования, MAY — опционально. Идентификаторы требований: **FR** (функциональные), **NFR** (нефункциональные), **P** (принципы), **S** (сценарии). Все пути в примерах — POSIX-style relative от `DATA_ROOT`, если не сказано иначе.
 
@@ -38,7 +38,7 @@
 
 - **Typed capture для любых доменов:** `Task`/`Idea`/`Project`/`Workout` как пользовательские `entity_type` + generic `create/validate/list/filter/link/aggregate`. Богатые lifecycle/dashboards — отдельные профили/Skills, не core.
 - **Search-эволюция:** offline lexical → graph traversal → embeddings/hybrid fusion → reranking → external vector/graph adapters. Порты заложены, провайдеры — только opt-in после benchmark/privacy gate.
-- **MCP-адаптер:** тот же application-слой отдаётся как MCP tools/resources (см. `guide_mcp_for_agents_ru.md`). CLI остаётся первичным контрактом; MCP — транспорт, а не второй источник истины.
+- **MCP-адаптер:** тот же application-слой отдаётся как MCP tools/resources (см. `docs/guides/mcp-for-agents.md`). CLI остаётся первичным контрактом; MCP — транспорт, а не второй источник истины.
 - **Веб-интерфейс:** дерево + граф + фильтры + редактирование без дублирования истины. Входной критерий — стабильные JSON-контракты CLI.
 - **Memory-профиль / LLM Wiki:** накопительная компиляция `raw/ → wiki/`, claim/evidence ledger, session bootstrap — **отдельный профиль**, не «включённый search». См. §0.5.
 - **Плагины и форматы:** entry-point plugins (allowlist), YAML/XLSX/PDF, watch mode, import/AI enrichment — только по подтверждённой боли.
@@ -554,57 +554,51 @@ todoc/
 ├── SKILL.md                         # единственный родительский Skill (name: todoc)
 ├── pyproject.toml                   # пакет, зависимости, console entry point, tools
 ├── README.md                        # инструкции разработчику по dev/install/test
-├── references/                      # обычные docs, не отдельные skills
+├── docs/                            # документация проекта (не Skill-references)
+│   ├── plan/                        # норматив и планы: constitution, implementation-plan,
+│   │   │                            # competitive-analysis, audit-implementation, *.after.md
+│   │   └── engineering-draft.md     # инженерный набросок §1–§18 (первоисточник)
+│   ├── state/                       # текущее состояние системы: 01-overview … 15-benchmark
+│   ├── guides/                      # гайды для агентов: cli, mcp, markdown-knowledge
+│   └── research/                    # исследования и аудиты + skills-audit/ (материалы аудита)
+├── references/                      # Skill-references: обычные docs, не отдельные skills
 │   ├── workflow.md
 │   ├── data-roots-and-config.md
 │   ├── types-and-validation.md
 │   ├── formats-csv-json-markdown.md
 │   ├── entities-relations-and-queries.md
 │   ├── safe-read-write.md
-│   └── type-system.generated.md     # автогенерация общей справки о типах (не данные папки)
+│   ├── ingest-query-lint.md
+│   ├── page-templates.md
+│   └── type-system.generated.md     # автогенерация общей справки о типах
 ├── assets/
 │   └── data-root-template/          # JSON-шаблоны для `todoc init`, не реальные данные
-│       └── .todoc/
-│           ├── dataset.json
-│           ├── rules/
-│           ├── dir_types/
-│           ├── doc_types/
-│           ├── entity_types/
-│           ├── relation_types/
-│           ├── templates/
-│           └── schemas/
 ├── src/
 │   └── todoc/
-│       ├── __init__.py
-│       ├── __main__.py
 │       ├── cli.py                   # создание Click app и main()
-│       ├── domain/                  # DatasetId, DocumentId, RecordId, ObjectRef, TypedRecord, RelationRef, QuerySpec, Projection, Diagnostic, ValidationReport, SearchHit, WritePlan
-│       ├── application/             # ScanDataset, ResolveProfiles/Types, CreateRecord, ValidateRecord, ResolveRelations, QueryRecords, AggregateRecords, SearchObjects, ReadProjection, ApplyReviewedWrite, GenerateTypeReference
-│       ├── ports/                   # FormatReader/Writer, RegistryStore, Validator, QueryEngine, RecordStorage, RelationResolver, GenerationStore, Retriever/Ranker/Reranker/Renderer, WorkflowLookup, Hashing/Locking
+│       ├── config.py                # init датасета, типы по умолчанию
+│       ├── service.py               # DatasetContext: scan/validate/rebuild
+│       ├── errors.py                # TodocError + коды + exit codes
+│       ├── domain/                  # модели: Document, Record, Relation, QuerySpec
+│       ├── application/             # registry, validator, write, query, search
+│       ├── ports/                   # Protocol-контракты адаптеров
 │       ├── adapters/
-│       │   ├── filesystem/          # pathlib/os.scandir, containment, atomic writes
-│       │   ├── formats/
-│       │   │   ├── csv/
-│       │   │   ├── json/
-│       │   │   └── markdown/
-│       │   ├── indexes/             # generations, snapshots, cache shards
-│       │   ├── cache/
-│       │   └── search/              # lexical (FTS5), optional vector/graph/QMD bridges
-│       ├── typing_system/           # descriptor models, resolver, built-in registry
-│       └── output/                  # JSON/table/Markdown serializers
-└── tests/
-    ├── unit/
-    ├── contract/
-    ├── integration/
-    ├── cli/
-    └── fixtures/
+│       │   ├── filesystem/          # scandir, containment, atomic write
+│       │   ├── formats/             # markdown / json / csv
+│       │   ├── indexes/  cache/  search/
+│       ├── typing_system/           # descriptors, resolver, prompts
+│       └── output/                  # JSON/table/Markdown конверт
+├── tests/
+│   ├── unit/  cli/  integration/  conftest.py
+├── bench/                           # критерии качества + run_benchmark.py + results/
+└── demo/                            # демонстрационный DATA_ROOT (живой пример)
 ```
 
-**Правило раскладки `.todoc/`.** Всё, что относится к типу, лежит в папке этого типа: дескриптор `type.json`, стартовый шаблон `template.<ext>`, стартовые промпты `prompts/{read,create,edit,delete}.md`, а у типов записей ещё и `schema.json`. Параллельных top-level каталогов по типам нет: `init` их не создаёт, а прежние расположения `.todoc/templates/records/<type>.json` и `.todoc/schemas/records/<type>.json` читаются только как совместимость со старыми наборами данных. `todoc check-config` говорит о них явно: `config.legacy_asset` (warning — перенести файл в папку типа) и `config.duplicate_asset` (error — одна сущность в двух местах, приоритет не угадывается). `todoc types show <type>` показывает фактические пути шаблона, промптов и схемы с флагом `exists`.
-
-Ещё не реализовано из этого раздела (осознанно отложено, а не потеряно): `identities.json` (versioned stable IDs, когда ID нельзя хранить в source), `generated/types-reference.md` (generated-справка по типам) и `cache/search/` (пересоздаваемые lexical/vector/graph представления).
-
-Правила: `SKILL.md` — корректный YAML front matter, краткие правила выбора data root и последовательность CLI-действий; прямые relative links на `references/*.md` (без цепочек). `references/type-system.generated.md` — общая generated-справка по контрактам версии CLI, не содержащая данных конкретной папки. `assets/` — только template/example для `todoc init`. CLI — обычный установленный Python package (`todoc = "todoc.cli:main"`); production-команда не запускается как `python src/...` с ручным `sys.path`. Если целевой агент может запускать только bundled scripts — тонкий `scripts/todoc` launcher, только вызывает пакет.
+Правило: в корне репозитория живут только `SKILL.md`, `README.md`, `pyproject.toml`,
+`.gitignore` и каталоги верхнего уровня (`docs/`, `references/`, `assets/`, `src/`,
+`tests/`, `bench/`, `demo/`). Отдельные документы в корне не появляются: план — в
+`docs/plan/`, состояние — в `docs/state/`, гайды — в `docs/guides/`, исследования — в
+`docs/research/`. Временные рабочие каталоги (`tmp_*`) в git не коммитятся.
 
 ### 11.2. Набор данных: `<DATA_ROOT>/`
 
@@ -768,10 +762,10 @@ todoc-web/                           # отдельный пакет/репоз�
 
 ## 16. Источники и связь с конкурентным анализом
 
-- Инженерный набросок: [`../plan.md`](../../plan.md) (§1–§18, особенно §1.3 — пользовательское видение, §3 — аналоги, §3.6 — аудит Skills, §5–§16 — архитектура/CLI/этапы).
-- Статический аудит Skills: [`../todoc_knowledge_base_comparative_audit.md`](../../todoc_knowledge_base_comparative_audit.md) (snapshot commit hashes, coverage matrix, пробелы memory-профиля).
+- Инженерный набросок: [`../plan.md`](engineering-draft.md) (§1–§18, особенно §1.3 — пользовательское видение, §3 — аналоги, §3.6 — аудит Skills, §5–§16 — архитектура/CLI/этапы).
+- Статический аудит Skills: [`../docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md) (snapshot commit hashes, coverage matrix, пробелы memory-профиля).
 - Конкурентный анализ: [`competitive-analysis.md`](competitive-analysis.md) — полный список CLI команд (вход/выход), мастер-список возможностей с вердиктом «нужен ли todoc», сравнительные таблицы, портабельность как критерий, аудитория, сравнение между собой и с `todoc`.
-- Принципы CLI/MCP/Markdown: `guide_cli_for_agents_ru.md`, `guide_mcp_for_agents_ru.md`, `guide_markdown_knowledge_for_agents_ru.md`, `research_mcp_cli_agents_ru.md`.
+- Принципы CLI/MCP/Markdown: `docs/guides/cli-for-agents.md`, `docs/guides/mcp-for-agents.md`, `docs/guides/markdown-knowledge-for-agents.md`, `docs/research/mcp-cli-agents.md`.
 - Первичные спецификации: Agent Skills specification, PyPA (src layout, `pyproject.toml`, entry points), Click, Python `typing.Protocol`, `pluggy`, JSON Schema 2020-12 + `jsonschema`, Python `csv`, `markdown-it-py`/CommonMark, `pathlib`, OWASP Input Validation, SQLite FTS5. Полные ссылки — в `plan.md` §18.
 
 > **Граница применимости.** Техническая документация показывает контракты и официально описанные функции, но не гарантирует корректность продукта на конкретном корпусе. Конкурентная таблица — feature audit, не market sizing, adoption/demand research или независимый quality benchmark. Всё из конкурентного среза надо проверять на закреплённых версиях реальных инструментов, одинаковых данных и пользовательских задачах.

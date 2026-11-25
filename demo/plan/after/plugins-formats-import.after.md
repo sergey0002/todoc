@@ -3,7 +3,7 @@ id: doc:after-plugins-formats
 title: "AFTER: плагины форматов и импорт"
 doc_type: after-plan
 lang: ru
-source: .doc/plan/plugins-formats-import.after.md
+source: docs/plan/plugins-formats-import.after.md
 copied: true
 ---
 

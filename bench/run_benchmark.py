@@ -658,7 +658,7 @@ def group_quality(rep: Report) -> None:
 
 
 def group_portability(rep: Report, root: Path) -> None:
-    """8 подкритериев портабельности из .doc/plan/competitive-analysis.md §8.2."""
+    """8 подкритериев портабельности из docs/plan/competitive-analysis.md §8.2."""
     checks = []
     checks.append(("plain-files", all(p.suffix in (".md", ".csv", ".json")
                                       for p in root.rglob("*") if p.is_file() and ".todoc" not in p.parts)))

@@ -4,7 +4,7 @@
 **Версия:** 0.2 (обогащено 24 ноября 2026 по корневому гайду MCP, research MCP/CLI, гайдам CLI/Markdown и аудиту Skills).
 **Дата:** 24 ноября 2026 года.
 **Связанные документы:** [`implementation-plan.md`](implementation-plan.md) §2 (порты E8/E10), §4 Этап 0.5/5–7, §6, §16 (традиции MCP и хранилища памяти); [`constitution.md`](constitution.md) §6.11, FR-10, S11, C21; [`competitive-analysis.md`](competitive-analysis.md) §4.2 (QMD, mdkb, Basic Memory MCP), §5.2/5.3/5.6, §6 C21.
-**Источники традиций (корень репозитория):** `guide_mcp_for_agents_ru.md` (постулаты 1–26, часть II — вызов агентом, часть III — оценка + pre-release чек-лист; редакция MCP **2026-07-28**), `research_mcp_cli_agents_ru.md` (§1–§13), `guide_cli_for_agents_ru.md` (постулаты 23–26 — поиск, выбор поверхности, входы, выходные поля), `guide_markdown_knowledge_for_agents_ru.md` (§VII процедуры ingest/query/write/lint, §VIII ступени поиска, §X trust/authority/freshness/access, §XI протокол benchmark-а, §XIII Python CLI-каталог), `todoc_knowledge_base_comparative_audit.md` (§5 coverage matrix, §6 рекомендации 1–9).
+**Источники традиций (корень репозитория):** `docs/guides/mcp-for-agents.md` (постулаты 1–26, часть II — вызов агентом, часть III — оценка + pre-release чек-лист; редакция MCP **2026-07-28**), `docs/research/mcp-cli-agents.md` (§1–§13), `docs/guides/cli-for-agents.md` (постулаты 23–26 — поиск, выбор поверхности, входы, выходные поля), `docs/guides/markdown-knowledge-for-agents.md` (§VII процедуры ingest/query/write/lint, §VIII ступени поиска, §X trust/authority/freshness/access, §XI протокол benchmark-а, §XIII Python CLI-каталог), `docs/research/knowledge-base-comparative-audit.md` (§5 coverage matrix, §6 рекомендации 1–9).
 
 > **Как читать.** Слова **MUST / SHOULD / MAY** — нормативные. **[STD]** — требование спецификации MCP 2026-07-28; **[GUIDE]** — рекомендация гайдов/OWASP/Anthropic/OpenAI; **[ЭВРИСТИКА]** — гипотеза для измерения на целевых клиентах/моделях. MCP — официальный протокол, но не RFC IETF; JSON-RPC 2.0 и JSON Schema 2020-12 — самостоятельные спецификации. Количество tools, форма `--json`-подобных wrappers, размер ответа и проценты экономии токенов — **не нормы MCP**.
 
@@ -59,7 +59,7 @@ MCP tool — интерфейс к полезной операции, а не с
 
 ## 3. Лучшие традиции MCP: правила M1–M26 (нормативные для `todoc`)
 
-Сжатое изложение постулатов `guide_mcp_for_agents_ru.md` 1–26 + `research_mcp_cli_agents_ru.md` §3–§9, адаптированное к `todoc`. Полные формулировки, примеры и ссылки — в гайде; здесь — то, что MUST соблюсти при реализации.
+Сжатое изложение постулатов `docs/guides/mcp-for-agents.md` 1–26 + `docs/research/mcp-cli-agents.md` §3–§9, адаптированное к `todoc`. Полные формулировки, примеры и ссылки — в гайде; здесь — то, что MUST соблюсти при реализации.
 
 | ID | Правило | Источник |
 |---|---|---|
@@ -290,7 +290,7 @@ Prompt injection может находиться в обычном тексте 
 
 ## 10. Традиции хранилища памяти, применимые к MCP
 
-MCP для `todoc` — не система памяти в MVP (аудит §2, §5: план типизирует документы/папки, а не Task/Plan/Idea/Session с жизненным циклом). Ниже — традиции из `guide_markdown_knowledge_for_agents_ru.md` и аудита, которые MCP должен уважать, чтобы не превратить `todoc` в «второй мозг» и чтобы memory-профиль позже вставился без переписывания.
+MCP для `todoc` — не система памяти в MVP (аудит §2, §5: план типизирует документы/папки, а не Task/Plan/Idea/Session с жизненным циклом). Ниже — традиции из `docs/guides/markdown-knowledge-for-agents.md` и аудита, которые MCP должен уважать, чтобы не превратить `todoc` в «второй мозг» и чтобы memory-профиль позже вставился без переписывания.
 
 ### 10.1. Слои: документация / знания / память / сырьё / журналы / индексы
 

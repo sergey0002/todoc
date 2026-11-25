@@ -1,8 +1,8 @@
 # Конкурентный анализ `todoc`: CLI, возможности, портабельность, аудитория
 
 **Дата:** 24 ноября 2026 года. **Статус:** feature audit по официально описанным функциям и документации; не benchmark качества, не market sizing, не доказательство спроса.
-**Связанные документы:** [`constitution.md`](constitution.md) — нормативные требования и итоговый продукт; [`../plan.md`](../../plan.md) §3 — исходный срез аналогов; [`../todoc_knowledge_base_comparative_audit.md`](../../todoc_knowledge_base_comparative_audit.md) — статический аудит Agent Skills по снимкам в `tmp_kb_skills_audit/`.
-**Метод:** (1) разбор референсов из `tmp_kb_skills_audit/` (8 репозиториев, snapshot commit hashes — в аудите); (2) веб-поиск дополнительных конкурентов (24 ноября 2026); (3) сверка CLI-вход/выход по официальным README/docs/releases. Версии быстро меняются (особенно QMD, Open Knowledge, obsidian-second-brain, Basic Memory) — перед реализацией перепроверить лицензии, стабильные релизы и фактические команды на закреплённых версиях.
+**Связанные документы:** [`constitution.md`](constitution.md) — нормативные требования и итоговый продукт; [`../plan.md`](engineering-draft.md) §3 — исходный срез аналогов; [`../docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md) — статический аудит Agent Skills по снимкам в `docs/research/skills-audit/`.
+**Метод:** (1) разбор референсов из `docs/research/skills-audit/` (8 репозиториев, snapshot commit hashes — в аудите); (2) веб-поиск дополнительных конкурентов (24 ноября 2026); (3) сверка CLI-вход/выход по официальным README/docs/releases. Версии быстро меняются (особенно QMD, Open Knowledge, obsidian-second-brain, Basic Memory) — перед реализацией перепроверить лицензии, стабильные релизы и фактические команды на закреплённых версиях.
 
 > **Как читать таблицы.** `●` — полная поддержка, `◐` — частичная/опциональная/через плагин, `○` — нет, `—` — неприменимо. «todoc (план)» — целевое состояние по конституции, не существующая функция (реализации пока нет).
 
@@ -24,9 +24,9 @@
 
 ---
 
-## 2. Референсы из `tmp_kb_skills_audit/` (8 репозиториев)
+## 2. Референсы из `docs/research/skills-audit/` (8 репозиториев)
 
-Статический разбор по снимкам; репозитории не устанавливались, скрипты не запускались. Детали и commit hashes — в [`../todoc_knowledge_base_comparative_audit.md`](../../todoc_knowledge_base_comparative_audit.md).
+Статический разбор по снимкам; репозитории не устанавливались, скрипты не запускались. Детали и commit hashes — в [`../docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md).
 
 | Репозиторий | Что это | Что взять в `todoc` | Что не копировать |
 |---|---|---|---|
@@ -623,7 +623,7 @@
 
 ## 12. Источники
 
-### Референсы из `tmp_kb_skills_audit/` (snapshot hashes — в аудите)
+### Референсы из `docs/research/skills-audit/` (snapshot hashes — в аудите)
 
 - Karpathy LLM Wiki gist — https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
 - Astro-Han/karpathy-llm-wiki — https://github.com/Astro-Han/karpathy-llm-wiki

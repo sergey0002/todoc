@@ -3,9 +3,9 @@
 **Объект:** `src/todoc/` (MVP CLI, коммит `dbfa749`, PR #2) + `SKILL.md`/`references/`/`assets/`.
 **Эталоны:** `plan/constitution.md` (P1–P14, S1–S12, FR/NFR, §8 CLI-контракт, §9 конфиги, §10 DoD, §11 структура),
 `plan/implementation-plan.md` (Этап 0–7.5, порты E1–E10, §7 DoD, §13 F1–F12, §14 R1–R32, §15 чек-листы),
-`guide_cli_for_agents_ru.md` (26 постулатов), `guide_markdown_knowledge_for_agents_ru.md` (§§V–XIII),
-`guide_mcp_for_agents_ru.md` + `research_mcp_cli_agents_ru.md`, `plan/competitive-analysis.md`,
-`todoc_knowledge_base_comparative_audit.md`.
+`docs/guides/cli-for-agents.md` (26 постулатов), `docs/guides/markdown-knowledge-for-agents.md` (§§V–XIII),
+`docs/guides/mcp-for-agents.md` + `docs/research/mcp-cli-agents.md`, `plan/competitive-analysis.md`,
+`docs/research/knowledge-base-comparative-audit.md`.
 
 **Метод:** построчное чтение всего `src/todoc/` + сверка каждой команды/флага с конституцией §8.1 +
 эмпирическая проверка подозрений через установленный CLI (subprocess, отдельные процессы).

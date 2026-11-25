@@ -2,7 +2,7 @@
 
 **Дата обновления:** 24 ноября 2026 года.  
 **Статус:** только планирование и конкурентный ресерч. По запросу создана пустая директория `/home/user/todoc/` с `.gitkeep`; `SKILL.md`, исходников CLI и конфигурации в ней пока нет. Оценка рынка предварительная: сравнение официально описанных функций не доказывает спрос или готовность платить.  
-**Связанный материал:** раздел XIII в [`guide_markdown_knowledge_for_agents_ru.md`](guide_markdown_knowledge_for_agents_ru.md) — архитектурная отправная точка по каталогам, типам, маскам, индексам и парсерам. Этот план развивает её с учётом отделения Skill от переносимых папок данных, результатов исследования аналогов и уточнений пользователя про типы `note/research/link`, агентские ресерч-workflow и будущий веб-интерфейс.
+**Связанный материал:** раздел XIII в [`docs/guides/markdown-knowledge-for-agents.md`](../guides/markdown-knowledge-for-agents.md) — архитектурная отправная точка по каталогам, типам, маскам, индексам и парсерам. Этот план развивает её с учётом отделения Skill от переносимых папок данных, результатов исследования аналогов и уточнений пользователя про типы `note/research/link`, агентские ресерч-workflow и будущий веб-интерфейс.
 
 > **Что и зачем мы разрабатываем.**
 >
@@ -256,7 +256,7 @@
 
 ### 3.6. Результаты статического аудита Agent Skills и готовности к memory KB
 
-24 ноября 2026 года проведён статический разбор исходного gist и репозиториев Agent Skills по локально скачанным снимкам; файлы/ревизии, coverage matrix и подробное сравнение вынесены в [`todoc_knowledge_base_comparative_audit.md`](todoc_knowledge_base_comparative_audit.md). Репозитории не устанавливались; третьесторонние скрипты не запускались. Выводы описывают заявленные workflow/schema, а не подтверждённое runtime-поведение или benchmark.
+24 ноября 2026 года проведён статический разбор исходного gist и репозиториев Agent Skills по локально скачанным снимкам; файлы/ревизии, coverage matrix и подробное сравнение вынесены в [`docs/research/knowledge-base-comparative-audit.md`](../research/knowledge-base-comparative-audit.md). Репозитории не устанавливались; третьесторонние скрипты не запускались. Выводы описывают заявленные workflow/schema, а не подтверждённое runtime-поведение или benchmark.
 
 **Важное различение:** исходный [Karpathy LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) сам называет себя абстрактным idea/design file для передачи агенту, не готовым исполняемым Skill. [Astro-Han/karpathy-llm-wiki](https://github.com/Astro-Han/karpathy-llm-wiki) — отдельная сторонняя Agent Skill-реализация с `raw/ → wiki/`, ingest/query/lint и проверкой source fidelity. У исходной идеи центральное свойство — накопительный synthesis/wiki workflow; у текущего `todoc` — предполагаемые детерминированные проверки и точечное чтение исходников.
 
@@ -270,7 +270,7 @@
 | Целостность/безопасность | Source files read-only в MVP; preview/hash/post-validation запланированы. Недоверенные файлы/конфиги уже выделены. | Для многофайловых agent writes ещё нет одной recoverable transaction/approval/recovery границы и sync-aware single-writer policy. Не блокирует read-only MVP; нужно до широких записей. |
 | Obsidian и пользовательский UX | Obsidian — необязательный просмотрщик/редактор; обычный Markdown совместим. | План не заменяет Obsidian UI, граф, плагины, sync, мобильный клиент и шаблонно-досочную экосистему. Следует интегрироваться, а не копировать приложение. |
 
-**Оценка готовности:** для локального source-native validator/search/read CLI план концептуально достаточно развит, но нуждается в product gate и реализации. Для переносимой базы памяти агентов, которая управляет задачами, планами и идеями, он **ещё не готов**: требуется подтвердить отдельный scope и до разработки определить object schema, связи, capture/triage, lifecycle/query workflows, session bootstrap и evidence model. Подробный реестр пробелов и рекомендованные решения — в [аудите](todoc_knowledge_base_comparative_audit.md).
+**Оценка готовности:** для локального source-native validator/search/read CLI план концептуально достаточно развит, но нуждается в product gate и реализации. Для переносимой базы памяти агентов, которая управляет задачами, планами и идеями, он **ещё не готов**: требуется подтвердить отдельный scope и до разработки определить object schema, связи, capture/triage, lifecycle/query workflows, session bootstrap и evidence model. Подробный реестр пробелов и рекомендованные решения — в [аудите](../research/knowledge-base-comparative-audit.md).
 
 **Решение по scope:** сохранить существующий узкий MVP, не добавляя все memory-функции автоматически. Если требование пользователя — только классифицировать и находить файлы/заметки — определить несколько user-defined `doc_type` на discovery gate. Если это именно Task/Plan/Idea memory, сделать отдельный memory-profile/ветку с собственными схемами и приёмочными тестами до обещания такой функции. Если это компаундируемая wiki, использовать/интегрировать Karpathy-style workflow отдельно.
 
@@ -1245,7 +1245,7 @@ Raw source import/export — отдельная операция с plan/preview
 - [AgriciDaniel/claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian) — reviewed transaction, source/claim provenance и retrieval contracts.
 - [bholmesdev/llm-knowledge-base-skills](https://github.com/bholmesdev/llm-knowledge-base-skills) — note enrichment, tag registry, source attribution, links и optional scheduled/cloud loops.
 - [ConardLi/rag-skill](https://github.com/ConardLi/rag-skill) — hierarchical progressive retrieval for local multi-format corpus; README на просмотренном commit помечает репозиторий archived.
-- [Подробный сравнительный аудит и coverage matrix](todoc_knowledge_base_comparative_audit.md) — snapshot commit hashes, осмотренные файлы, вывод о готовности и недостающие области.
+- [Подробный сравнительный аудит и coverage matrix](../research/knowledge-base-comparative-audit.md) — snapshot commit hashes, осмотренные файлы, вывод о готовности и недостающие области.
 
 Все эти репозитории были просмотрены статически по снимкам, закреплённым полными commit hash в аудите. Skills/scripts не устанавливались и не запускались; выводы относятся к описанным ими моделям и workflow, а не к измеренной фактической работе.
 
