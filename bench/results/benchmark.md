@@ -1,6 +1,6 @@
 # Бенчмарк todoc
 
-Дата: 2026-11-25 16:25:24 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
+Дата: 2026-11-25 18:19:54 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
 
 **Итоговый балл: 30.0 из 30** (100%)
 
@@ -36,7 +36,7 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note-bench-safety-2b2b3ce2.json, файлов изменено: 0 |
+| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note-bench-safety-b97b397c.json, файлов изменено: 0 |
 | K15 | create-only: повторная запись → конфликт (exit 5) | pass | 1.0 | первая запись exit=0, повторная exit=5 |
 | K16 | Containment: --out не пишет вне DATA_ROOT | pass | 1.0 | файл вне корня создан: False, exit=4 |
 
@@ -56,7 +56,7 @@
 |---|---|---|---|---|
 | K22 | Recall@3 и MRR на размеченных запросах | pass | 0.97 | Recall@3=0.94, Precision@3=0.94, MRR=1.00, запросов: 12 |
 | K23 | Ранжирование детерминировано | pass | 1.0 | порядок совпал: True, результатов: 5 |
-| K24 | Пагинация через --cursor продолжает выдачу без повторов | pass | 1.0 | cursor=2, вторая страница вернула 2 из total=33, пересечений с первой: 0 |
+| K24 | Пагинация через --cursor продолжает выдачу без повторов | pass | 1.0 | cursor=2, вторая страница вернула 2 из total=35, пересечений с первой: 0 |
 
 ## Устойчивость
 
@@ -69,13 +69,13 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=174мс, types list=155мс, docs search=627мс, docs read=174мс, records list=167мс, validate=1045мс |
+| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=154мс, types list=185мс, docs search=576мс, docs read=157мс, records list=157мс, validate=212мс |
 
 ## Качество кода
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K28 | Тестовый набор проходит | pass | 1.0 | 957 passed |
+| K28 | Тестовый набор проходит | pass | 1.0 | 988 passed |
 | K29 | Покрытие кода тестами | pass | 1.0 | покрытие 100%, пропущено инструкций: 0, веток: 0 |
 
 ## Портабельность
@@ -89,56 +89,21 @@
 ```json
 {
   "obsidiantools": {
-    "elapsed_s": 6.977,
-    "notes": 91,
-    "local_md_links": 286,
-    "broken_links_detected": 1,
-    "broken_samples": [
-      "broken-link -> does-not-exist.md"
-    ],
-    "backlinks": 89,
-    "isolated_notes": 87,
-    "front_matter_index": 89,
-    "available": true,
-    "front_matter_warnings": 3
+    "available": false,
+    "reason": "venv с obsidiantools не найден"
   },
   "open-knowledge": {
-    "available": true,
-    "commands": {
-      "help": {
-        "exit_code": 0,
-        "elapsed_s": 0.555,
-        "stdout_bytes": 4967,
-        "stderr_bytes": 0,
-        "first_line": "Usage: open-knowledge [options] [file | command]"
-      },
-      "status": {
-        "exit_code": 0,
-        "elapsed_s": 0.608,
-        "stdout_bytes": 40,
-        "stderr_bytes": 0,
-        "first_line": "server  not running"
-      },
-      "diagnose": {
-        "exit_code": 1,
-        "elapsed_s": 0.548,
-        "stdout_bytes": 0,
-        "stderr_bytes": 714,
-        "first_line": ""
-      }
-    },
-    "version": "0.28.2",
-    "subcommands": 12,
-    "writes_into_corpus": []
+    "available": false,
+    "reason": "venv с open-knowledge не найден"
   },
   "open-knowledge-capabilities": {
     "validate": false,
-    "search": true,
+    "search": false,
     "index": false,
-    "mcp": true,
-    "skills": true,
-    "sync": true,
-    "ui": true,
+    "mcp": false,
+    "skills": false,
+    "sync": false,
+    "ui": false,
     "graph": false,
     "types": false,
     "records": false
