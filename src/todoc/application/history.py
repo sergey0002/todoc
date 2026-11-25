@@ -259,8 +259,12 @@ def _ranges_touch_section(root: Path, rel_path: str, selector: str, ranges: list
 
 
 def _section_bounds(root: Path, rel_path: str, selector: str) -> tuple[int, int] | None:
-    """Границы раздела в текущем файле (1-based, включительно)."""
-    from todoc.adapters.formats.markdown import parse_markdown
+    """Границы раздела в текущем файле (1-based, включительно).
+
+    Разбор делегирован ``markdown.section_bounds``: тот же механизм используют дельты,
+    поэтому лента по разделу и якорь дельты не могут разойтись в понимании границ.
+    """
+    from todoc.adapters.formats.markdown import section_bounds
 
     target = root / rel_path
     if not target.is_file():
@@ -269,20 +273,7 @@ def _section_bounds(root: Path, rel_path: str, selector: str) -> tuple[int, int]
         text = target.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None
-    doc = parse_markdown(text)
-    wanted = selector.strip()
-    total = len(text.splitlines())
-    for index, heading in enumerate(doc.headings):
-        title = f"{'#' * heading.level} {heading.title}".strip()
-        if not (title == wanted or heading.title == wanted):
-            continue
-        end = total
-        for later in doc.headings[index + 1 :]:
-            if later.level <= heading.level:
-                end = later.line - 1
-                break
-        return heading.line, end
-    return None
+    return section_bounds(text, selector)
 
 
 def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = None) -> tuple[bytes | None, str]:
@@ -364,8 +355,14 @@ def revert_plan(root: Path, rev: str | None, rel_path: str, backend: Any | None 
         return {"path": rel_path, "rev": rev, "status": "unreadable"}
     target = root / rel_path
     current = file_hash(target) if target.is_file() else ""
+    # Файл менялся после снимаемой ревизии, если его текущее содержимое не совпадает
+    # с состоянием на этой ревизии. Откат тогда стирает более поздние правки — это
+    # надо сказать вслух, а не решать за пользователя (P6).
+    after, _after_status = content_at(root, rev, rel_path, backend)
+    at_rev = objects.content_hash(after) if after is not None else ""
     return {"path": rel_path, "rev": rev, "status": "ok", "content": text,
-            "current_hash": current, "new_hash": objects.content_hash(text.encode("utf-8"))}
+            "current_hash": current, "new_hash": objects.content_hash(text.encode("utf-8")),
+            "range_conflict": bool(at_rev) and current != at_rev}
 
 
 EXTERNAL_CHANGE = "external.change"
@@ -428,10 +425,32 @@ def _append_observed(root: Path, rel_path: str, after_hash: str, head: str | Non
 
 
 def gc(root: Path, *, keep_objects: int | None = None, purge_before: str | None = None,
-       dry_run: bool = False) -> dict[str, Any]:
+       dry_run: bool = False, limits: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Сборка мусора: убирает события по возрасту и снимки, на которые никто не ссылается.
+
+    ``limits`` — ``dataset["limits"]``. ``max_history_objects`` служит значением по
+    умолчанию для ``keep_objects``, а ``max_journal_bytes`` подрезает самые старые
+    события, когда журнал вырос больше потолка. Явный ``--keep-objects`` важнее лимита:
+    потолок обслуживает хранилище, а не отменяет решение пользователя.
+    """
+    limits = limits or {}
     events = journal.read_events(root)
     kept = [e for e in events if not (purge_before and str(e.get("at") or "") < purge_before)]
     removed_events = len(events) - len(kept)
+
+    objects_trimmed = 0
+    max_bytes = limits.get("max_journal_bytes")
+    trimmed_for_size = 0
+    if isinstance(max_bytes, int) and max_bytes > 0:
+        while kept and journal.events_bytes(kept) > max_bytes:
+            kept = kept[1:]
+            trimmed_for_size += 1
+        removed_events += trimmed_for_size
+
+    if keep_objects is None:
+        limit_objects = limits.get("max_history_objects")
+        if isinstance(limit_objects, int) and limit_objects >= 0:
+            keep_objects = limit_objects
 
     referenced: set[str] = set()
     for event in kept:
@@ -451,10 +470,11 @@ def gc(root: Path, *, keep_objects: int | None = None, purge_before: str | None 
                 removed += 1
         orphans = removed
         if keep_objects is not None:
-            _trim_objects(root, keep_objects, referenced)
+            objects_trimmed = _trim_objects(root, keep_objects)
     return {"removed_events": removed_events, "kept_events": len(kept),
             "objects_before": total, "objects_referenced": len(referenced),
-            "orphans_removed": max(orphans, 0), "dry_run": dry_run}
+            "orphans_removed": max(orphans, 0), "trimmed_for_size": trimmed_for_size,
+            "objects_trimmed": objects_trimmed, "dry_run": dry_run}
 
 
 def _all_object_digests(root: Path) -> list[str]:
@@ -469,20 +489,28 @@ def _all_object_digests(root: Path) -> list[str]:
     return out
 
 
-def _trim_objects(root: Path, keep: int, referenced: set[str]) -> None:
+def _trim_objects(root: Path, keep: int) -> int:
+    """Оставляет в хранилище не больше ``keep`` снимков, начиная с самых старых.
+
+    Снимки, на которые ссылается журнал, больше не пропускаются: иначе потолок не
+    значил бы ничего — все «живые» снимки защищены ссылкой, а незащищённые удаляет
+    цикл выше, и до этого обхода дело не доходит. Цена явная и уже предусмотрена
+    состояниями чтения: у затёртой ревизии ``show``/``revert`` вернут
+    ``object_missing``, а не придуманное содержимое.
+    """
     base = objects.objects_dir(root)
     if not base.is_dir():
-        return
+        return 0
     files = sorted((p for p in base.rglob("*") if p.is_file()), key=lambda p: p.stat().st_mtime)
     excess = len(files) - keep
+    trimmed = 0
     for path in files[: max(excess, 0)]:
-        hexpart = path.parent.name + path.name
-        if f"sha256:{hexpart}" in referenced:
-            continue
         try:
             path.unlink()
         except OSError:
             continue
+        trimmed += 1
+    return trimmed
 
 
 def adopt(root: Path, files: list[dict[str, Any]]) -> dict[str, Any]:

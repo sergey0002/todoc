@@ -90,6 +90,19 @@ def truncated_last_line(root: Path) -> bool:
     return False
 
 
+def events_bytes(events: list[dict[str, Any]]) -> int:
+    """Объём журнала, который заняли бы эти события, — в тех же байтах, что на диске.
+
+    Считается той же сериализацией, что и при записи, иначе потолок ``max_journal_bytes``
+    сравнивался бы с числом, которого в файле никогда не было.
+    """
+    return sum(
+        len(json.dumps({k: v for k, v in e.items() if k != "rev"}, ensure_ascii=False,
+                       sort_keys=True, separators=(",", ":")).encode("utf-8")) + 1
+        for e in events
+    )
+
+
 def rewrite(root: Path, events: list[dict[str, Any]]) -> None:
     """Перезаписывает журнал (используется только сборкой мусора), атомарно."""
     from todoc.adapters.filesystem.scanner import atomic_write

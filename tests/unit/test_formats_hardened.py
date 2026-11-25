@@ -389,10 +389,10 @@ def test_backlink_index_skips_external_and_anchor_links():
 
 
 def test_record_schemas_absent_dir(tmp_path):
-    from todoc.application.validator import _load_record_schemas
+    from todoc.application.validator import _entity_types_of, _load_schemas
 
     registry = {"entity_types": {"workout": {"type_id": "workout"}}}
-    assert _load_record_schemas(tmp_path, registry, {}) == {}
+    assert _load_schemas(tmp_path, registry, {}, "entity_type", _entity_types_of) == {}
 
 
 def test_reference_link_after_two_inline_links():

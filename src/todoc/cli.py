@@ -21,10 +21,15 @@ from todoc.application.history import (add_tag, blame as history_blame, content_
                                        adopt as history_adopt_run, journal_diagnostics,
                                        log as history_log, resolve_rev,
                                        revert_plan, show as history_show)
+from todoc.application.changes import (apply_change, archive_change, change_id_for,
+                                       collect_deltas, list_changes, load_change,
+                                       open_change, record_path, revert_change,
+                                       validate_change, verify_change)
+from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
-from todoc.application.validator import _load_record_schemas, stable_id
+from todoc.application.validator import _entity_types_of, _load_schemas, stable_id
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
@@ -32,8 +37,9 @@ from todoc.errors import (EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessErr
                           TodocError, ValidationError)
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
-from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics, prompt_files,
-                                             schema_file, template_file, type_kind_dir)
+from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics,
+                                             load_json_file, prompt_files, schema_file,
+                                             template_file, type_kind_dir)
 
 
 def _emit_ok(data: dict[str, Any], output: str, out: str | None, diagnostics: list[dict[str, Any]] | None = None,
@@ -79,7 +85,8 @@ def _root_argv(roots: tuple[str, ...]) -> list[str]:
 
 def _record_schema(ctx: "DatasetContext", entity_type: str) -> dict[str, Any] | None:
     """The entity type's JSON Schema, when it has one, from that type's own folder."""
-    loaded = _load_record_schemas(ctx.root, ctx.registry_types, ctx.dataset).get(entity_type)
+    loaded = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset,
+                           "entity_type", _entity_types_of).get(entity_type)
     return loaded[0] if loaded else None
 
 
@@ -451,9 +458,22 @@ def revert_cmd(rev: str, roots: tuple[str, ...], output: str, no_input: bool, pa
     plan = revert_plan(ctx.root, resolve_rev(ctx.root, rev), path, backend=recorder.backend)
     if plan["status"] != "ok":
         raise _history_unavailable(plan["status"], path)
+    # Файл менялся после этой ревизии: откат сотрёт более поздние правки. Не ошибка
+    # (решение за пользователем), но и не молчаливое действие — предупреждение в конверте.
+    warnings: list[dict[str, Any]] = []
+    if plan.get("range_conflict"):
+        warnings.append({
+            "dataset_id": ctx.dataset_id, "id": f"history.range_conflict:{path}:{rev}",
+            "code": "history.range_conflict", "severity": "warning", "path": path,
+            "message": f"Файл {path} изменён после {rev}: откат сотрёт более поздние правки",
+            "location": {}, "evidence": f"текущий хеш {plan['current_hash'][:19]}…",
+            "suggested_fixes": [],
+        })
     if not apply_revert:
         _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": rev, "applied": False,
-                  "current_hash": plan["current_hash"], "new_hash": plan["new_hash"]}, output, None)
+                  "current_hash": plan["current_hash"], "new_hash": plan["new_hash"],
+                  "range_conflict": bool(plan.get("range_conflict"))}, output, None,
+                 diagnostics=warnings)
         return
     if expected_hash is not None and expected_hash != plan["current_hash"]:
         raise ConflictError(f"Hash mismatch for {path}", "write.hash_mismatch")
@@ -461,7 +481,8 @@ def revert_cmd(rev: str, roots: tuple[str, ...], output: str, no_input: bool, pa
                             basis=f"revert {rev}")
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": rev, "applied": True,
-              "new_hash": new_hash}, output, None)
+              "new_hash": new_hash, "range_conflict": bool(plan.get("range_conflict"))},
+             output, None, diagnostics=warnings)
 
 
 @cli.command("tag")
@@ -499,7 +520,8 @@ def history_gc(roots: tuple[str, ...], output: str, no_input: bool, keep_objects
                purge_before: str | None, dry_run: bool) -> None:
     """Удаляет события и снимки, на которые больше никто не ссылается."""
     ctx = _contexts(roots)[0]
-    result = history_gc_run(ctx.root, keep_objects=keep_objects, purge_before=purge_before, dry_run=dry_run)
+    result = history_gc_run(ctx.root, keep_objects=keep_objects, purge_before=purge_before,
+                            dry_run=dry_run, limits=ctx.dataset.get("limits") or {})
     _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
 
 
@@ -530,6 +552,217 @@ def history_export(roots: tuple[str, ...], output: str, no_input: bool, destinat
     if not is_within_root(ctx.root, target):
         raise AccessError("--to указывает вне DATA_ROOT", "access.outside_data_root")
     result = history_export_run(ctx.root, target)
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+@cli.group()
+@click.pass_context
+def change(ctx: click.Context) -> None:
+    """Записи изменений: жизненный цикл, проверка применимости, bundle-применение."""
+
+
+def _descriptor_lookup(ctx: Any):
+    """Описатель doc_type для пробной проверки структуры после применения дельты."""
+    payload = ctx.ensure_index()
+
+    def lookup(front_matter: dict[str, Any], rel_path: str) -> dict[str, Any] | None:
+        # Тип документа объявлен в его front matter; индекс хранит результат
+        # маршрутизации и для большинства файлов даёт "unknown". Читать только индекс
+        # означало бы никогда не проверять структуру после применения дельты.
+        doc_type = str((front_matter or {}).get("doc_type") or "")
+        if not doc_type:
+            for doc in payload.get("documents") or []:
+                if doc.get("path") == rel_path:
+                    doc_type = str(doc.get("doc_type") or "")
+                    break
+        if not doc_type or doc_type == "unknown":
+            return None
+        descriptor = dict(getattr(ctx.registry_types, "doc_types", {}).get(doc_type) or {})
+        if not descriptor:
+            return None
+        schema_path = schema_file(ctx.root, ctx.dataset, "doc_type", descriptor)
+        if schema_path is not None and schema_path.is_file():
+            try:
+                loaded = load_json_file(schema_path)
+            except ValidationError:
+                loaded = None
+            if isinstance(loaded, dict):
+                descriptor["schema_data"] = loaded
+        return descriptor
+
+    return lookup
+
+
+@change.command("list")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--status", default=None)
+def change_list(roots: tuple[str, ...], output: str, no_input: bool, status: str | None) -> None:
+    """Список изменений; --status фильтрует по состоянию жизненного цикла."""
+    ctx = _contexts(roots)[0]
+    items = list_changes(ctx.root, status)
+    _emit_ok({"dataset_id": ctx.dataset_id, "total": len(items),
+              "items": [{k: v for k, v in i.items() if k != "baseline"} for i in items]}, output, None)
+
+
+@change.command("open")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--title", required=True)
+@click.option("--blocked-by", multiple=True)
+@click.option("--artifact", multiple=True)
+def change_open(roots: tuple[str, ...], output: str, no_input: bool, title: str,
+                blocked_by: tuple[str, ...], artifact: tuple[str, ...]) -> None:
+    """Открывает изменение и снимает базовую линию: хеши артефактов и диагностики."""
+    ctx = _contexts(roots)[0]
+    _folders, _docs, _records, _relations, diagnostics = ctx.scan_and_validate()
+    baseline = {"artifacts": {a: file_hash(ctx.root / a) if (ctx.root / a).is_file() else ""
+                              for a in artifact},
+                "diagnostics": sorted(f"{d['code']}:{d['path']}" for d in diagnostics)}
+    record = open_change(ctx.root, title, blocked_by=blocked_by, artifacts=artifact,
+                         baseline=baseline, history=ctx.history_recorder(change_id_for(title)))
+    _emit_ok({"dataset_id": ctx.dataset_id, "change_id": record["record_id"],
+              "path": str(record_path(ctx.root, record["record_id"]).relative_to(ctx.root)),
+              "status": record["status"], "artifacts": record["artifacts"],
+              "next": "положите дельты в changes/<id>/deltas/*.md"}, output, None)
+
+
+@change.command("show")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("change_id")
+def change_show(roots: tuple[str, ...], output: str, no_input: bool, change_id: str) -> None:
+    """Запись изменения и её дельты."""
+    ctx = _contexts(roots)[0]
+    record = load_change(ctx.root, change_id)
+    if record is None:
+        raise TodocError(f"Изменение не найдено: {change_id}", EXIT_INCOMPLETE, "change.not_found")
+    deltas = collect_deltas(ctx.root, change_id)
+    _emit_ok({"dataset_id": ctx.dataset_id, "record": record,
+              "deltas": [{"path": d["path"], "target": d["target"], "base_hash": d["base_hash"],
+                          "order": d["order"],
+                          "ops": [{"op": o["op"], "anchor": o["anchor"]} for o in d["ops"]]}
+                         for d in deltas]}, output, None)
+
+
+@change.command("validate")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("change_id")
+def change_validate(roots: tuple[str, ...], output: str, no_input: bool, change_id: str) -> None:
+    """Применимость дельт к живому состоянию: цель, якорь, base_hash, структура после."""
+    ctx = _contexts(roots)[0]
+    diagnostics = validate_change(ctx.root, change_id, ctx.dataset_id, _descriptor_lookup(ctx))
+    errors = [d for d in diagnostics if d.severity == "error"]
+    _emit_ok({"dataset_id": ctx.dataset_id, "change_id": change_id,
+              "applicable": not errors, "errors": len(errors),
+              "warnings": len(diagnostics) - len(errors)}, output, None,
+             diagnostics=[d.to_dict() for d in diagnostics])
+
+
+@change.command("verify")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("change_id")
+def change_verify(roots: tuple[str, ...], output: str, no_input: bool, change_id: str) -> None:
+    """Completeness / correctness / coherence — детерминированно, без модели."""
+    ctx = _contexts(roots)[0]
+    result = verify_change(ctx.root, change_id)
+    if not result.get("found"):
+        raise TodocError(f"Изменение не найдено: {change_id}", EXIT_INCOMPLETE, "change.not_found")
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+@change.command("apply")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("change_id")
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-hash", multiple=True, help="PATH=sha256:… — отказ, если файл ушёл.")
+def change_apply(roots: tuple[str, ...], output: str, no_input: bool, change_id: str,
+                 apply_: bool, if_hash: tuple[str, ...]) -> None:
+    """Bundle-транзакция: без --apply показывает план, с --apply пишет всё или ничего."""
+    ctx = _contexts(roots)[0]
+    expected: dict[str, str] = {}
+    for item in if_hash:
+        key, _, value = item.partition("=")
+        if not value:
+            raise TodocError(f"--if-hash ожидает PATH=sha256:…, получено {item!r}",
+                             EXIT_USAGE, "usage.error")
+        expected[key] = value
+    # Рекодер получает change_id: без него события применения не связаны с задачей
+    # и `log --change <id>` возвращает пустоту (§2, §5.1).
+    result = apply_change(ctx.root, change_id, apply=apply_,
+                          history=ctx.history_recorder(change_id),
+                          dataset_id=ctx.dataset_id, descriptor_lookup=_descriptor_lookup(ctx),
+                          expected_hashes=expected)
+    if result.get("applied"):
+        ctx.ensure_index()
+    # Диагностики плана обязаны попасть в конверт: без них отказ «applied: false»
+    # необъясним, и агент не узнает, что именно мешает применить изменение.
+    payload = {"dataset_id": ctx.dataset_id, **result}
+    diagnostics = [d for d in (result.get("diagnostics") or []) if isinstance(d, dict)]
+    _emit_ok({k: v for k, v in payload.items() if k != "diagnostics"}, output, None,
+             diagnostics=diagnostics)
+
+
+@change.command("archive")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("change_id")
+@click.option("--tag", default=None)
+def change_archive(roots: tuple[str, ...], output: str, no_input: bool, change_id: str,
+                   tag: str | None) -> None:
+    """Закрывает изменение; --tag ставит метку истории на последнее событие."""
+    ctx = _contexts(roots)[0]
+    result = archive_change(ctx.root, change_id, tag, ctx.root,
+                            history=ctx.history_recorder(change_id))
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+@change.command("revert")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("change_id")
+@click.option("--apply", "apply_", is_flag=True)
+def change_revert(roots: tuple[str, ...], output: str, no_input: bool, change_id: str,
+                  apply_: bool) -> None:
+    """Откат применения к базовой линии изменения. Без --apply — только план."""
+    ctx = _contexts(roots)[0]
+    result = revert_change(ctx.root, change_id, apply=apply_,
+                           history=ctx.history_recorder(change_id))
+    if result.get("applied"):
+        ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+
+
+@cli.command("context")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--change", "change_id", default=None)
+@click.option("--tag", default=None)
+@click.option("--budget", type=int, default=8000, show_default=True)
+@click.option("--with-diff", is_flag=True)
+def context_cmd(roots: tuple[str, ...], output: str, no_input: bool, change_id: str | None,
+                tag: str | None, budget: int, with_diff: bool) -> None:
+    """Весь контекст задачи одним вызовом, в пределах бюджета байт."""
+    ctx = _contexts(roots)[0]
+    if not change_id and not tag:
+        raise TodocError("Нужен --change или --tag", EXIT_USAGE, "usage.error")
+    limits = ctx.dataset.get("limits") or {}
+    max_diff_lines = limits.get("max_diff_lines")
+    result = build_context(ctx.root, ctx.dataset_id, change_id=change_id, tag=tag,
+                           budget=budget, with_diff=with_diff,
+                           max_diff_lines=max_diff_lines if isinstance(max_diff_lines, int) else None)
     _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
 
 
