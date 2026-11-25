@@ -6,6 +6,7 @@ doc:home,HOME.md,moc,.,authored,ru,95
 doc:demo-readme,README.md,demo-readme,.,authored,ru,63
 doc:architecture-data-model,architecture/data-model.md,architecture-doc,architecture,authored,ru,29
 doc:architecture-system,architecture/system-architecture.md,architecture-doc,architecture,authored,ru,32
+doc:attachments/docs-inventory.csv,attachments/docs-inventory.csv,inventory,attachments,authored,ru,91
 competitor:anythingllm,competitors/anythingllm.md,competitor-card,competitors,authored,ru,37
 competitor:astro-han-llm-wiki,competitors/astro-han-llm-wiki.md,competitor-card,competitors,authored,ru,37
 competitor:basic-memory,competitors/basic-memory.md,competitor-card,competitors,authored,ru,37
@@ -83,9 +84,9 @@ doc:state-known-issues,references/state/11-known-issues.md,reference,references/
 doc:state-agent-ops,references/state/12-agent-operations.md,reference,references/state,copied,ru,96
 doc:state-demo,references/state/13-demo-dataset.md,reference,references/state,copied,ru,115
 doc:state-glossary,references/state/14-glossary.md,reference,references/state,copied,ru,54
+doc:state-benchmark,references/state/15-benchmark.md,reference,references/state,copied,ru,169
 doc:state-readme,references/state/README.md,reference,references/state,copied,ru,48
 doc:ref-type-system,references/type-system.generated.md,reference,references,copied,en,19
 doc:ref-types-validation,references/types-and-validation.md,reference,references,copied,en,15
 doc:ref-workflow,references/workflow.md,reference,references,copied,en,16
 doc:skill,skill/SKILL.md,skill,skill,copied,en,57
-doc:attachments/docs-inventory.csv,attachments/docs-inventory.csv,inventory,attachments,authored,ru,91

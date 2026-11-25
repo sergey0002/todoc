@@ -70,6 +70,39 @@ def test_aggregate_unit_mismatch():
         aggregate_records(records, "workout", "volume")
 
 
+def test_aggregate_unit_mismatch_names_the_group():
+    """A mismatch inside one group is refused, and the message says which group."""
+    records = [
+        {"record_id": "m:1", "entity_type": "metric",
+         "data": {"aspect": "tests", "value": {"value": 1, "unit": "count"}}},
+        {"record_id": "m:2", "entity_type": "metric",
+         "data": {"aspect": "tests", "value": {"value": 2, "unit": "ms"}}},
+    ]
+    with pytest.raises(ValidationError) as exc:
+        aggregate_records(records, "metric", "value", "aspect")
+    assert exc.value.code == "query.unit_mismatch"
+    assert "tests" in exc.value.message and "count" in exc.value.message
+
+
+def test_aggregate_mixed_units_across_groups_is_allowed():
+    """Different groups may carry different units; each group reports its own."""
+    records = [
+        {"record_id": "m:1", "entity_type": "metric",
+         "data": {"aspect": "tests", "value": {"value": 300, "unit": "count"}}},
+        {"record_id": "m:2", "entity_type": "metric",
+         "data": {"aspect": "tests", "value": {"value": 27, "unit": "count"}}},
+        {"record_id": "m:3", "entity_type": "metric",
+         "data": {"aspect": "performance", "value": {"value": 1500, "unit": "ms"}}},
+        {"record_id": "m:4", "entity_type": "metric",
+         "data": {"aspect": "benchmark", "value": {"value": 0.94, "unit": "ratio"}}},
+    ]
+    result = aggregate_records(records, "metric", "value", "aspect")
+    assert result["groups"] == {"tests": 327.0, "performance": 1500.0, "benchmark": 0.94}
+    assert result["group_units"] == {"tests": "count", "performance": "ms", "benchmark": "ratio"}
+    # no single unit describes the whole result
+    assert result["units"] == ""
+
+
 def test_aggregate_plain_number():
     records = [{"record_id": "w:1", "entity_type": "workout", "data": {"reps": 5}}]
     result = aggregate_records(records, "workout", "reps")

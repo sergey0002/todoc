@@ -1,6 +1,6 @@
 ---
 id: doc:after-search-vector
-title: AFTER: поиск, эмбеддинги и векторный слой
+title: "AFTER: поиск, эмбеддинги и векторный слой"
 doc_type: after-plan
 lang: ru
 source: .doc/plan/search-embeddings-vector.after.md

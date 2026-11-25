@@ -1,6 +1,6 @@
 ---
 id: doc:comparative-audit
-title: Comparative audit: статический аудит Agent Skills
+title: "Comparative audit: статический аудит Agent Skills"
 doc_type: research-report
 lang: ru
 source: todoc_knowledge_base_comparative_audit.md

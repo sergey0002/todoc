@@ -1,6 +1,6 @@
 ---
 id: doc:state-cli
-title: Состояние: справочник CLI, 25 команд
+title: "Состояние: справочник CLI, 25 команд"
 doc_type: reference
 lang: ru
 source: .doc/state/03-cli-reference.md

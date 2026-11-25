@@ -1,6 +1,6 @@
 ---
 id: doc:ref-ingest-query-lint
-title: Reference: ingest, query, write, lint
+title: "Reference: ingest, query, write, lint"
 doc_type: reference
 lang: en
 source: references/ingest-query-lint.md

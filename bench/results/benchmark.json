@@ -1,0 +1,605 @@
+{
+  "meta": {
+    "date": "2026-11-25 05:57:48",
+    "corpus": "/tmp/todoc-bench-corpus",
+    "documents": 254,
+    "records": 157,
+    "relations": 140,
+    "latency_ms": {
+      "status": 147,
+      "types list": 142,
+      "docs search": 1409,
+      "docs read": 977,
+      "records list": 995,
+      "validate": 935
+    },
+    "seeded_defects": 9
+  },
+  "score": {
+    "total": 29.5,
+    "max": 30.0
+  },
+  "criteria": [
+    {
+      "id": "K1",
+      "group": "Контракт",
+      "name": "stdout — ровно один JSON-конверт",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "exit=0, ключи конверта совпадают: True"
+    },
+    {
+      "id": "K2",
+      "group": "Контракт",
+      "name": "Стабильные коды выхода (3 = валидация)",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "docs read для неизвестного id → exit 3, traceback=False"
+    },
+    {
+      "id": "K3",
+      "group": "Контракт",
+      "name": "Ошибка использования → exit 2",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "отсутствие обязательного --id → exit 2"
+    },
+    {
+      "id": "K4",
+      "group": "Контракт",
+      "name": "next_actions: ключ всегда, подсказка при успехе и при диагностике",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "ключ есть везде: True; успех→1, validate→1 (диагностик: 11)"
+    },
+    {
+      "id": "K5",
+      "group": "Контракт",
+      "name": "Discovery: types guide описывает типовую систему",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "символов в guide: 2819"
+    },
+    {
+      "id": "K6",
+      "group": "Корректность",
+      "name": "Детекция дефектов: precision/recall на seeded-корпусе",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "precision=1.00, recall=1.00, F1=1.00; TP=9, FN=0, FP=0"
+    },
+    {
+      "id": "K7",
+      "group": "Корректность",
+      "name": "Точные локации (line/column) у диагностик",
+      "status": "partial",
+      "score": 0.55,
+      "detail": "6 из 11 диагностик имеют номер строки"
+    },
+    {
+      "id": "K8",
+      "group": "Корректность",
+      "name": "Front matter совместим с внешним YAML-парсером",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "PyYAML: 0 файлов разобрано, 0 с ошибкой"
+    },
+    {
+      "id": "K9",
+      "group": "Корректность",
+      "name": "Присвоение doc_type: front matter важнее маски папки",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "doc_type=guide, rule_source=rule:fm-guide"
+    },
+    {
+      "id": "K10",
+      "group": "Корректность",
+      "name": "Валидация записей: схема, тип, целостность отношений",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "отказы записи: [('missing_field', 'record.missing_field'), ('unknown_type', 'record.unknown_entity_type')]; файл не создан: True; коды отношений: ['relation.dangling_target', 'relation.unknown_type']"
+    },
+    {
+      "id": "K11",
+      "group": "Детерминизм",
+      "name": "Повторный scan даёт идентичные данные",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "совпало: True, размер данных: 102 байт"
+    },
+    {
+      "id": "K12",
+      "group": "Детерминизм",
+      "name": "Чтение не изменяет источники (инвариантность хешей)",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "изменено: 0, добавлено: 0"
+    },
+    {
+      "id": "K13",
+      "group": "Детерминизм",
+      "name": "Идентификаторы диагностик стабильны между запусками",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "тела диагностик идентичны: True; id совпали: True"
+    },
+    {
+      "id": "K14",
+      "group": "Безопасность",
+      "name": "preview не пишет файлы и показывает план",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "target=records/note/note:bench-safety-c4d79c59.json, файлов изменено: 0"
+    },
+    {
+      "id": "K15",
+      "group": "Безопасность",
+      "name": "create-only: повторная запись → конфликт (exit 5)",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "первая запись exit=0, повторная exit=5"
+    },
+    {
+      "id": "K16",
+      "group": "Безопасность",
+      "name": "Containment: --out не пишет вне DATA_ROOT",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "файл вне корня создан: False, exit=4"
+    },
+    {
+      "id": "K17",
+      "group": "Чтение",
+      "name": "Чтение без селектора: заголовок и оглавление",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "заголовков: 69, текст: 4000 символов"
+    },
+    {
+      "id": "K18",
+      "group": "Чтение",
+      "name": "Чтение раздела возвращает только раздел (≤40 строк)",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "раздел '0. Аудит plan.md: цели, возмож': 40 строк"
+    },
+    {
+      "id": "K19",
+      "group": "Чтение",
+      "name": "--budget ограничивает объём ответа",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "возвращено 500 символов при бюджете 500"
+    },
+    {
+      "id": "K20",
+      "group": "Чтение",
+      "name": "JSON Pointer (RFC 6901): значение, вложенность, ошибка",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "/record_id → 'competitor:anythingllm' (ожидалось 'competitor:anythingllm'); /no_such_field → exit 3"
+    },
+    {
+      "id": "K21",
+      "group": "Чтение",
+      "name": "CSV-проекция: колонки и строки",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "строк: 5, колонок: ['doc_id', 'doc_type']"
+    },
+    {
+      "id": "K22",
+      "group": "Поиск",
+      "name": "Recall@3 и MRR на размеченных запросах",
+      "status": "pass",
+      "score": 0.97,
+      "detail": "Recall@3=0.94, Precision@3=0.94, MRR=1.00, запросов: 12"
+    },
+    {
+      "id": "K23",
+      "group": "Поиск",
+      "name": "Ранжирование детерминировано",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "порядок совпал: True, результатов: 5"
+    },
+    {
+      "id": "K24",
+      "group": "Поиск",
+      "name": "Пагинация через --cursor продолжает выдачу без повторов",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "cursor=2, вторая страница вернула 2 из total=31, пересечений с первой: 0"
+    },
+    {
+      "id": "K25",
+      "group": "Устойчивость",
+      "name": "Враждебный ввод не роняет CLI",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "exit=3, конверт: True, traceback: False"
+    },
+    {
+      "id": "K26",
+      "group": "Устойчивость",
+      "name": "Некорректные аргументы → конверт, а не traceback",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "--cursor abc: exit=3, traceback=False; --line-range abc: exit=3, traceback=False"
+    },
+    {
+      "id": "K27",
+      "group": "Производительность",
+      "name": "Латентность команд в пределах бюджета",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=147мс, types list=142мс, docs search=1409мс, docs read=977мс, records list=995мс, validate=935мс"
+    },
+    {
+      "id": "K28",
+      "group": "Качество кода",
+      "name": "Тестовый набор проходит",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "332 passed"
+    },
+    {
+      "id": "K29",
+      "group": "Качество кода",
+      "name": "Покрытие кода тестами",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "покрытие 100%, пропущено инструкций: 0, веток: 0"
+    },
+    {
+      "id": "K30",
+      "group": "Портабельность",
+      "name": "8 подкритериев портабельности (максимум 8)",
+      "status": "pass",
+      "score": 1.0,
+      "detail": "plain-files=да, no-database=да, derived-ignored=да, yaml-front-matter=да, relative-links=да, git-diffable=да, no-vendor-dirs=да, documented-types=да"
+    }
+  ],
+  "evidence": {
+    "K1": {
+      "keys": [
+        "data",
+        "diagnostics",
+        "next_actions",
+        "ok",
+        "schema_version"
+      ],
+      "stdout_bytes": 258
+    },
+    "K4": {
+      "ok_actions": [
+        {
+          "argv": [
+            "todoc",
+            "--root",
+            "/tmp/todoc-bench-corpus",
+            "docs",
+            "read",
+            "--id",
+            "doc:implementation-plan",
+            "--output",
+            "json"
+          ],
+          "purpose": "Прочитать выбранный документ"
+        }
+      ],
+      "validate_actions": [
+        {
+          "argv": [
+            "todoc",
+            "fix",
+            "--diagnostic",
+            "diag_2195c0a07658",
+            "--preview"
+          ],
+          "purpose": "Показать план исправления первой диагностики"
+        }
+      ]
+    },
+    "K6": {
+      "expected": [
+        [
+          "bench-notes/broken-link.md",
+          "markdown.link.target_missing"
+        ],
+        [
+          "bench-notes/unsafe-front-matter.md",
+          "markdown.front_matter.yaml_unsafe"
+        ],
+        [
+          "bench-records/bad-syntax.json",
+          "json.syntax_error"
+        ],
+        [
+          "bench-records/duplicate-key.json",
+          "json.duplicate_key"
+        ],
+        [
+          "bench-records/invalid-constant.json",
+          "json.invalid_constant"
+        ],
+        [
+          "bench-records/relation-unknown-type.json",
+          "relation.unknown_type"
+        ],
+        [
+          "bench-records/schema-violation.json",
+          "record.schema_violation"
+        ],
+        [
+          "bench-records/schema-violation.json",
+          "relation.dangling_target"
+        ],
+        [
+          "bench-records/too-deep.json",
+          "json.too_deep"
+        ]
+      ],
+      "missed": [],
+      "unexpected": []
+    },
+    "K8": {
+      "ok": 0,
+      "bad": 0,
+      "skipped": "PyYAML недоступен"
+    },
+    "K12": {
+      "changed": [],
+      "added": []
+    },
+    "K13": {
+      "ids_run1": [
+        "diag_2195c0a07658",
+        "diag_5c938189a484",
+        "diag_f9fd58396ae4",
+        "diag_6d295a89050c",
+        "diag_dbcf80a700e9"
+      ],
+      "ids_run2": [
+        "diag_2195c0a07658",
+        "diag_5c938189a484",
+        "diag_f9fd58396ae4",
+        "diag_6d295a89050c",
+        "diag_dbcf80a700e9"
+      ]
+    },
+    "K22": {
+      "per_query": [
+        {
+          "query": "портабельность",
+          "relevant_total": 41,
+          "top3": [
+            "competitor:anythingllm",
+            "competitor:astro-han-llm-wiki",
+            "competitor:basic-memory"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "JSON Pointer",
+          "relevant_total": 52,
+          "top3": [
+            "doc:ref-formats",
+            "competitor:openkb",
+            "doc:after-mcp-adapter"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "конституция",
+          "relevant_total": 24,
+          "top3": [
+            "doc:constitution",
+            "doc:after-memory-llm-wiki",
+            "doc:after-plugins-formats"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "MCP",
+          "relevant_total": 29,
+          "top3": [
+            "competitor:mem0",
+            "doc:after-mcp-adapter",
+            "doc:guide-mcp"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "эмбеддинги",
+          "relevant_total": 4,
+          "top3": [
+            "doc:after-search-vector",
+            "doc:home",
+            "doc:records/documents/search-embeddings-vector-after.json"
+          ],
+          "relevant_in_top3": 2
+        },
+        {
+          "query": "агрегация единицы",
+          "relevant_total": 16,
+          "top3": [
+            "doc:after-mcp-adapter",
+            "doc:constitution",
+            "doc:engineering-plan"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "диагностика",
+          "relevant_total": 17,
+          "top3": [
+            "glossary:diagnostic",
+            "doc:after-mcp-adapter",
+            "doc:competitive-analysis"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "wikilink",
+          "relevant_total": 16,
+          "top3": [
+            "competitor:foam",
+            "competitor:obsidian",
+            "doc:after-mcp-adapter"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "поколение индекса",
+          "relevant_total": 27,
+          "top3": [
+            "glossary:generation",
+            "doc:architecture-system",
+            "doc:audit-implementation"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "token economy",
+          "relevant_total": 15,
+          "top3": [
+            "doc:note-token-economy",
+            "doc:attachments/docs-inventory.csv",
+            "doc:guide-cli"
+          ],
+          "relevant_in_top3": 2
+        },
+        {
+          "query": "конкурент",
+          "relevant_total": 50,
+          "top3": [
+            "doc:competitive-analysis",
+            "doc:state-benchmark",
+            "competitor:anythingllm"
+          ],
+          "relevant_in_top3": 3
+        },
+        {
+          "query": "front matter",
+          "relevant_total": 22,
+          "top3": [
+            "competitor:okf",
+            "doc:after-mcp-adapter",
+            "doc:after-plugins-formats"
+          ],
+          "relevant_in_top3": 3
+        }
+      ]
+    },
+    "K27": [
+      {
+        "command": "status",
+        "median_ms": 147,
+        "limit_ms": 1500,
+        "within": true
+      },
+      {
+        "command": "types list",
+        "median_ms": 142,
+        "limit_ms": 1500,
+        "within": true
+      },
+      {
+        "command": "docs search",
+        "median_ms": 1409,
+        "limit_ms": 2500,
+        "within": true
+      },
+      {
+        "command": "docs read",
+        "median_ms": 977,
+        "limit_ms": 2500,
+        "within": true
+      },
+      {
+        "command": "records list",
+        "median_ms": 995,
+        "limit_ms": 2500,
+        "within": true
+      },
+      {
+        "command": "validate",
+        "median_ms": 935,
+        "limit_ms": 4000,
+        "within": true
+      }
+    ],
+    "K30": {
+      "plain-files": true,
+      "no-database": true,
+      "derived-ignored": true,
+      "yaml-front-matter": true,
+      "relative-links": true,
+      "git-diffable": true,
+      "no-vendor-dirs": true,
+      "documented-types": true
+    }
+  },
+  "competitors": {
+    "obsidiantools": {
+      "elapsed_s": 7.111,
+      "notes": 90,
+      "local_md_links": 275,
+      "broken_links_detected": 1,
+      "broken_samples": [
+        "broken-link -> does-not-exist.md"
+      ],
+      "backlinks": 88,
+      "isolated_notes": 86,
+      "front_matter_index": 88,
+      "available": true,
+      "front_matter_warnings": 3,
+      "reused_from": "/tmp/prev-benchmark.json"
+    },
+    "open-knowledge": {
+      "available": true,
+      "commands": {
+        "help": {
+          "exit_code": 0,
+          "elapsed_s": 0.538,
+          "stdout_bytes": 4967,
+          "stderr_bytes": 0,
+          "first_line": "Usage: open-knowledge [options] [file | command]"
+        },
+        "status": {
+          "exit_code": 0,
+          "elapsed_s": 0.614,
+          "stdout_bytes": 40,
+          "stderr_bytes": 0,
+          "first_line": "server  not running"
+        },
+        "diagnose": {
+          "exit_code": 1,
+          "elapsed_s": 0.515,
+          "stdout_bytes": 0,
+          "stderr_bytes": 714,
+          "first_line": ""
+        }
+      },
+      "version": "0.28.2",
+      "subcommands": 12,
+      "writes_into_corpus": [],
+      "reused_from": "/tmp/prev-benchmark.json"
+    },
+    "open-knowledge-capabilities": {
+      "validate": false,
+      "search": true,
+      "index": false,
+      "mcp": true,
+      "skills": true,
+      "sync": true,
+      "ui": true,
+      "graph": false,
+      "types": false,
+      "records": false,
+      "reused_from": "/tmp/prev-benchmark.json"
+    }
+  }
+}

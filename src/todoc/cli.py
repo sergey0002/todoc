@@ -13,12 +13,13 @@ from todoc import __version__
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
-from todoc.adapters.formats.markdown import parse_markdown
+from todoc.adapters.formats.markdown import heading_path_for, parse_markdown
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
+from todoc.application.validator import _load_record_schemas, stable_id
 from todoc.application.write import apply_edit_ops, apply_fix, apply_write_plan, create_record_plan, load_input_record
 from todoc.config import init_dataset
-from todoc.errors import EXIT_USAGE, TodocError, ValidationError
+from todoc.errors import EXIT_USAGE, AccessError, TodocError, ValidationError
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 
@@ -28,7 +29,24 @@ def _emit_ok(data: dict[str, Any], output: str, out: str | None, diagnostics: li
     emit(make_envelope(True, data, diagnostics, next_actions), output, out)
 
 
+def _emit_result(data: dict[str, Any], output: str, diagnostics: list[dict[str, Any]], failed: bool) -> None:
+    """Emit a validation result whose envelope agrees with the exit code.
+
+    Findings live in the envelope's ``diagnostics`` (not only inside ``data``),
+    and ``ok`` is ``false`` whenever the call exits non-zero — a caller must not
+    have to reconcile ``ok: true`` with exit code 3.
+    """
+    actions = [{"argv": ["todoc", "fix", "--diagnostic", str(diagnostics[0].get("id", "")), "--preview"],
+                "purpose": "Показать план исправления первой диагностики"}] if diagnostics else []
+    emit(make_envelope(not failed, data, diagnostics, actions), output, None)
+    if failed:
+        sys.exit(3)
+
+
+SECTION_MAX_LINES = 40
+
 _group_roots: tuple[str, ...] = ()
+_group_output: str = "json"
 
 
 def _effective_roots(roots: tuple[str, ...]) -> tuple[str, ...]:
@@ -47,6 +65,57 @@ def _root_argv(roots: tuple[str, ...]) -> list[str]:
     return argv
 
 
+def _record_schema(root: Path, entity_type: str) -> dict[str, Any] | None:
+    """The entity type's JSON Schema, when the dataset declares one."""
+    return _load_record_schemas(root).get(entity_type)
+
+
+def _contained_out(root: Path, out: str) -> Path:
+    """Resolve ``--out`` and refuse targets outside DATA_ROOT.
+
+    Containment is checked on the resolved path, so symlinks and ``..`` cannot
+    be used to write into the operator's home directory or the repository root.
+    """
+    candidate = Path(out)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve()
+    base = Path(root).resolve()
+    if base not in resolved.parents:
+        raise AccessError(f"--out must stay inside DATA_ROOT ({base}): {resolved}", "access.outside_data_root")
+    return resolved
+
+
+def _parse_offset(cursor: str | None) -> int:
+    """Opaque-but-validated cursor: an integer offset, never a Python traceback."""
+    if cursor is None or cursor == "":
+        return 0
+    try:
+        offset = int(cursor)
+    except ValueError as exc:
+        raise ValidationError(f"Invalid --cursor: {cursor!r} (expected a non-negative integer)",
+                              "usage.invalid_cursor") from exc
+    if offset < 0:
+        raise ValidationError(f"Invalid --cursor: {cursor!r} (expected a non-negative integer)",
+                              "usage.invalid_cursor")
+    return offset
+
+
+def _parse_line_range(line_range: str) -> tuple[int, int]:
+    """Parse ``N`` or ``N-M`` into a 1-based inclusive range."""
+    start_s, sep, end_s = line_range.partition("-")
+    try:
+        start = int(start_s)
+        end = int(end_s) if sep and end_s else start
+    except ValueError as exc:
+        raise ValidationError(f"Invalid --line-range: {line_range!r} (expected N or N-M)",
+                              "usage.invalid_line_range") from exc
+    if start < 1 or end < start:
+        raise ValidationError(f"Invalid --line-range: {line_range!r} (expected N or N-M, N >= 1, M >= N)",
+                              "usage.invalid_line_range")
+    return start, end
+
+
 @click.group(invoke_without_command=True)
 @click.option("--root", "roots", multiple=True, help="DATA_ROOT (repeatable). Or set TODOC_ROOT.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
@@ -56,8 +125,9 @@ def _root_argv(roots: tuple[str, ...]) -> list[str]:
 def cli(ctx: click.Context, roots: tuple[str, ...], output: str, no_input: bool) -> None:
     """todoc — portable typed knowledge substrate (validator + bounded search/read)."""
     ctx.ensure_object(dict)
-    global _group_roots
+    global _group_roots, _group_output
     _group_roots = roots
+    _group_output = output
     ctx.obj["roots"] = roots
     ctx.obj["output"] = output
     ctx.obj["no_input"] = no_input
@@ -100,6 +170,7 @@ def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
 def check(roots: tuple[str, ...], output: str, no_input: bool, strict: bool) -> None:
     """Short health summary + general diagnostics (multi-root isolated)."""
     reports = []
+    collected: list[dict[str, Any]] = []
     has_error = False
     for ctx in _contexts(roots):
         _folders, documents, _records, _relations, diagnostics = ctx.scan_and_validate()
@@ -109,9 +180,8 @@ def check(roots: tuple[str, ...], output: str, no_input: bool, strict: bool) -> 
             has_error = True
         reports.append({"dataset_id": ctx.dataset_id, "documents": len(documents), "errors": errors,
                         "warnings": warnings, "status": "issues_found" if errors else "ok"})
-    _emit_ok({"datasets": reports}, output, None)
-    if has_error:
-        sys.exit(3)
+        collected.extend(diagnostics)
+    _emit_result({"datasets": reports}, output, collected, has_error)
 
 
 @cli.command()
@@ -136,6 +206,7 @@ def scan(roots: tuple[str, ...], output: str, no_input: bool) -> None:
 def validate(roots: tuple[str, ...], output: str, no_input: bool, all_: bool) -> None:
     """Detailed file/rule/location report."""
     reports = []
+    collected: list[dict[str, Any]] = []
     has_error = False
     for ctx in _contexts(roots):
         _f, documents, _r, _rel, diagnostics = ctx.scan_and_validate()
@@ -143,9 +214,8 @@ def validate(roots: tuple[str, ...], output: str, no_input: bool, all_: bool) ->
         if errors:
             has_error = True
         reports.append({"dataset_id": ctx.dataset_id, "documents": len(documents), "diagnostics": diagnostics})
-    _emit_ok({"datasets": reports}, output, None)
-    if has_error:
-        sys.exit(3)
+        collected.extend(diagnostics)
+    _emit_result({"datasets": reports}, output, collected, has_error)
 
 
 @cli.group()
@@ -211,7 +281,7 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
     ctx = _contexts(roots)[0]
     slug = "".join(c if c.isalnum() or c in "-_" else "-" for c in title.lower()).strip("-") or "untitled"
     rel = f"{dir_.strip('/')}/{slug}.md"
-    target = ctx.root / rel
+    target = _contained_out(ctx.root, rel)  # --dir may not escape DATA_ROOT
     if target.exists():
         from todoc.errors import ConflictError
         raise ConflictError(f"Target already exists: {rel}", "docs.target_exists")
@@ -237,14 +307,14 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, doc_type: s
     ctx = _contexts(roots)[0]
     ctx.rebuild_index()
     payload = ctx.load_index()
-    hits, total, truncated = search_documents(ctx.root, payload["documents"], query, doc_type, within, limit, budget)
-    start = int(cursor) if cursor else 0
-    page = hits[start:start + limit] if start else hits
-    next_cursor = str(start + len(page)) if truncated and start + len(page) < total else None
-    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "returned": len(page), "truncated": truncated,
-              "cursor": next_cursor, "items": [h.to_dict() for h in page]}, output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", page[0].id, "--output", "json"],
-                            "purpose": "Прочитать выбранный документ"}] if page else [])
+    offset = _parse_offset(cursor)
+    hits, total, truncated = search_documents(ctx.root, payload["documents"], query, doc_type, within, limit,
+                                             budget, offset)
+    next_cursor = str(offset + len(hits)) if truncated else None
+    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "returned": len(hits), "truncated": truncated,
+              "cursor": next_cursor, "items": [h.to_dict() for h in hits]}, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", hits[0].id, "--output", "json"],
+                            "purpose": "Прочитать выбранный документ"}] if hits else [])
 
 
 @docs.command("read")
@@ -278,21 +348,31 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
         if section or anchor:
             wanted = section or anchor or ""
             selected = None
-            for h in md.headings:
+            selected_index = -1
+            for i, h in enumerate(md.headings):
                 if h.title == wanted or h.anchor == wanted:
                     selected = h
+                    selected_index = i
                     break
             if selected is None:
                 raise ValidationError(f"Section not found: {wanted}", "docs.section_not_found")
             lines = text.splitlines()
+            end_line = len(lines)
+            for h in md.headings[selected_index + 1:]:
+                if h.level <= selected.level:
+                    end_line = h.line - 1
+                    break
+            section_lines = lines[selected.line - 1:end_line]
+            window = section_lines[:SECTION_MAX_LINES]
             data["section"] = selected.title
-            data["heading_path"] = [selected.title]
-            data["lines"] = lines[selected.line - 1:selected.line + 40]
-            data["text"] = "\n".join(data["lines"])
+            data["heading_path"] = heading_path_for(md.headings, selected_index)
+            data["line_start"] = selected.line
+            data["line_end"] = selected.line + len(window) - 1
+            data["lines"] = window
+            data["truncated"] = len(section_lines) > len(window)
+            data["text"] = "\n".join(window)
         elif line_range:
-            start_s, _, end_s = line_range.partition("-")
-            start = int(start_s)
-            end = int(end_s) if end_s else start
+            start, end = _parse_line_range(line_range)
             lines = text.splitlines()
             data["lines"] = lines[start - 1:end]
             data["text"] = "\n".join(data["lines"])
@@ -367,7 +447,13 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
         patch = json.loads(patch_text)
     except json.JSONDecodeError as exc:
         raise ValidationError(f"Invalid patch file: {exc}", "edit.invalid_patch") from exc
+    if not isinstance(patch, dict):
+        raise ValidationError('Patch file must be a JSON object: {"ops": [{"line": N, "text": "..."}]}',
+                              "edit.invalid_patch")
     ops = patch.get("ops") or []
+    if not isinstance(ops, list) or any(not isinstance(op, dict) for op in ops):
+        raise ValidationError('Patch "ops" must be a list of {"line": N, "text": "..."} objects',
+                              "edit.invalid_patch")
     if not apply_:
         _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "preview": True, "ops": ops}, output, None)
         return
@@ -402,7 +488,9 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
         record["entity_type"] = entity_type
     existing_ids = {r["record_id"] for r in payload["records"]}
     existing_paths = {d["path"] for d in payload["documents"]}
-    plan = create_record_plan(ctx.dataset, ctx.registry_types.entity_types, record, existing_ids, existing_paths)
+    schema = _record_schema(ctx.root, entity_type)
+    plan = create_record_plan(ctx.dataset, ctx.registry_types.entity_types, record, existing_ids, existing_paths,
+                              schema)
     if not apply_:
         _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan.to_dict()}, output, None)
         return
@@ -586,9 +674,7 @@ def types_guide(roots: tuple[str, ...], output: str, no_input: bool, fmt: str, o
             lines.append("")
         text = "\n".join(lines)
     if out:
-        out_path = Path(out)
-        if not out_path.is_absolute():
-            out_path = ctx.root / out_path
+        out_path = _contained_out(ctx.root, out)
         atomic_write(out_path, text + "\n")
         _emit_ok({"dataset_id": ctx.dataset_id, "written": str(out_path)}, output, None)
     elif output == "json" and fmt == "markdown":
@@ -673,15 +759,29 @@ def status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     _emit_ok({"datasets": reports}, output, None)
 
 
+def _emit_error(code: str, message: str, exit_code: int) -> None:
+    """Failures are envelopes too: one valid JSON per invocation, plus a human line.
+
+    Callers (agents, scripts, MCP) parse stdout; a bare text line on stderr is
+    not a machine-readable result, so the same fact is also emitted as
+    ``ok: false`` with a diagnostic carrying the stable ``code``.
+    """
+    diagnostic = {"dataset_id": "", "id": stable_id(code, message), "code": code, "severity": "error",
+                  "path": "", "location": {}, "evidence": "", "message": message, "suggested_fixes": []}
+    emit(make_envelope(False, {}, [diagnostic],
+                       [{"argv": ["todoc", "--help"], "purpose": "Показать список команд и опций"}]),
+         _group_output, None)
+    sys.stderr.write(f"Error [{code}]: {message}\n")
+    sys.exit(exit_code)
+
+
 def main() -> None:
     try:
         cli(standalone_mode=False)
     except TodocError as exc:
-        sys.stderr.write(f"Error [{exc.code}]: {exc.message}\n")
-        sys.exit(exc.exit_code)
+        _emit_error(exc.code, exc.message, exc.exit_code)
     except click.ClickException as exc:
-        sys.stderr.write(f"Usage error: {exc.format_message()}\n")
-        sys.exit(EXIT_USAGE)
+        _emit_error("usage.error", exc.format_message(), EXIT_USAGE)
 
 
 if __name__ == "__main__":

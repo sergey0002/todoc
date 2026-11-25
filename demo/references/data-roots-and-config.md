@@ -1,6 +1,6 @@
 ---
 id: doc:ref-data-roots
-title: Reference: data roots and config
+title: "Reference: data roots and config"
 doc_type: reference
 lang: en
 source: references/data-roots-and-config.md

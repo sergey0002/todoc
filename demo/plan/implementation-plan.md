@@ -1,6 +1,6 @@
 ---
 id: doc:implementation-plan
-title: Implementation plan: план реализации MVP
+title: "Implementation plan: план реализации MVP"
 doc_type: implementation-plan
 lang: ru
 source: .doc/plan/implementation-plan.md

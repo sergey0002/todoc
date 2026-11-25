@@ -1,6 +1,6 @@
 ---
 id: doc:ref-formats
-title: Reference: formats CSV/JSON/Markdown
+title: "Reference: formats CSV/JSON/Markdown"
 doc_type: reference
 lang: en
 source: references/formats-csv-json-markdown.md

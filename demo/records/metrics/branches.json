@@ -5,7 +5,7 @@
   "name": "Веток под покрытием",
   "aspect": "tests",
   "value": {
-    "value": 658,
+    "value": 698,
     "unit": "count"
   },
   "source": "coverage report"

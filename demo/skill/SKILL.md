@@ -1,6 +1,6 @@
 ---
 id: doc:skill
-title: Agent Skill todoc: точка входа
+title: "Agent Skill todoc: точка входа"
 doc_type: skill
 lang: en
 source: SKILL.md

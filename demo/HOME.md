@@ -1,6 +1,6 @@
 ---
 id: doc:home
-title: HOME: карта содержимого демо-датасета
+title: "HOME: карта содержимого демо-датасета"
 doc_type: moc
 lang: ru
 ---

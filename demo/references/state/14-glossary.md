@@ -1,6 +1,6 @@
 ---
 id: doc:state-glossary
-title: Состояние: глоссарий
+title: "Состояние: глоссарий"
 doc_type: reference
 lang: ru
 source: .doc/state/14-glossary.md

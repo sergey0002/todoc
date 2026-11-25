@@ -1,6 +1,6 @@
 ---
 id: doc:guide-cli
-title: Guide: CLI для агентов (постулаты и чек-лист)
+title: "Guide: CLI для агентов (постулаты и чек-лист)"
 doc_type: guide
 lang: ru
 source: guide_cli_for_agents_ru.md

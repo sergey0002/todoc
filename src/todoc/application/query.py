@@ -45,20 +45,24 @@ def query_records(records: list[dict[str, Any]], entity_type: str | None = None,
 
 def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_field: str,
                       group_by: str | None = None) -> dict[str, Any]:
-    """Sum a numeric field, optionally grouped. Returns units/formula/provenance."""
+    """Sum a numeric field, optionally grouped. Returns units/formula/provenance.
+
+    Units are checked **per group**: aggregating metrics measured in ``count``,
+    ``ratio`` and ``ms`` is legitimate when they are grouped apart, while mixing
+    two units inside one group is the error worth refusing. The previous global
+    check made any heterogeneous metric set unaggregatable, even with --group-by.
+    """
     selected = [r for r in records if r.get("entity_type") == entity_type]
     if not selected:
         raise ValidationError(f"No records of type {entity_type!r}", "query.no_records")
     groups: dict[str, float] = {}
+    group_units: dict[str, str] = {}
     incoming: list[str] = []
-    units: str | None = None
     for record in selected:
         value = _get_field(record.get("data") or {}, metric_field)
+        unit = ""
         if isinstance(value, dict) and "value" in value:
-            if units is None:
-                units = str(value.get("unit", ""))
-            elif str(value.get("unit", "")) != units:
-                raise ValidationError("Unit mismatch in aggregate", "query.unit_mismatch")
+            unit = str(value.get("unit", ""))
             number = float(value["value"])
         elif isinstance(value, (int, float)):
             number = float(value)
@@ -69,12 +73,20 @@ def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_fi
         if group_by:
             grouped = _get_field(record.get("data") or {}, group_by)
             key = str(grouped) if grouped is not None else "unknown"
+        known = group_units.get(key)
+        if known is None:
+            group_units[key] = unit
+        elif known != unit:
+            raise ValidationError(f"Unit mismatch in aggregate: group {key!r} mixes {known!r} and {unit!r}",
+                                  "query.unit_mismatch")
         groups[key] = groups.get(key, 0.0) + number
         incoming.append(str(record.get("record_id", "")))
+    distinct = sorted(set(group_units.values()))
     return {
         "entity_type": entity_type,
         "metric": metric_field,
-        "units": units or "",
+        "units": distinct[0] if len(distinct) == 1 else "",
+        "group_units": group_units,
         "formula": f"sum({metric_field})",
         "groups": groups,
         "incoming_ids": sorted(incoming),

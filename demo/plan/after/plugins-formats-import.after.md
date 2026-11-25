@@ -1,6 +1,6 @@
 ---
 id: doc:after-plugins-formats
-title: AFTER: плагины форматов и импорт
+title: "AFTER: плагины форматов и импорт"
 doc_type: after-plan
 lang: ru
 source: .doc/plan/plugins-formats-import.after.md

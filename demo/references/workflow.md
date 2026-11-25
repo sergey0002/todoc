@@ -1,6 +1,6 @@
 ---
 id: doc:ref-workflow
-title: Reference: workflow
+title: "Reference: workflow"
 doc_type: reference
 lang: en
 source: references/workflow.md

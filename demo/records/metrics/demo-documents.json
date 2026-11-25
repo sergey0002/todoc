@@ -5,7 +5,7 @@
   "name": "Markdown и CSV документов в демо",
   "aspect": "docs",
   "value": {
-    "value": 89,
+    "value": 91,
     "unit": "count"
   },
   "source": "Обход demo/ без .todoc"

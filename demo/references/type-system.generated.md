@@ -1,6 +1,6 @@
 ---
 id: doc:ref-type-system
-title: Reference: type system (generated)
+title: "Reference: type system (generated)"
 doc_type: reference
 lang: en
 source: references/type-system.generated.md

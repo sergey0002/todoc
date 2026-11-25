@@ -1,6 +1,6 @@
 ---
 id: doc:state-demo
-title: Состояние: демо-датасет
+title: "Состояние: демо-датасет"
 doc_type: reference
 lang: ru
 source: .doc/state/13-demo-dataset.md

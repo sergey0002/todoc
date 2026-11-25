@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.formats.markdown import parse_markdown
+from todoc.adapters.formats.markdown import Heading, heading_path_for, parse_markdown
 from todoc.domain.models import SearchHit
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_\u0400-\u04ff]+")
@@ -20,16 +20,22 @@ def _terms(query: str) -> list[str]:
     return tokenize(query)
 
 
-def _document_text(root: Path, rel_path: str, fmt: str) -> str:
+def _document_text(root: Path, rel_path: str, fmt: str) -> tuple[str, str]:
+    """Return ``(match_text, source_text)``.
+
+    Markdown is matched against an enriched string (title + headings first) so
+    structural terms rank, but provenance (snippet, ``line_start``/``line_end``)
+    must point into the real file, so the unmodified text is kept alongside.
+    """
     try:
         text = (root / rel_path).read_text(encoding="utf-8")
     except OSError:
-        return ""
+        return "", ""
     if fmt == "markdown":
         doc = parse_markdown(text)
         headings = " ".join(h.title for h in doc.headings)
-        return f"{doc.title}\n{headings}\n{text}"
-    return text
+        return f"{doc.title}\n{headings}\n{text}", text
+    return text, text
 
 
 def _snippet(text: str, terms: list[str], max_chars: int = 240) -> tuple[str, int, int, bool]:
@@ -50,6 +56,22 @@ def _snippet(text: str, terms: list[str], max_chars: int = 240) -> tuple[str, in
     return snippet, line_start, line_end, truncated
 
 
+def _breadcrumb(headings: list[Heading], line: int) -> tuple[str, ...]:
+    """Breadcrumb of the heading enclosing ``line`` (1-based file line).
+
+    The previous implementation returned the document's first three headings,
+    which is a table of contents rather than the path to the matched fragment.
+    """
+    if not headings:
+        return ()
+    index = 0
+    for i, heading in enumerate(headings):
+        if heading.line > line:
+            break
+        index = i
+    return tuple(heading_path_for(headings, index))
+
+
 def search_documents(
     root: Path,
     documents: list[dict[str, Any]],
@@ -58,8 +80,14 @@ def search_documents(
     within: str | None = None,
     limit: int = 10,
     budget: int | None = None,
+    offset: int = 0,
 ) -> tuple[list[SearchHit], int, bool]:
-    """Return (hits, total, truncated). Deterministic rank, tie-break by id."""
+    """Return (hits, total, truncated). Deterministic rank, tie-break by id.
+
+    ``offset`` implements cursor pagination: ``total`` always describes the whole
+    result set, ``hits`` only the requested page, and ``truncated`` says whether
+    more pages follow the returned one.
+    """
     terms = _terms(query)
     if not terms:
         return [], 0, False
@@ -73,20 +101,21 @@ def search_documents(
             path = str(doc.get("path", ""))
             if path != within and not path.startswith(within.rstrip("/") + "/"):
                 continue
-        text = _document_text(root, str(doc.get("path", "")), str(doc.get("format", "")))
-        lowered = text.lower()
+        match_text, source_text = _document_text(root, str(doc.get("path", "")), str(doc.get("format", "")))
+        lowered = match_text.lower()
         matched = [t for t in terms if t in lowered]
         if not matched:
             continue
         title = str(doc.get("title", ""))
         title_hits = sum(1 for t in matched if t in title.lower())
         score = title_hits * 10 + len(matched)
-        candidates.append((score, doc, text, matched))
+        candidates.append((score, doc, source_text, matched))
     candidates.sort(key=lambda c: (-c[0], str(c[1].get("document_id", ""))))
     total = len(candidates)
+    page = candidates[offset:offset + limit]
     hits: list[SearchHit] = []
     used_bytes = 0
-    for rank, (_score, doc, text, matched) in enumerate(candidates[:limit], start=1):
+    for rank, (_score, doc, text, matched) in enumerate(page, start=offset + 1):
         snippet, line_start, line_end, snippet_trunc = _snippet(text, matched)
         if budget is not None:
             cost = len(snippet.encode("utf-8"))
@@ -97,8 +126,7 @@ def search_documents(
         if doc.get("format") == "markdown":
             try:
                 md = parse_markdown((root / str(doc.get("path", ""))).read_text(encoding="utf-8"))
-                if md.headings:
-                    heading_path = tuple(h.title for h in md.headings[:3])
+                heading_path = _breadcrumb(md.headings, line_start)
             except OSError:
                 heading_path = ()
         hits.append(SearchHit(
@@ -114,5 +142,5 @@ def search_documents(
             line_end=line_end,
             snippet_truncated=snippet_trunc,
         ))
-    truncated = total > len(hits)
+    truncated = total > offset + len(hits)
     return hits, total, truncated

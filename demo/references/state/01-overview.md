@@ -1,6 +1,6 @@
 ---
 id: doc:state-overview
-title: Состояние: обзор продукта и статус MVP
+title: "Состояние: обзор продукта и статус MVP"
 doc_type: reference
 lang: ru
 source: .doc/state/01-overview.md

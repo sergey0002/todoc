@@ -1,6 +1,6 @@
 ---
 id: doc:ref-types-validation
-title: Reference: types and validation
+title: "Reference: types and validation"
 doc_type: reference
 lang: en
 source: references/types-and-validation.md

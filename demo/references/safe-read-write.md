@@ -1,6 +1,6 @@
 ---
 id: doc:ref-safe-read-write
-title: Reference: safe read/write
+title: "Reference: safe read/write"
 doc_type: reference
 lang: en
 source: references/safe-read-write.md

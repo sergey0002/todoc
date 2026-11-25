@@ -1,6 +1,6 @@
 ---
 id: doc:state-validation
-title: Состояние: валидация и каталог диагностик
+title: "Состояние: валидация и каталог диагностик"
 doc_type: reference
 lang: ru
 source: .doc/state/06-validation-and-diagnostics.md

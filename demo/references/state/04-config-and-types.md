@@ -1,6 +1,6 @@
 ---
 id: doc:state-config-types
-title: Состояние: конфигурация и типовая система
+title: "Состояние: конфигурация и типовая система"
 doc_type: reference
 lang: ru
 source: .doc/state/04-config-and-types.md
