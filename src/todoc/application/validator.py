@@ -207,6 +207,21 @@ def _check_structure(dataset_id: str, rel_path: str, headings: list[Any],
                 fixes=(SuggestedFix(kind="add_heading", replacement=selector,
                                     basis="doc_type.required_sections", autofixable=False),),
             ))
+    alternatives = [s for s in (descriptor.get("any_of_sections") or [])
+                    if isinstance(s, str) and s.strip()]
+    if alternatives:
+        # «Хотя бы один из»: дельте достаточно любого из ADDED / MODIFIED / REMOVED.
+        # required_sections здесь не подходит — оно потребовало бы все три сразу.
+        selectors = [parse_heading_selector(s) for s in alternatives]
+        if not any(_heading_matches(h, level, title) for level, title in selectors for h in headings):
+            diags.append(_diag(
+                dataset_id, rel_path, "markdown.section.missing",
+                "None of the alternative sections present: " + ", ".join(alternatives),
+                location={"line": 1, "column": 1},
+                evidence=f"doc_type declares any_of_sections: {', '.join(alternatives)}",
+                fixes=(SuggestedFix(kind="add_heading", replacement=alternatives[0],
+                                    basis="doc_type.any_of_sections", autofixable=False),),
+            ))
     for index, rule in enumerate(descriptor.get("section_rules") or []):
         if not isinstance(rule, dict):
             continue
@@ -263,6 +278,7 @@ def validate_dataset(
     if registry is not None:
         doc_type_descriptors = getattr(registry, "doc_types", None) or (
             registry.get("doc_types", {}) if isinstance(registry, dict) else {})
+    doc_schemas = _load_schemas(root, registry, dataset, "doc_type", _doc_types_of)
 
     for scanned in scanned_files:
         fmt = scanned.format
@@ -322,6 +338,17 @@ def validate_dataset(
         descriptor = doc_type_descriptors.get(doc_type)
         if descriptor and headings:
             diags.extend(_check_structure(dataset_id, scanned.rel_path, headings, descriptor))
+        loaded_schema = doc_schemas.get(doc_type)
+        if loaded_schema and front_matter:
+            # Front matter документов раньше не проверялся вообще; схема объявляется
+            # в описателе doc_type и остаётся необязательной (план §19, вариант (a)).
+            schema, evidence = loaded_schema
+            for message in validate_against_schema(front_matter, schema):
+                pointer, _, rest = message.partition(": ")
+                diags.append(_diag(
+                    dataset_id, scanned.rel_path, "document.schema_violation", rest or message,
+                    location={"pointer": pointer, "doc_type": doc_type}, evidence=evidence,
+                ))
         doc_info[scanned.rel_path] = {
             "doc_type": doc_type, "rule_source": source, "front_matter": front_matter, "title": title, "format": fmt,
         }
@@ -332,17 +359,18 @@ def validate_dataset(
     return diags, doc_info
 
 
-def _load_record_schemas(root: Path, registry: Any,
-                         dataset: dict[str, Any]) -> dict[str, tuple[dict[str, Any], str]]:
-    """JSON Schema of every entity type, with the path it was loaded from.
+def _load_schemas(root: Path, registry: Any, dataset: dict[str, Any], kind: str,
+                  types_of: Any) -> dict[str, tuple[dict[str, Any], str]]:
+    """JSON Schema of every type of a kind, with the path it was loaded from.
 
     A schema lives in its type's folder, so the registry is the only way to find
     it — no top-level catalog is scanned. Returns ``{type_id: (schema, evidence)}``;
-    keeping the path lets a violation name the exact file that rejected the record.
+    keeping the path lets a violation name the exact file that rejected the value.
+    Один механизм для записей и документов: различается только kind и источник типов.
     """
     schemas: dict[str, tuple[dict[str, Any], str]] = {}
-    for type_id, descriptor in sorted(_entity_types_of(registry).items()):
-        path = schema_file(root, dataset, "entity_type", descriptor)
+    for type_id, descriptor in sorted(types_of(registry).items()):
+        path = schema_file(root, dataset, kind, descriptor)
         if path is None or not path.is_file():
             continue
         try:
@@ -370,6 +398,14 @@ def _entity_types_of(registry: Any) -> dict[str, Any]:
     return entity_types or {}
 
 
+def _doc_types_of(registry: Any) -> dict[str, Any]:
+    """Doc types of a loaded TypeRegistry (a plain mapping works too)."""
+    doc_types = getattr(registry, "doc_types", None)
+    if doc_types is None and isinstance(registry, dict):
+        doc_types = registry.get("doc_types")
+    return doc_types or {}
+
+
 def _key_location(text: str, key: str) -> dict[str, Any]:
     """Line of the first occurrence of a JSON key, for record diagnostics.
 
@@ -393,7 +429,7 @@ def _validate_records(
     diags: list[Diagnostic] = []
     records: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
-    schemas = _load_record_schemas(root, registry, dataset)
+    schemas = _load_schemas(root, registry, dataset, "entity_type", _entity_types_of)
     for scanned in scanned_files:
         if scanned.format != "json" or scanned.status != "ok":
             continue

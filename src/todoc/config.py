@@ -16,6 +16,12 @@ DEFAULT_LIMITS: dict[str, int] = {
     "max_csv_rows": 1000000,
     "max_query_results": 200,
     "max_record_create_path": 512,
+    # История и контекст (план §8). Это потолки обслуживания, а не записи:
+    # запись в журнал из-за них не отказывает никогда — иначе P1 (файлы — истина)
+    # зависел бы от размера служебной папки.
+    "max_journal_bytes": 8388608,
+    "max_history_objects": 20000,
+    "max_diff_lines": 2000,
 }
 
 
@@ -62,6 +68,7 @@ def default_document_rules() -> dict[str, Any]:
         "schema_version": 1,
         "rules": [
             {"id": "adr-markdown", "match": {"kind": "file", "glob": "**/adr/*.md"}, "assign": {"doc_type": "adr"}, "priority": 50},
+            {"id": "change-delta", "match": {"kind": "file", "glob": "**/changes/*/deltas/*.md"}, "assign": {"doc_type": "delta"}, "priority": 150},
             {"id": "glossary-by-front-matter", "match": {"kind": "file", "front_matter": {"doc_type": "glossary-entry"}}, "assign": {"doc_type": "glossary-entry"}, "priority": 200},
         ],
     }
@@ -92,6 +99,7 @@ DEFAULT_ENTITY_TYPES: dict[str, list[str]] = {
     "product": ["record_id", "entity_type", "name"],
     "person": ["record_id", "entity_type", "name"],
     "workout": ["record_id", "entity_type", "date"],
+    "change": ["record_id", "entity_type", "title", "status"],
 }
 
 
@@ -151,6 +159,26 @@ def init_dataset(root: Path) -> dict[str, Any]:
                                {"format": "markdown", "template": "template.md",
                                 "required_sections": sections})
         _write_type_assets(d, "doc_type", type_id, f"Document type {type_id}.", descriptor)
+    delta_dir = todoc_dir / "doc_types" / "delta"
+    delta_dir.mkdir(parents=True, exist_ok=True)
+    delta_descriptor = _type_stub(
+        "delta", "Дельта изменения: ADDED / MODIFIED / REMOVED относительно цели.", "doc_type",
+        {"format": "markdown", "template": "template.md",
+         # section_rules намеренно нет: тело операции — это новое содержимое раздела,
+         # а не обязательный подраздел третьего уровня. Требование `###` отвергло бы
+         # канонический формат дельты из плана §5.4, где после заголовка идёт текст.
+         "any_of_sections": ["## ADDED:", "## MODIFIED:", "## REMOVED:"],
+         "schema": "schema.json"})
+    _write_type_assets(delta_dir, "doc_type", "delta", delta_descriptor["description"], delta_descriptor)
+    # target обязателен, base_hash опционален: дельта без привязки к цели неприменима.
+    (delta_dir / "schema.json").write_text(json.dumps({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "required": ["target"],
+        "properties": {"target": {"type": "string", "minLength": 1},
+                       "base_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
     for type_id, fields in DEFAULT_ENTITY_TYPES.items():
         d = todoc_dir / "entity_types" / type_id
         d.mkdir(parents=True, exist_ok=True)
@@ -159,7 +187,7 @@ def init_dataset(root: Path) -> dict[str, Any]:
                                 "required_fields": fields,
                                 "path_template": f"records/{type_id}/{{slug}}.json"})
         _write_type_assets(d, "entity_type", type_id, f"Entity type {type_id}.", descriptor)
-    for type_id in ("performed_by", "derived_from", "supports", "contradicts"):
+    for type_id in ("performed_by", "derived_from", "supports", "contradicts", "blocked_by"):
         d = todoc_dir / "relation_types" / type_id
         d.mkdir(parents=True, exist_ok=True)
         (d / "type.json").write_text(

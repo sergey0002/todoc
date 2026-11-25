@@ -622,13 +622,24 @@ def test_gc_keep_objects_without_history_dir(root):
     assert result["objects_before"] == 0 and result["orphans_removed"] == 0
 
 
-def test_gc_keeps_referenced_objects_when_trimming(root, doc):
-    _edit(doc, 9, "одна")
+def test_gc_trim_honours_keep_objects_even_for_referenced(root, doc):
+    """``keep_objects`` — настоящий потолок: иначе он не значил бы ничего.
+
+    Снимки, на которые ссылается журнал, больше не защищены: все «живые» снимки
+    защищены ссылкой, а незащищённых к этому моменту уже нет, поэтому защита
+    превращала опцию в заглушку. Цена явная и уже поддержана чтением — у затёртой
+    ревизии ``before_content`` вернёт ``object_missing``, а не выдуманное содержимое.
+    """
+    rev = _edit(doc, 9, "одна")
     _edit(doc, 10, "две")
     referenced = len({i["before"] for e in journal.read_events(root)
                       for i in e["paths"] if i.get("before")})
-    H.gc(root, keep_objects=0)
-    assert objects.count_objects(root) == referenced
+    assert referenced >= 2
+    result = H.gc(root, keep_objects=0)
+    assert result["objects_trimmed"] == referenced
+    assert objects.count_objects(root) == 0
+    data, status = H.before_content(root, rev, "notes/a.md")
+    assert data is None and status == "object_missing"
 
 
 def test_adopt_skips_missing_paths(root, doc):
@@ -911,3 +922,75 @@ def test_observed_records_file_added_after_baseline(root, doc):
     assert len(revs) == 1
     event = journal.read_events(root)[-1]
     assert event["kind"] == H.EXTERNAL_CHANGE and event["paths"][0]["path"] == "notes/new.md"
+
+
+# --- Фаза 2: лимиты хранилища и конфликт отката -------------------------------
+
+
+def test_events_bytes_matches_journal_on_disk(doc):
+    """Потолок ``max_journal_bytes`` сравнивается с теми же байтами, что лежат в файле."""
+    _edit(doc, 8, "правка восемь")
+    _edit(doc, 9, "правка девять")
+    events = journal.read_events(doc.parent.parent)
+    on_disk = journal.journal_path(doc.parent.parent).stat().st_size
+    assert journal.events_bytes(events) == on_disk
+
+
+def test_gc_trims_journal_to_max_bytes(doc):
+    """Журнал больше потолка: самые старые события уходят, и это сказано в результате."""
+    root = doc.parent.parent
+    _edit(doc, 8, "правка восемь")
+    _edit(doc, 9, "правка девять")
+    _edit(doc, 10, "правка десять")
+    events = journal.read_events(root)
+    two = journal.events_bytes(events[-2:])
+    result = H.gc(root, limits={"max_journal_bytes": two})
+    assert result["trimmed_for_size"] == 1
+    assert result["kept_events"] == 2
+    assert journal.events_bytes(journal.read_events(root)) <= two
+
+
+def test_gc_keeps_journal_when_under_limit(doc):
+    root = doc.parent.parent
+    _edit(doc, 8, "правка восемь")
+    before = len(journal.read_events(root))
+    result = H.gc(root, limits={"max_journal_bytes": 10_000_000})
+    assert result["trimmed_for_size"] == 0
+    assert result["kept_events"] == before
+
+
+def test_gc_defaults_keep_objects_to_limit(doc):
+    """``max_history_objects`` — значение по умолчанию для обрезки снимков."""
+    root = doc.parent.parent
+    for line in (8, 9, 10):
+        _edit(doc, line, f"правка {line}")
+    assert objects.count_objects(root) >= 3
+    H.gc(root, limits={"max_history_objects": 1})
+    assert objects.count_objects(root) == 1
+
+
+def test_explicit_keep_objects_wins_over_limit(doc):
+    """Явный ``keep_objects`` важнее лимита: потолок не отменяет решение вызывающего."""
+    root = doc.parent.parent
+    for line in (8, 9, 10):
+        _edit(doc, line, f"правка {line}")
+    H.gc(root, keep_objects=2, limits={"max_history_objects": 0})
+    assert objects.count_objects(root) == 2
+
+
+def test_revert_of_latest_revision_has_no_conflict(doc):
+    """Откат последней правки ничего более позднего не стирает."""
+    rev = _edit(doc, 8, "правка восемь")
+    plan = H.revert_plan(doc.parent.parent, rev, "notes/a.md")
+    assert plan["status"] == "ok"
+    assert plan["range_conflict"] is False
+
+
+def test_revert_of_old_revision_reports_range_conflict(doc):
+    """Файл менялся после снимаемой ревизии: откат стёр бы более поздние правки."""
+    root = doc.parent.parent
+    old_rev = _edit(doc, 8, "правка восемь")
+    _edit(doc, 9, "правка девять")
+    plan = H.revert_plan(root, old_rev, "notes/a.md")
+    assert plan["range_conflict"] is True
+    assert plan["status"] == "ok", "конфликт — предупреждение, а не отказ"

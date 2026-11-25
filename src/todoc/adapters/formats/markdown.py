@@ -349,3 +349,30 @@ def heading_path_for(headings: list[Heading], index: int) -> list[str]:
         cur = headings[cur.parent_index] if cur.parent_index is not None else None
     path.reverse()
     return path
+
+
+def section_bounds(text: str, selector: str) -> tuple[int, int] | None:
+    """Границы раздела в тексте: ``(start, end)``, 1-based, включительно.
+
+    Селектор — ``## Заголовок`` (уровень + текст). Совпадение префиксное, поэтому
+    ``## MODIFIED:`` находит ``## MODIFIED: ## Цель``. Раздел заканчивается перед
+    следующим заголовком того же или более высокого уровня, иначе — концом файла.
+    Возвращает None, когда раздел не найден: вызывающий решает, ошибка это или нет.
+    """
+    from todoc.typing_system.descriptors import parse_heading_selector
+
+    doc = parse_markdown(text)
+    wanted = selector.strip()
+    total = len(text.splitlines())
+    for index, heading in enumerate(doc.headings):
+        title = f"{'#' * heading.level} {heading.title}".strip()
+        if not (title == wanted or heading.title == wanted
+                or (wanted.endswith(":") and title.startswith(wanted))):
+            continue
+        end = total
+        for later in doc.headings[index + 1:]:
+            if later.level <= heading.level:
+                end = later.line - 1
+                break
+        return heading.line, end
+    return None

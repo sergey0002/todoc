@@ -94,7 +94,8 @@ class TypeRegistry:
 KIND_FIELDS: dict[str, set[str]] = {
     "dir_type": {"schema_version", "type_id", "version", "kind", "description"},
     "doc_type": {"schema_version", "type_id", "version", "kind", "description", "format",
-                 "template", "prompts", "required_sections", "section_rules"},
+                 "template", "prompts", "required_sections", "section_rules",
+                 "any_of_sections", "schema"},
     "entity_type": {"schema_version", "type_id", "version", "kind", "description", "format",
                     "required_fields", "path_template", "views", "metric_fields",
                     "template", "prompts", "schema"},
@@ -145,7 +146,9 @@ def schema_file(root: Path, dataset: dict[str, Any], kind: str, descriptor: dict
     elsewhere inside DATA_ROOT with an explicit ``schema`` field. There is no
     top-level schema catalog and no fallback: one type — one folder — one schema.
     """
-    if kind != "entity_type":
+    if kind not in ("entity_type", "doc_type"):
+        # `schema` объявлен для записей и документов; у dir_type и relation_type
+        # проверяемого тела нет, поэтому путь к схеме для них не разрешается.
         return None
     base = type_dir(root, dataset, kind, str(descriptor.get("type_id", "")))
     declared = descriptor.get("schema")

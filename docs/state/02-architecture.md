@@ -16,29 +16,40 @@ CLI (click)  →  application  →  domain / typing_system
 
 | Модуль | Строк | Ответственность |
 |---|---|---|
-| `cli.py` | 945 | 26 листовых команд, флаги, конвертация `TodocError` в код выхода |
-| `application/validator.py` | 452 | Диагностика: синтаксис, типы, ссылки, схемы записей, отношения |
-| `adapters/formats/markdown.py` | 351 | Токены markdown-it-py: заголовки, ссылки, front matter, backlinks |
+| `cli.py` | 1465 | 45 листовых команд, флаги, конвертация `TodocError` в код выхода |
+| `application/changes.py` | 706 | Жизненный цикл изменения, дельты, `validate`/`verify`/`apply`/`archive`/`revert` |
+| `application/history.py` | 565 | Журнал событий: `log`/`show`/`diff`/`blame`/`revert`/`tag`, `gc`, внешние правки |
+| `application/validator.py` | 510 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
+| `adapters/formats/markdown.py` | 378 | Токены markdown-it-py: заголовки, ссылки, front matter, границы секций |
 | `typing_system/prompts.py` | 309 | Генерация стартовых шаблонов и CRUD-промптов типа |
-| `typing_system/descriptors.py` | 279 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
+| `typing_system/descriptors.py` | 282 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
+| `application/staleness.py` | 278 | `derived_from` с якорями, расхождение хешей, `--ack` |
+| `application/write.py` | 251 | WritePlan, create record, фикс ссылки, line-операции правки |
+| `config.py` | 225 | `dataset.json`, правила и типы по умолчанию, `init`, ассеты типов |
+| `service.py` | 213 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация, `HistoryRecorder` |
 | `domain/models.py` | 205 | Document, Folder, Diagnostic, SuggestedFix, SearchHit, WritePlan |
-| `config.py` | 197 | `dataset.json`, правила и типы по умолчанию, `init`, ассеты типов |
-| `application/write.py` | 188 | WritePlan, create record, фикс ссылки, line-операции правки |
+| `application/registry.py` | 197 | Снимок индекса, `CURRENT.json`, кэш парсинга |
+| `application/context.py` | 164 | `context`: запись → дельты → события → файлы → диффы, в пределах бюджета |
 | `application/search.py` | 146 | Лексический поиск, ранжирование, фрагменты, бюджет |
 | `typing_system/resolver.py` | 143 | Маски, приоритеты, резолв `dir_type`/`doc_type`, конфликты |
 | `adapters/formats/jsonfmt.py` | 142 | Строгий JSON, глубина, JSON Pointer, JSON Schema |
-| `service.py` | 124 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация |
-| `application/registry.py` | 123 | Поколения индекса, `CURRENT.json`, кэш парсинга |
+| `adapters/filesystem/scanner.py` | 135 | Обход, hard-excludes, containment, `atomic_write`, хеши |
 | `application/query.py` | 123 | Фильтры, агрегация с единицами, BFS по графу |
-| `adapters/filesystem/scanner.py` | 123 | Обход, hard-excludes, containment, `atomic_write`, хеши |
+| `adapters/history/journal.py` | 117 | Append-only JSONL, `rev`, чтение, атомарная перезапись |
+| `adapters/history/backends.py` | 110 | `embedded` и `git`; единственный `subprocess` в `src/todoc` |
+| `adapters/history/objects.py` | 79 | Снимки «до»: zlib-6, имя = sha256 содержимого |
 | `adapters/formats/csvfmt.py` | 63 | Заголовки, строки, лимиты CSV |
 | `output/envelope.py` | 60 | Конверт и рендер json/table/markdown |
 | `errors.py` | 51 | Коды выхода 0–6, иерархия ошибок |
+| `ports/history.py` | 39 | Порт бэкенда истории: ядро от git не зависит |
 | `__main__.py` | 6 | Точка входа `python -m todoc` |
 
-Итого `src/todoc`: 4100 строк (4030 в 19 модулях из таблицы + 70 в `__init__.py`).
-Пустые порты-заглушки: `ports/`, `adapters/indexes/`,
-`adapters/cache/`, `adapters/search/` — зарезервированы под пост-MVP (см. план E1–E10).
+Итого `src/todoc`: 7033 строки.
+
+Слои: `ports/` объявляет интерфейс бэкенда истории, `adapters/history/backends.py` его
+реализует. Единственный `subprocess` во всём `src/todoc` — в `backends.py`, поэтому ядро
+остаётся переносимым (P2) и работает без git: при его отсутствии выдаётся предупреждение
+`history.backend_unavailable` и происходит деградация в `embedded`.
 
 ## Поток данных команды чтения
 

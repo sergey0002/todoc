@@ -153,6 +153,44 @@
 | `write.hash_mismatch` | `--if-hash` не совпал (exit 5) |
 | `write.target_exists` / `write.target_missing` | конфликт цели (exit 5) |
 
+### История
+
+| Код | Когда |
+|---|---|
+| `history.journal_unreadable` | строка журнала не разбирается как JSON |
+| `history.journal_truncated_line` | последняя строка оборвана (допустимо, игнорируется) |
+| `history.object_missing` | снимок содержимого отсутствует в `objects/` — в том числе после обрезки по `max_history_objects` |
+| `history.revision_unknown` | неизвестный `rev`, либо образа «до» не существует (создание файла, базовая линия) |
+| `history.range_conflict` | **warning**: файл изменён после откатываемой ревизии, откат сотрёт более поздние правки |
+| `history.backend_unavailable` | **warning**: выбран бэкенд `git`, но git недоступен; деградация в `embedded` |
+
+### Устаревание зависимостей
+
+| Код | Когда |
+|---|---|
+| `staleness.dependency_changed` | хеш зависимости разошёлся с записанным в `derived_from` |
+| `staleness.dependency_missing` | файл зависимости удалён |
+| `staleness.owner_not_found` | `--ack` для пути без объявленных зависимостей |
+| `staleness.ack_unsupported` | `--ack` для зависимости, которую нельзя признать (не файл/не раздел) |
+
+### Изменения и дельты
+
+| Код | Когда |
+|---|---|
+| `change.not_found` | изменение с таким id не найдено |
+| `change.id_invalid` | недопустимый статус или откат неприменённого изменения |
+| `change.delta_target_missing` | целевой файл дельты не существует (или у дельты нет `target`) |
+| `change.delta_anchor_missing` | заголовок-якорь не найден в целевом файле |
+| `change.base_hash_mismatch` | файл ушёл из-под дельты: `base_hash` не совпал с текущим |
+| `change.blocked_by_unresolved` | зависимость `blocked_by` не в `archived`/`applied` |
+| `change.already_applied` | повторное применение уже применённого изменения |
+| `change.apply_order_ambiguous` | две дельты на один файл без явного `order` |
+| `change.post_apply_invalid` | пробное применение ломает структуру документа, схему его `doc_type`, либо запись/откат не удались |
+| `document.schema_violation` | front matter документа нарушает схему его `doc_type` (`location.pointer` — RFC 6901) |
+
+`change.*` — это проверка **применимости к живому состоянию**, а не формата дельты: тот же
+набор кодов выдаёт `change validate` до применения и `change apply` в конверте отказа.
+
 ### Общее
 
 | Код | Когда |

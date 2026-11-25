@@ -60,6 +60,32 @@ Create-only: перезапись существующих записей зап
 Проверено на демо: `relations graph --from decision:no-lsp --depth 2` вернул рёбра
 `documents` к двум документам и далее рёбра этих документов.
 
+## Записи изменений (`entity_type: change`)
+
+Изменение — **обычная запись**, а не отдельная сущность. Поэтому ему бесплатно достаются
+валидация схемы, `records query --where status=proposed` и обход графа зависимостей через
+`relations graph`. Отдельный механизм не вводился — это прямое использование P9.
+
+```json
+{"schema_version": 1, "record_id": "change:add-history", "entity_type": "change",
+ "title": "Журнал изменений и откат", "status": "proposed",
+ "created_at": "2026-11-25T10:00:00Z", "applied_at": null,
+ "artifacts": ["docs/state/09-storage-and-index.md"],
+ "relations": [{"type_id": "blocked_by",
+                "target": {"kind": "record", "id": "change:index-redesign"}}]}
+```
+
+Жизненный цикл: `proposed` → `in_progress` → `blocked` → `applied` → `archived` | `reverted`.
+Недопустимый переход отклоняется кодом `change.id_invalid`.
+
+Файл записи живёт не в `records/`, а в `changes/<change-id>/change.json`: рядом с дельтами,
+`proposal.md` и `tasks.md`, потому что намерение человека читается целиком. После
+`change archive` папка уносится в `changes/archive/<YYYY-MM-DD>-<change-id>/`, и запись
+остаётся читаемой по тому же `record_id`.
+
+Отношение `blocked_by` — зависимость между изменениями: `change validate` отказывает кодом
+`change.blocked_by_unresolved`, пока зависимость не в `archived` или `applied`.
+
 ## Запросы (`records query`)
 
 QuerySpec — JSON-файл:

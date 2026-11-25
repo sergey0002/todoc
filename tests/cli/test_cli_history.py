@@ -417,3 +417,31 @@ def test_show_reports_lost_snapshot(root, kb):
     result = _run(CliRunner(), ["--root", str(root), "show", rev, "--path", "notes/a.md"])
     assert isinstance(result.exception, TodocError)
     assert result.exception.code == "history.object_missing"
+
+
+def test_revert_of_old_revision_warns_range_conflict(kb):
+    """Файл менялся после откатываемой ревизии: предупреждение в конверте, откат возможен."""
+    runner = CliRunner()
+    root = kb["doc"].parent.parent
+    first = _json(_run(runner, ["--root", str(root), "log"]))["data"]["events"][0]["rev"]
+    patch = root / "patch2.json"
+    patch.write_text(json.dumps({"ops": [{"line": 12, "text": "третья версия"}]}), encoding="utf-8")
+    assert _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/a.md",
+                         "--patch-file", str(patch), "--apply"]).exit_code == 0
+
+    envelope = _json(_run(runner, ["--root", str(root), "revert", first, "--path", "notes/a.md",
+                                   "--apply"]))
+    assert envelope["ok"] is True, "конфликт — предупреждение, а не отказ"
+    assert envelope["data"]["range_conflict"] is True
+    codes = [d["code"] for d in envelope["diagnostics"]]
+    assert codes == ["history.range_conflict"]
+    assert envelope["diagnostics"][0]["severity"] == "warning"
+
+
+def test_revert_of_latest_revision_has_no_conflict(kb):
+    runner = CliRunner()
+    root = kb["doc"].parent.parent
+    latest = _json(_run(runner, ["--root", str(root), "log"]))["data"]["events"][-1]["rev"]
+    envelope = _json(_run(runner, ["--root", str(root), "revert", latest, "--path", "notes/a.md"]))
+    assert envelope["data"]["range_conflict"] is False
+    assert envelope["diagnostics"] == []

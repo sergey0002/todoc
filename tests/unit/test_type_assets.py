@@ -8,13 +8,16 @@ from pathlib import Path
 import pytest
 
 from todoc.adapters.formats.markdown import parse_markdown
-from todoc.application.validator import (_check_structure, _load_record_schemas, _normalize_heading,
-                                         validate_dataset)
+from todoc.application.validator import (_check_structure, _entity_types_of, _load_schemas,
+                                         _normalize_heading, validate_dataset)
 from todoc.application.write import create_document_plan, structure_violations
-from todoc.config import DEFAULT_DOC_TYPES, DEFAULT_ENTITY_TYPES, _write_type_assets, init_dataset
+from todoc.config import (DEFAULT_DOC_TYPES, DEFAULT_ENTITY_TYPES, _write_type_assets,
+                          init_dataset, load_dataset, load_rules)
 from todoc.errors import ConflictError, ValidationError
 from todoc.typing_system.descriptors import (
     KIND_FIELDS,
+    TypeRegistry,
+    load_json_file,
     PROMPT_OPERATIONS,
     descriptor_diagnostics,
     schema_file,
@@ -478,6 +481,7 @@ def test_config_reports_a_declared_schema_that_is_missing(tmp_path):
 def test_init_keeps_type_assets_in_one_place(tmp_path):
     """A fresh dataset has no parallel templates/ or schemas/ catalog to drift from."""
     root = tmp_path / "kb"
+    root.mkdir()
     init_dataset(root)
     todoc = root / ".todoc"
     assert not (todoc / "templates").exists()
@@ -492,7 +496,6 @@ def test_init_keeps_type_assets_in_one_place(tmp_path):
 
 def test_record_schemas_come_from_the_type_folder_and_skip_broken_ones(tmp_path):
     """The loader reads each type's own schema; an unreadable one is skipped, not fatal."""
-    from todoc.application.validator import _load_record_schemas
 
     for type_id, body in (("good", '{"type": "object"}'), ("broken", "{not json")):
         base = tmp_path / ".todoc" / "entity_types" / type_id
@@ -504,7 +507,7 @@ def test_record_schemas_come_from_the_type_folder_and_skip_broken_ones(tmp_path)
     (listed / "schema.json").write_text("[]", encoding="utf-8")
     registry = {"entity_types": {"good": {"type_id": "good"}, "broken": {"type_id": "broken"},
                                  "plain": {"type_id": "plain"}, "listed": {"type_id": "listed"}}}
-    assert list(_load_record_schemas(tmp_path, registry, {})) == ["good"]
+    assert list(_load_schemas(tmp_path, registry, {}, "entity_type", _entity_types_of)) == ["good"]
 
 
 def test_a_schema_violation_names_the_schema_that_was_applied(tmp_path):
@@ -514,15 +517,99 @@ def test_a_schema_violation_names_the_schema_that_was_applied(tmp_path):
     base.mkdir(parents=True)
     (base / "schema.json").write_text("{}", encoding="utf-8")
     registry = {"entity_types": {"metric": {"type_id": "metric"}}}
-    assert _load_record_schemas(root, registry, {})["metric"][1] == (
+    assert _load_schemas(root, registry, {}, "entity_type", _entity_types_of)["metric"][1] == (
         "schema: .todoc/entity_types/metric/schema.json")
 
     # A type with no schema loads nothing: no path is invented for it.
     (base / "schema.json").unlink()
-    assert _load_record_schemas(root, registry, {}) == {}
+    assert _load_schemas(root, registry, {}, "entity_type", _entity_types_of) == {}
 
     # A schema declared outside DATA_ROOT is reported as-is rather than crashing.
     outside = tmp_path / "outside.json"
     outside.write_text("{}", encoding="utf-8")
     declared = {"entity_types": {"metric": {"type_id": "metric", "schema": str(outside)}}}
-    assert _load_record_schemas(root, declared, {})["metric"][1] == f"schema: {outside}"
+    assert _load_schemas(root, declared, {}, "entity_type", _entity_types_of)["metric"][1] == f"schema: {outside}"
+
+
+# --- Фаза 2: any_of_sections и схема front matter документов -----------------
+
+ANY_OF = {"any_of_sections": ["## ADDED:", "## MODIFIED:", "## REMOVED:"]}
+
+
+def test_any_of_sections_accepts_single_alternative():
+    """Дельте достаточно одной операции: required_sections здесь не подходит."""
+    for selector in ("## ADDED: ## Новое", "## MODIFIED: ## Цель", "## REMOVED: ## Старое"):
+        text = f"# Д\n\n{selector}\n\nтело\n"
+        assert _diags(text, ANY_OF) == [], selector
+
+
+def test_any_of_sections_reports_when_none_present():
+    found = _diags("# Д\n\n## Просто раздел\n\nтекст\n", ANY_OF)
+    assert [d.code for d in found] == ["markdown.section.missing"]
+    assert found[0].location == {"line": 1, "column": 1}
+    assert found[0].evidence.startswith("doc_type declares any_of_sections")
+    assert found[0].suggested_fixes[0].replacement == "## ADDED:"
+
+
+def test_any_of_sections_ignores_blank_selectors():
+    assert _diags("# Д\n\n## ADDED: ## Новое\n\nт\n", {"any_of_sections": ["", "   ", 5]}) == []
+
+
+def test_doc_type_schema_is_optional(root):
+    """Тип без schema ведёт себя как раньше — ни одна проверка не должна сломаться."""
+    descriptor = load_json_file(root / ".todoc" / "doc_types" / "note" / "type.json")
+    assert "schema" not in descriptor
+    assert schema_file(root, {}, "doc_type", descriptor) is None
+
+
+def test_delta_doc_type_declares_schema_and_any_of(root):
+    descriptor = load_json_file(root / ".todoc" / "doc_types" / "delta" / "type.json")
+    assert descriptor["any_of_sections"] == ["## ADDED:", "## MODIFIED:", "## REMOVED:"]
+    path = schema_file(root, {}, "doc_type", descriptor)
+    assert path is not None and path.is_file()
+    schema = load_json_file(path)
+    assert schema["required"] == ["target"]
+
+
+def test_document_schema_violation_is_reported(root):
+    """Front matter документов проверяется схемой doc_type (план §19, вариант (a))."""
+    deltas = root / "changes" / "x" / "deltas"
+    deltas.mkdir(parents=True)
+    (deltas / "d.md").write_text("---\ndoc_type: delta\n---\n\n## ADDED: ## Новое\n\nт\n",
+                                 encoding="utf-8")
+    from todoc.adapters.filesystem.scanner import scan_dataset
+
+    dataset = load_dataset(root)
+    dir_rules, doc_rules = load_rules(root, dataset)
+    registry = TypeRegistry()
+    registry.load(root, dataset)
+    scanned = scan_dataset(root)
+    _diags_found, _info = validate_dataset(root, dataset, scanned[1], dir_rules, doc_rules,
+                                           registry=registry)
+    codes = [d.code for d in _diags_found]
+    assert "document.schema_violation" in codes
+    violation = next(d for d in _diags_found if d.code == "document.schema_violation")
+    # Отсутствие обязательного свойства — ошибка корня, поэтому указатель "/",
+    # а имя свойства остаётся в сообщении (так и требует семантика JSON Schema).
+    assert violation.location["pointer"] == "/"
+    assert violation.location["doc_type"] == "delta"
+    assert "target" in violation.message
+    assert "schema:" in violation.evidence
+
+
+def test_document_schema_accepts_valid_front_matter(root):
+    deltas = root / "changes" / "x" / "deltas"
+    deltas.mkdir(parents=True)
+    (deltas / "d.md").write_text(
+        "---\ntarget: notes/a.md\ndoc_type: delta\n---\n\n## ADDED: ## Новое\n\nт\n",
+        encoding="utf-8")
+    from todoc.adapters.filesystem.scanner import scan_dataset
+
+    dataset = load_dataset(root)
+    dir_rules, doc_rules = load_rules(root, dataset)
+    registry = TypeRegistry()
+    registry.load(root, dataset)
+    scanned = scan_dataset(root)
+    found, _info = validate_dataset(root, dataset, scanned[1], dir_rules, doc_rules,
+                                    registry=registry)
+    assert [d.code for d in found] == []
