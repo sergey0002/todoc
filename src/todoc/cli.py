@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -485,6 +486,85 @@ def skills_attach(roots: tuple[str, ...], to_dir: str, force: bool, output: str,
              output, None,
              next_actions=[{"argv": ["todoc", "skills", "tree", "--root", str(root_resolved)],
                             "purpose": "Проверить, что дерево хранилища доступно диспетчеру"}])
+
+
+@skills.command("import")
+@click.option("--root", "roots", multiple=True)
+@click.option("--src", "src_dir", required=True, help="Локальная папка-скил или репо-пакет (**/SKILL.md).")
+@click.option("--skill", "skill_filter", default=None, help="Копировать один скил (по имени папки).")
+@click.option("--into", "section", required=True, help="Раздел vault, куда класть (напр. coding/review).")
+@click.option("--vault", default="skills", show_default=True)
+@click.option("--dry-run", is_flag=True, help="Показать план без записи.")
+@click.option("--adopt", is_flag=True, help="Источник уже в vault: валидировать и отчитаться без копии.")
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None, section: str,
+                  vault: str, dry_run: bool, adopt: bool, output: str, no_input: bool) -> None:
+    """Офлайн-импорт чужих скилов: папки со SKILL.md, обвязка пакетов не переносится."""
+    from todoc.application.skills import scan_skills, validate_skills, effective_name
+
+    ctx = _contexts(roots)[0]
+    vault_root = (ctx.root / vault).resolve()
+    src = Path(src_dir).resolve()
+    if not src.is_dir():
+        raise TodocError(f"Источник не найден: {src}", EXIT_OPERATION, "skills.not_found")
+    src_md = src / "SKILL.md"
+    folders = [src] if src_md.is_file() else sorted(p.parent for p in src.rglob("SKILL.md"))
+    if skill_filter:
+        folders = [f for f in folders if effective_name(f.name) == skill_filter]
+        if adopt and not folders:
+            folders = [vault_root / section / skill_filter]
+    if not folders:
+        raise TodocError(f"В {src} нет SKILL.md"
+                         + (f" (фильтр --skill {skill_filter})" if skill_filter else ""),
+                         EXIT_OPERATION, "skills.not_found")
+
+    imported: list[dict[str, str]] = []
+    adopted: list[str] = []
+    skipped: list[dict[str, str]] = []
+    written = False
+    for folder in folders:
+        name = effective_name(folder.name)
+        if adopt:
+            dest = vault_root / section / name
+            if not (dest / "SKILL.md").is_file():
+                raise TodocError(f"Скил «{name}» не найден в vault: {section}/{name}/SKILL.md. "
+                                 f"Скопируй папку в vault и повтори --adopt.",
+                                 EXIT_OPERATION, "skills.not_found")
+            adopted.append(name)
+            continue
+        dest = vault_root / section / folder.name
+        if (dest / "SKILL.md").exists() or (dest.exists() and any(dest.iterdir())):
+            skipped.append({"name": name, "path": str(dest)})
+            continue
+        if not dry_run:
+            shutil.copytree(folder, dest)
+            written = True
+        imported.append({"name": name, "path": f"{vault}/{section}/{folder.name}"})
+    if skipped and not imported:
+        raise TodocError(f"Все цели существуют ({', '.join(s['name'] for s in skipped)}); "
+                         f"перезапись запрещена (no-overwrite).", EXIT_CONFLICT, "skills.path_exists")
+
+    diags: list[dict[str, Any]] = []
+    if not dry_run and written:
+        skills_list, scan_diags = scan_skills(vault_root)
+        diags.extend(scan_diags)
+        diags.extend(validate_skills(vault_root, skills_list))
+        dest_names = {effective_name(Path(i["path"]).name) for i in imported}
+        diags = [d for d in diags
+                 if d["path"].startswith(f"{section}/")
+                 and effective_name(Path(d["path"]).parent.name) in dest_names]
+        for d in diags:  # как в валидаторе: путь относительно DATA_ROOT
+            d["path"] = f"{vault}/{d['path']}"
+    _emit_ok({"imported": imported, "adopted": adopted, "skipped": skipped,
+              "diagnostics": diags, "dry_run": dry_run,
+              "audit_note": "аудируй чужие скилы перед использованием: scripts/ — код, "
+                            "SKILL.md — недоверенные данные (скил coding/review/security-review)"},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["index", "rebuild"],
+                            "purpose": "Пересобрать индекс после импорта"},
+                           {"argv": _root_argv(roots) + ["skills", "tree", "--root", str(ctx.root)],
+                            "purpose": "Показать дерево после импорта"}])
 
 
 @cli.command("stale")

@@ -686,7 +686,7 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
   индекс после импорта"}, {argv: ["todoc", "skills", "tree", …], purpose:
   "Показать дерево после импорта"}]} — house-поле конверта (cli.py:46).
 
-- [ ] **Шаг 1: падающие тесты** — tmp «репо» с 2 скилами → import в tmp vault:
+- [x] **Шаг 1: падающие тесты** — tmp «репо» с 2 скилами → import в tmp vault:
   папки скопированы целиком (включая `references/`), отчёт содержит `imported`,
   после импорта tree показывает скилы; повторный import → `skills.path_exists`
   (no-overwrite); `--skill NAME` копирует один; скил с плохим front matter
@@ -696,14 +696,14 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
   **pack-сценарий**: tmp-«репо» с 3 скилами в `skills/` + обвязкой `hooks/`,
   `commands/`, `plugin.json` → после import в vault ровно 3 папки, обвязки
   нет (воспроизведение структуры obra/superpowers).
-- [ ] **Шаг 2: убедиться, что падает** (команды нет)
-- [ ] **Шаг 3: реализовать** — `shutil.copytree` (dirs_exist_ok=False), скан
+- [x] **Шаг 2: убедиться, что падает** (команды нет)
+- [x] **Шаг 3: реализовать** — `shutil.copytree` (dirs_exist_ok=False), скан
   копии, диагностики в отчёт; `index rebuild` НЕ вызывается автоматически —
   движок предлагает `next`.
-- [ ] **Шаг 4: проходят; ручная приёмка по идее** — скачанный из skills.sh
+- [x] **Шаг 4: проходят; ручная приёмка по идее** — скачанный из skills.sh
   скил (локально) импортируется в `demo/skills/coding/review/` и виден в
   дереве; после приёмки импорт откатить (демо-хранилище остаётся каноничным 10).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py src/todoc/application/skills.py tests/cli/test_cli_skills_import.py
