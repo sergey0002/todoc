@@ -28,6 +28,7 @@ copied: true
 | **E. App-centric RAG / Notebook** | Готовое приложение «загрузи документы и задавай вопросы»: workspaces, chunking, embeddings, chat, агенты | AnythingLLM, Khoj, Open Notebook, RAGFlow, Dify, FastGPT, NotebookLM/Gemini Notebook | Конкуренты для «чат по документам». `todoc` не повторяет app-centric RAG без отдельной потребности |
 | **F. Typed / object-based PKM** | Пользовательские типы/поля/запросы как первый класс: supertags, object types, databases | Tana (supertags), Capacities (object types), Notion (databases), Anytype, AFFiNE, AppFlowy | **Ближайшие концептуальные конкуренты** для `entity_type` + query/aggregate. Все — cloud/app-centric, не file-native CLI |
 | **G. Wiki / docs platforms** | Командные wiki и docs-as-code: Markdown + front matter + links + CI | Open Knowledge Format (OKF) + okfcli/okf + okfctl, Wiki.js, Outline, Docmost, Docusaurus/MkDocs | Референсы interchange-формата и CI-валидации. `todoc` может быть OKF-совместимым, не требовать OKF |
+| **H. Spec-driven development** | Спецификация как источник истины: жизненный цикл изменения, дельты, фазовые гейты, slash-команды для агентов | OpenSpec (Fission-AI), GitHub Spec Kit (`specify`), MySpec, BMad, Kiro | **Соседний слой, не прямой конкурент.** Они ведут *процесс изменения*, `todoc` проверяет *состояние*. Дополняют друг друга; см. `history-and-changes.md` §16 |
 
 **Вывод ландшафта:** пустой ниши «папка + Markdown + поиск» нет. Правдоподобная ниша `todoc` — **связка** «пользовательские типы + маршрутизация папок + type-directed agent workflows + schema-checked file writes + explicit relations/query + swappable derived indexes» поверх переносимых файлов. Каждый компонент по отдельности распространён; moat не доказан.
 
@@ -429,7 +430,7 @@ copied: true
 | C43 | Scheduled agents / automations | **WON'T (core)** | Отдельный слой | Не скрытые фоновые действия |
 | C44 | Audio/podcast/multimodal | **WON'T** | — | Не задача `todoc` |
 | C45 | Code execution in notebook | **WON'T** | — | Не задача `todoc` |
-| C46 | Versioning/history (Git-friendly diffs) | **SHOULD** | MVP (совместимость) | FR-12. Текстовые файлы diff-ятся; не строить VCS |
+| C46 | Versioning/history (Git-friendly diffs) | **SHOULD** | MVP (совместимость) | FR-12. Текстовые файлы diff-ятся. **Уточнено 2026-11-25:** Git остаётся рекомендуемым механизмом, но журнал событий и откат собственных записей — в core, см. C61–C66 и `history-and-changes.md`. Это не VCS: без веток, слияний и remote |
 | C47 | Tag/alias registry | **COULD** | v2 | FR-6.10. После MVP |
 | C48 | Daily notes / calendar | **WON'T (core)** | Профиль | Obsidian/second-brain покрывают; не core |
 | C49 | Kanban/boards/dashboards | **WON'T (core)** | Профиль/веб | Не core; веб может показать views |
@@ -444,6 +445,14 @@ copied: true
 | C58 | Deck/slides generation | **WON'T** | — | OpenKB-фича; не задача `todoc` |
 | C59 | Meeting assistant / transcription | **WON'T** | — | AnythingLLM-фича; не задача `todoc` |
 | C60 | Web search / scraping как встроенная фича | **WON'T (core)** | Интеграция | Агент/пользователь приносят источники; `todoc` их валидирует |
+| C61 | Журнал событий и откат собственных записей **без обязательного** VCS | **SHOULD** | После редизайна индекса | Заменяет накопление поколений индекса (P1-2). Не VCS: без веток/слияний/remote; git — опциональный бэкенд, не зависимость. `history-and-changes.md` Фазы 0–1 |
+| C62 | Жизненный цикл изменения: proposal → apply → archive | **SHOULD (core)** | После Фазы 1 | Решение принято 2026-11-25. Закрывает G3 (bundle-транзакции). Референс — OpenSpec, не SpecKit |
+| C63 | Дельты с проверяемой применимостью к живому состоянию | **SHOULD (core)** | После Фазы 1 | Сильнее OpenSpec: проверка якоря, `base_hash` и пост-валидация, а не только формата |
+| C64 | Обнаружение устаревания по якорям (`derived_from`) | **SHOULD** | Первая отдача | Референс — Swimm (связь на уровне токена, не файла). Независимо от журнала |
+| C65 | Би-темпоральные факты, `--as-of` | **COULD** | После Фазы 3 | Референс — Zep/Graphiti. Инвалидация вместо удаления; без LLM-поиска противоречий (P5) |
+| C66 | Лента изменений документа и раздела | **SHOULD** | После Фазы 1 | git даёт историю файла, но не раздела. Парсер секций уже есть |
+| C67 | Два бэкенда истории: `embedded` и `git`, с правилом `gap-filling` | **SHOULD** | После Фазы 1 | Решение 2026-11-25. git закрывает долговечность и снимает третью категорию хранения, но не выражает `change_id`/`ranges`/би-темпоральность — журнал нужен в обоих режимах. `history-and-changes.md` §18 |
+| C68 | Дельты валидируются существующим `doc_type`-механизмом | **SHOULD** | Вместе с C63 | Префиксные селекторы `## MODIFIED:` работают уже сейчас (`_heading_matches`, `validator.py:179`); нового нужно только `any_of_sections`. §19 |
 
 ---
 
