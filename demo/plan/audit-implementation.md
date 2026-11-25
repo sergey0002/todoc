@@ -189,6 +189,15 @@ cursor/путь к деталям. Сейчас — плоский список 
 `` ``` `` даёт `markdown.link.target_missing`. Также не поддерживаются reference-style
 ссылки `[text][ref]` и autolinks. Для валидатора это источник ложных диагностик.
 
+**Статус на 2026-11-25: закрыто.** Ссылки извлекаются из токенного потока markdown-it-py
+(`_token_links`, `_code_regions`, `_inline_code_spans` в `adapters/formats/markdown.py`);
+`_INLINE_LINK_RE` оставлен только для вычисления колонок уже подтверждённой ссылки и в
+обнаружении не участвует. Проверено прогоном: документ с тремя битыми целями — обычной,
+внутри ```` ``` ```` и внутри inline-кода — даёт ровно одну диагностику, на обычную ссылку.
+Reference-style поддерживается: `[текст][ref]` + `[ref]: ref-missing.md` даёт
+`markdown.link.target_missing` с разрешённой целью. Autolink `<https://…>` диагностики
+не даёт. Соответствует таблице форматов ссылок в `docs/state/05-formats.md`.
+
 ### P1-14. Порты E1–E10 не определены
 
 `ports/__init__.py`, `adapters/indexes/`, `adapters/cache/`, `adapters/search/` — пустые (0 байт).
