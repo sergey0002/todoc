@@ -199,6 +199,7 @@ demo/                 демо-датасет (DATA_ROOT) — живой при�
 | Как агенту работать безопасно | [`docs/state/12-agent-operations.md`](docs/state/12-agent-operations.md) |
 | Известные проблемы | [`docs/state/11-known-issues.md`](docs/state/11-known-issues.md) |
 | Бенчмарк качества и сравнение с конкурентами | [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md) |
+| Отчёт по остаткам: что открыто и в каком порядке | [`docs/state/16-leftovers-report.md`](docs/state/16-leftovers-report.md) |
 | Норматив (что строить) | [`docs/plan/constitution.md`](docs/plan/constitution.md) |
 | План реализации (как строить) | [`docs/plan/implementation-plan.md`](docs/plan/implementation-plan.md) |
 | Конкурентный анализ | [`docs/plan/competitive-analysis.md`](docs/plan/competitive-analysis.md) |
