@@ -97,3 +97,57 @@ def test_validate_glossary_front_matter(root):
     path.write_text("---\ndoc_type: glossary-entry\n---\n\n# Term\n", encoding="utf-8")
     _diags, info = _validate(root)
     assert info["docs/glossary.md"]["doc_type"] == "glossary-entry"
+
+
+# --- P1-8: позиции у диагностик отношений -----------------------------------
+
+
+def test_pointer_key_takes_last_named_segment():
+    from todoc.application.validator import _pointer_key
+    assert _pointer_key("/relations/0") == "relations"
+    assert _pointer_key("/relations/0/target/id") == "id"
+    assert _pointer_key("relations") == "relations"
+    # Только числовые сегменты — ключа нет.
+    assert _pointer_key("/0/1") == ""
+    assert _pointer_key("") == ""
+
+
+def test_validate_relations_reports_lines_when_texts_given():
+    text = ('{\n  "record_id": "a",\n  "relations": [\n'
+            '    {"type_id": "loves", "target": {"id": "ghost"}}\n  ]\n}\n')
+    records = [{"record_id": "a", "entity_type": "note", "path": "records/a.json",
+                "data": {"relations": [{"type_id": "loves", "target": {"id": "ghost"}}]}}]
+    diags = validate_relations("ds", records, {"performed_by"}, texts={"records/a.json": text})
+    by_code = {d.code: d for d in diags}
+    assert set(by_code) == {"relation.unknown_type", "relation.dangling_target"}
+    unknown = by_code["relation.unknown_type"]
+    assert unknown.location["pointer"] == "/relations/0"
+    assert unknown.location["line"] == 3          # строка ключа "relations"
+    dangling = by_code["relation.dangling_target"]
+    assert dangling.location["pointer"] == "/relations/0/target/id"
+    assert dangling.location["line"] == 4          # строка ключа "id"
+
+
+def test_validate_relations_without_texts_keeps_pointer_only():
+    records = [{"record_id": "a", "entity_type": "note", "path": "records/a.json",
+                "data": {"relations": [{"type_id": "loves", "target": {"id": "ghost"}}]}}]
+    diags = validate_relations("ds", records, {"performed_by"})
+    assert all(d.location.get("line") is None for d in diags)
+    assert diags[0].location["pointer"] == "/relations/0"
+
+
+def test_validate_relations_malformed_entries_are_located():
+    text = '{\n  "relations": "не список"\n}\n'
+    records = [{"record_id": "a", "entity_type": "note", "path": "records/a.json",
+                "data": {"relations": "не список"}}]
+    diags = validate_relations("ds", records, {"performed_by"}, texts={"records/a.json": text})
+    assert [d.code for d in diags] == ["relation.malformed"]
+    assert diags[0].location == {"pointer": "/relations", "line": 2, "column": 3}
+
+    text2 = '{\n  "relations": [\n    "не объект"\n  ]\n}\n'
+    records2 = [{"record_id": "b", "entity_type": "note", "path": "records/b.json",
+                 "data": {"relations": ["не объект"]}}]
+    diags2 = validate_relations("ds", records2, {"performed_by"}, texts={"records/b.json": text2})
+    assert [d.code for d in diags2] == ["relation.malformed"]
+    assert diags2[0].location["pointer"] == "/relations/0"
+    assert diags2[0].location["line"] == 2

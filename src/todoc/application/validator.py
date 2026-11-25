@@ -475,50 +475,69 @@ def _validate_records(
     return diags, records
 
 
+def _pointer_key(pointer: str) -> str:
+    """Последний нечисловой сегмент pointer'а — ключ, по которому ищется строка."""
+    for part in reversed(pointer.strip("/").split("/")):
+        if part and not part.isdigit():
+            return part
+    return ""
+
+
 def validate_relations(
     dataset_id: str,
     records: list[dict[str, Any]],
     known_relation_types: set[str],
+    texts: dict[str, str] | None = None,
 ) -> list[Diagnostic]:
     """Check relations: declared type_id must exist, target must exist.
 
     ``known_relation_types`` is the registry's set of relation_type ids and is
     required: an unknown ``type_id`` is a defect, so there is no mode in which
     the check is skipped.
+
+    ``texts`` (путь → текст записи) необязателен и нужен только для позиций: с ним
+    диагностика несёт ``line``/``column`` по тому же соглашению, что и
+    ``record.schema_violation`` — строка ключа плюс точный ``pointer``.
     """
     diags: list[Diagnostic] = []
     known = {r["record_id"] for r in records}
     for record in records:
+        text = (texts or {}).get(record["path"], "")
+
+        def located(pointer: str) -> dict[str, Any]:
+            return {"pointer": pointer, **_key_location(text, _pointer_key(pointer))}
+
         relations = record["data"].get("relations")
         if not isinstance(relations, list):
             if relations is not None:
                 diags.append(_diag(dataset_id, record["path"], "relation.malformed",
-                                   "Field 'relations' must be a list of objects."))
+                                   "Field 'relations' must be a list of objects.",
+                                   location=located("/relations")))
             continue
         for index, rel in enumerate(relations):
             # Exact structural address: relations live in a JSON record, so an
             # RFC 6901 pointer locates the offending entry without guessing a line.
-            where = {"pointer": f"/relations/{index}"}
+            where = located(f"/relations/{index}")
             if not isinstance(rel, dict):
                 diags.append(_diag(dataset_id, record["path"], "relation.malformed",
-                                   "Relation entry must be an object.", location=dict(where)))
+                                   "Relation entry must be an object.", location=where))
                 continue
             type_id = str(rel.get("type_id", ""))
             if known_relation_types is not None and type_id not in known_relation_types:
                 diags.append(_diag(dataset_id, record["path"], "relation.unknown_type",
-                                   f"Unknown relation type_id: {type_id or '<empty>'}", location=dict(where)))
+                                   f"Unknown relation type_id: {type_id or '<empty>'}", location=where))
             target = (rel.get("target") or {}).get("id", "") if isinstance(rel.get("target"), dict) else ""
             if target and target not in known:
                 diags.append(_diag(dataset_id, record["path"], "relation.dangling_target",
                                    f"Relation target not found: {target}",
-                                   location={**where, "pointer": f"/relations/{index}/target/id"}))
+                                   location=located(f"/relations/{index}/target/id")))
             elif not target:
                 diags.append(_diag(dataset_id, record["path"], "relation.missing_target",
                                    f"Relation {type_id or '<empty>'} has no target.id.",
-                                   location={**where, "pointer": f"/relations/{index}/target/id"}))
+                                   location=located(f"/relations/{index}/target/id")))
             defect = temporal.interval_defect(rel)
             if defect:
                 code, message, field = defect
                 diags.append(_diag(dataset_id, record["path"], code, message,
-                                   location={**where, "pointer": f"/relations/{index}/{field}"}))
+                                   location=located(f"/relations/{index}/{field}")))
     return diags

@@ -19,7 +19,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `cli.py` | 1494 | 46 листовых команд, флаги, конвертация `TodocError` в код выхода |
 | `application/changes.py` | 706 | Жизненный цикл изменения, дельты, `validate`/`verify`/`apply`/`archive`/`revert` |
 | `application/history.py` | 565 | Журнал событий: `log`/`show`/`diff`/`blame`/`revert`/`tag`, `gc`, внешние правки |
-| `application/validator.py` | 522 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
+| `application/validator.py` | 543 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
 | `adapters/formats/markdown.py` | 378 | Токены markdown-it-py: заголовки, ссылки, front matter, границы секций |
 | `typing_system/prompts.py` | 309 | Генерация стартовых шаблонов и CRUD-промптов типа |
 | `typing_system/descriptors.py` | 282 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
@@ -45,7 +45,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `ports/history.py` | 39 | Порт бэкенда истории: ядро от git не зависит |
 | `__main__.py` | 6 | Точка входа `python -m todoc` |
 
-Итого `src/todoc`: 7508 строк.
+Итого `src/todoc`: 7530 строк.
 
 Слои: `ports/` объявляет интерфейс бэкенда истории, `adapters/history/backends.py` его
 реализует. Единственный `subprocess` во всём `src/todoc` — в `backends.py`, поэтому ядро

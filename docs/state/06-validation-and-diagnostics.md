@@ -127,6 +127,10 @@
 | `relation.missing_target` | у отношения нет `target.id` |
 | `relation.malformed` | элемент `relations` не объект или поле не список |
 
+Все четыре несут `pointer` (`/relations/<i>/…`) и, кроме того, `line`/`column` ключа —
+по тому же соглашению, что и `record.schema_violation`: строка открывает файл в нужном
+месте, а точный адрес остаётся в `pointer`.
+
 ### Документы, чтение, правки
 
 | Код | Когда |

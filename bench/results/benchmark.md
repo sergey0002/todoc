@@ -1,8 +1,8 @@
 # Бенчмарк todoc
 
-Дата: 2026-11-25 15:37:19 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
+Дата: 2026-11-25 16:25:24 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
 
-**Итоговый балл: 29.5 из 30** (98%)
+**Итоговый балл: 30.0 из 30** (100%)
 
 ## Контракт
 
@@ -19,7 +19,7 @@
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
 | K6 | Детекция дефектов: precision/recall на seeded-корпусе | pass | 1.0 | precision=1.00, recall=1.00, F1=1.00; TP=9, FN=0, FP=0 |
-| K7 | Точные локации (line/column) у диагностик | partial | 0.55 | 6 из 11 диагностик имеют номер строки |
+| K7 | Точные локации (line/column) у диагностик | pass | 1.0 | 11 из 11 диагностик имеют номер строки |
 | K8 | Front matter совместим с внешним YAML-парсером | pass | 1.0 | PyYAML: 90 файлов разобрано, 0 с ошибкой |
 | K9 | Присвоение doc_type: front matter важнее маски папки | pass | 1.0 | doc_type=guide, rule_source=rule:fm-guide |
 | K10 | Валидация записей: схема, тип, целостность отношений | pass | 1.0 | отказы записи: [('missing_field', 'record.schema_violation'), ('unknown_type', 'record.unknown_entity_type')]; файл не создан: True; коды отношений: ['relation.dangling_target', 'relation.unknown_type'] |
@@ -36,7 +36,7 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note-bench-safety-1a5742fa.json, файлов изменено: 0 |
+| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note-bench-safety-2b2b3ce2.json, файлов изменено: 0 |
 | K15 | create-only: повторная запись → конфликт (exit 5) | pass | 1.0 | первая запись exit=0, повторная exit=5 |
 | K16 | Containment: --out не пишет вне DATA_ROOT | pass | 1.0 | файл вне корня создан: False, exit=4 |
 
@@ -69,13 +69,13 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=162мс, types list=188мс, docs search=607мс, docs read=172мс, records list=159мс, validate=1040мс |
+| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=174мс, types list=155мс, docs search=627мс, docs read=174мс, records list=167мс, validate=1045мс |
 
 ## Качество кода
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K28 | Тестовый набор проходит | pass | 1.0 | 932 passed |
+| K28 | Тестовый набор проходит | pass | 1.0 | 957 passed |
 | K29 | Покрытие кода тестами | pass | 1.0 | покрытие 100%, пропущено инструкций: 0, веток: 0 |
 
 ## Портабельность
@@ -89,7 +89,7 @@
 ```json
 {
   "obsidiantools": {
-    "elapsed_s": 6.666,
+    "elapsed_s": 6.977,
     "notes": 91,
     "local_md_links": 286,
     "broken_links_detected": 1,
@@ -107,21 +107,21 @@
     "commands": {
       "help": {
         "exit_code": 0,
-        "elapsed_s": 0.488,
+        "elapsed_s": 0.555,
         "stdout_bytes": 4967,
         "stderr_bytes": 0,
         "first_line": "Usage: open-knowledge [options] [file | command]"
       },
       "status": {
         "exit_code": 0,
-        "elapsed_s": 0.599,
+        "elapsed_s": 0.608,
         "stdout_bytes": 40,
         "stderr_bytes": 0,
         "first_line": "server  not running"
       },
       "diagnose": {
         "exit_code": 1,
-        "elapsed_s": 0.523,
+        "elapsed_s": 0.548,
         "stdout_bytes": 0,
         "stderr_bytes": 714,
         "first_line": ""
