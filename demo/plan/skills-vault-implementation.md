@@ -718,16 +718,16 @@ git commit -m "feat(skills): todoc skills import — офлайн-импорт �
 - Modify: `demo/HOME.md` (линия `skills/` в карте)
 - Modify: `demo/plan/skills-vault-implementation.md` (§8: запись о выполнении)
 
-- [ ] **Шаг 1: README** — подраздел в «Работе агентов»: хранилище `demo/skills/`,
+- [x] **Шаг 1: README** — подраздел в «Работе агентов»: хранилище `demo/skills/`,
   стандарт Agent Skills, `skills tree/read`, мьют, `skills import/adopt`,
   `skills attach` — диспетчер для платформ с нативными скилами (в контексте
   ровно один скил `todoc`), строка в AGENTS.md — для остальных (README
   описывает установку и работу агентов).
-- [ ] **Шаг 2: HOME** — линия карты со счётчиками (11 скилов, 3 раздела).
-- [ ] **Шаг 3: финал** — `todoc validate --root demo --all` (0 диагностик),
+- [x] **Шаг 2: HOME** — линия карты со счётчиками (11 скилов, 3 раздела).
+- [x] **Шаг 3: финал** — `todoc validate --root demo --all` (0 диагностик),
   `tools/linkcheck.py` (0 битых), полный pytest; счётчики в этом плане
   согласованы с фактом; §8 — запись с датой и числом задач.
-- [ ] **Шаг 4: коммит**
+- [x] **Шаг 4: коммит**
 
 ```bash
 git add README.md demo/HOME.md demo/plan/skills-vault-implementation.md
@@ -736,19 +736,19 @@ git commit -m "docs(skills): README/HOME/план — документирова
 
 ## 6. Definition of Done
 
-- [ ] Все чекбоксы §5 отмечены; §8 содержит запись о выполнении с датой.
-- [ ] pytest зелёный (988 + новые); coverage 100% на `skills.py` и новых
+- [x] Все чекбоксы §5 отмечены; §8 содержит запись о выполнении с датой.
+- [x] pytest зелёный (988 + новые); coverage 100% на `skills.py` и новых
       ветках `cli.py`/`search.py`/`validator.py`.
-- [ ] `validate --root demo --all` — 0 диагностик; `tools/linkcheck.py` — 0 битых.
-- [ ] `skills tree --root demo` < 1 c, **11 скилов**, мьют и `--all` работают;
+- [x] `validate --root demo --all` — 0 диагностик; `tools/linkcheck.py` — 0 битых.
+- [x] `skills tree --root demo` < 1 c, **11 скилов**, мьют и `--all` работают;
       `skills read` читает по пути с confinement; E2E-сценарий Задачи 4 выполнен.
-- [ ] Диспетчер: `skills attach` кладёт единственный скил `todoc` в платформенный
+- [x] Диспетчер: `skills attach` кладёт единственный скил `todoc` в платформенный
       каталог с вшитым root; vault НЕ монтируется (0 L1-описаний под-скилов);
       entry gate и refusal floor в теле; SKILL.md диспетчера пакуется в wheel
       (package-data — проверка переустановкой `.venv/bin/pip install -e .`).
-- [ ] Роутинг-правило присутствует в канонических носителях
+- [x] Роутинг-правило присутствует в канонических носителях
       (agent-contract.md, SKILL.md) и указателем в AGENTS.md.
-- [ ] Счётчики README/HOME согласованы с фактом; ни один статус `done` не
+- [x] Счётчики README/HOME согласованы с фактом; ни один статус `done` не
       поставлен без явной фразы пользователя.
 
 ## 7. Риски и митигации
@@ -824,6 +824,30 @@ git commit -m "docs(skills): README/HOME/план — документирова
   явная команда). Счётчики демо 10 → 11.
 
 Отклонений при исполнении нет.
+- 2026-11-25 — ИСПОЛНЕНИЕ (задачи 1–7, TDD): код — `skills.py` (scan/validate/
+  effective_name), CLI-группа `skills` (tree/read/attach/import), мьют в
+  `docs search`, интеграция в `validate_dataset`; демо-vault 11 скилов +
+  references; роутинг в трёх носителях; диспетчер-скил в пакете движка
+  (`src/todoc/data/agent-skill/todoc/`, package-data в pyproject). Отклонения
+  при исполнении: (1) CLI-тесты поднимают tmp-датасет `init --root` — house
+  команды идут через `_contexts` (план-тесты этого не учитывали); (2) счётчик
+  sections = разделы ВЕРХНЕГО уровня (семантика идеи), не все промежуточные
+  папки; (3) `--max-depth` ограничивает оба режима (P7), не только table;
+  (4) коды ошибок в тестах — `result.exception.code` (глобальный обработчик
+  ошибок за пределами CliRunner не печатает конверт); (5) фильтр диагностик
+  import — по имени папки скила `Path(…).name`, не `parent.name` (поймано
+  TDD-тестом test_import_reports_invalid_front_matter); (6) роутинг в копию
+  `demo/skill/SKILL.md` внесён edit_file, а не `docs edit` 1:1 — BUG-004
+  (вставка строк невозможна); исключение задокументировано в AGENTS.md;
+  (7) инцидент сессии: секционная правка этого плана partition-скриптом
+  уронала файл (229/829 строк) до пуша — восстановлен из коммита c74b326
+  (`git reset --soft` + restore), коммит пересоздан; правило: секционные
+  правки плана — только state-машина по строкам с assert на число отметок.
+  Приёмка: superpowers — целый пакет 15/15 одной командой import (0 skipped,
+  0 skills.*-диагностик), затем откат, validate 0; E2E tree → выбор todoc-docs
+  → read → исполнение инструкции (карта → search → секция, bounded);
+  attach в реальный платформенный каталог с вшитым root; pytest зелёный
+  (988 + 18 новых), validate 0, linkcheck 0.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->

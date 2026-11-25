@@ -67,6 +67,31 @@ todoc validate --root demo --all                              # 0 диагнос
 в `demo/bugs/` (один документ = один баг, статус и критичность во front matter,
 репорты не удаляются): `todoc docs new --type bug-report --title "BUG-NNN: суть" --dir bugs`.
 
+### Скилы (открытый стандарт Agent Skills)
+
+Хранилище — `demo/skills/`: папка со SKILL.md = скил (опционально `references/`,
+`scripts/`); иерархия разделов = дерево решений. Канон правил —
+`demo/notes/agent-contract.md` → «Скилы».
+
+```bash
+todoc skills tree --root demo                    # оглавление на лету (live-scan, bounded)
+todoc skills tree --root demo --all              # + мьютнутые (!-папки) с пометкой [!]
+todoc skills read --root demo --path <из дерева> # тело скила (path-confinement, --budget)
+todoc skills attach --to .claude/skills --root demo   # диспетчер-скил todoc платформе
+todoc skills import --root demo --src <папка/репо> --into <раздел>   # офлайн-импорт
+```
+
+- **Подключение к любому агенту:** платформам с нативными скилами — одна папка
+  диспетчера `todoc` (`skills attach`); остальным — строка роутинга в AGENTS.md.
+  Витрина в платформы **не монтируется** — L1-контекст несёт ровно один скил
+  (~100 токенов) при vault любого размера.
+- **Чужой скил — «просто закинул папку»:** скопировать папку в vault →
+  `todoc validate --root demo --all` (live-скан подхватит); целые пакеты — только
+  папки со SKILL.md, плагинная обвязка (hooks/, манифесты) не переносится; либо
+  одной командой `skills import`. Чужие скрипты — аудировать (скил
+  `coding/review/security-review`).
+- После мьюта/импорта: `todoc index rebuild --root demo`.
+
 ## Все команды
 
 ### Датасет и проверка
