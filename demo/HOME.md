@@ -23,7 +23,7 @@ lang: ru
 - [Агентский стейт: state.json в движке](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — `todoc state set/get/list/unset`, файл вне данных.
 - [Скилы взаимодействия: захват, план, исполнение, переходы](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — статусы в документах/записях, 4 скила, relation `implements`.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
-- [Хранилище-движок скилов: skills tree, валидация, мьют, импорт](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills, `todoc skills tree`, коды `skills.*`, мьют `!`, офлайн-импорт; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md).
+- [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (10 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md).
 
 ### Баг-репорты (`bugs/`, doc_type `bug-report`)
 
@@ -68,7 +68,7 @@ matter; репорты не удаляются. Создание: `todoc docs ne
 ## Идеи (`ideas/`)
 
 - [Система документирования кодовой базы через агента](ideas/documentation-system.md) — git-дифы и Jira API → типизированные черновики todoc, очередь сбора, версии правил через `supersedes`.
-- [Хранилище-движок скилов на todoc](ideas/skills-engine.md) — скил как dir_type (формат Agent Skills), иерархия-дерево решений, `todoc skills tree` — оглавление с описаниями на лету, мьют через `!`-префикс.
+- [Хранилище-движок скилов на todoc](ideas/skills-engine.md) — скил как dir_type (формат Agent Skills), иерархия-дерево решений, `todoc skills tree` — оглавление с описаниями на лету, мьют через `!`-префикс. **Запланирована** (25.11.2026) → [план](plan/skills-vault-implementation.md).
 - [`.config.json` — самоописание папок](ideas/folder-config.md) — заголовок, описание и порядок папки для CLI-вывода; описания разделов для дерева скилов.
 - [Агентский стейт — state.json в движке](ideas/agent-state.md) — память рабочего состояния между сессиями вне данных; v1: только `context.current_project`.
 
