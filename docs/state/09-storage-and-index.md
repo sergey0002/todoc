@@ -73,8 +73,12 @@
 ## Хеши
 
 - `sha256:<hex>` содержимого файла — в `documents[].hash` и в WritePlan;
-- `--if-hash` / `--if-hash-new` — оптимистичная блокировка: несовпадение даёт `write.hash_mismatch`
-  и exit 5.
+- `--if-hash` у `docs edit` и `fix` — оптимистичная блокировка: несовпадение даёт
+  `write.hash_mismatch` и exit 5. У `records create` блокировки по хешу нет: план
+  создаётся с `expected_hash=None`, а защита — «только создание»: занятый
+  `record_id` даёт `record.duplicate_id`, занятый путь — `record.target_exists`,
+  оба с exit 5. Флаг `--if-hash-new` принимается, но не проверяется
+  (см. [известные проблемы](11-known-issues.md)).
 
 ## Связанные разделы
 
