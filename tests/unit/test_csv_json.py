@@ -143,13 +143,40 @@ def test_too_deep_reports_where_limit_was_exceeded():
     assert err.line is not None and err.column is not None
 
 
-def test_too_deep_via_recursion_limit_still_located():
-    """Глубокий вход роняет парсер в RecursionError — позиция всё равно нужна."""
+def test_too_deep_from_the_depth_check_is_located():
+    """Глубокий вход ловит итеративная проверка глубины — позиция всё равно нужна.
+
+    400 уровней намеренно меньше порога рекурсии stdlib (на 3.11 это 1000), так что
+    здесь срабатывает ветка ``depth > max_depth``, а не ``except RecursionError``.
+    """
     text = "[" * 400 + "]" * 400
     _value, errors = parse_json(text)
     err = errors[0]
     assert err.code == "json.too_deep"
     assert err.line == 1 and err.column == 130
+
+
+def test_recursion_error_from_the_parser_is_located(monkeypatch):
+    """``except RecursionError`` проверяется напрямую, а не надеждой на глубину входа.
+
+    Порог, на котором ``json.loads`` бросает ``RecursionError``, свой у каждой версии
+    интерпретатора: на 3.11 это 1000 уровней вложенности, а на 3.12 парсер до исключения
+    не доходит вовсе. Подбирать глубину под версию — значит получить зелёные ворота на
+    одной версии и непокрытую строку на другой, поэтому обработчик вызывается
+    искусственно: он защитный и обязан работать независимо от того, кто его позвал.
+    """
+    from todoc.adapters.formats import jsonfmt
+
+    def _boom(*args, **kwargs):
+        raise RecursionError("forced for the test")
+
+    monkeypatch.setattr(jsonfmt.json, "loads", _boom)
+    value, errors = parse_json("[[[1]]]", max_depth=1)
+    assert value is None
+    assert len(errors) == 1
+    err = errors[0]
+    assert err.code == "json.too_deep"
+    assert err.line == 1 and err.column == 3
 
 
 def test_positions_survive_multiline_input():
