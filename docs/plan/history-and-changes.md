@@ -409,22 +409,67 @@ todoc history gc [--keep-objects N] [--purge-before ISO] [--dry-run]
 Попутно закрыт дефект, существовавший до Фазы 1: отсутствующий `--patch-file` давал голый
 трейсбек `FileNotFoundError` вместо конверта (нарушение P11). Теперь `usage.error`, exit 2.
 
-### Фаза 2. Записи изменений и дельты (в core — решение принято)
+### Фаза 2. Записи изменений и дельты — **РЕАЛИЗОВАНА 2026-11-25** (в core — решение принято)
 
 Это те самые bundle-транзакции, которые конституция (G3) и
 [`memory-llm-wiki.after.md`](memory-llm-wiki.after.md) (Шаг 5) называют гейтом перед
 широкими записями агента. Не новая идея — закрытие уже заявленного пробела.
 
 - `entity_type: change`, `relation_type: blocked_by`, `changes/` в DATA_ROOT.
-- `change open/show/validate/apply/archive/revert`.
-- **K38**: `change validate` ловит дрейф якоря и `base_hash` до применения (recall 1.0).
-- **K39**: `change apply` атомарен: при ошибке ни один файл не изменён.
+- `application/changes.py`, `application/context.py`; `doc_type: delta` с `any_of_sections`
+  (ADDED/MODIFIED/REMOVED) и первым в кодовой базе `schema` для front matter документа.
+- `change list/open/show/validate/verify/apply/archive/revert` + `context` — 9 новых команд,
+  CLI вырос с 36 до 45 листовых команд.
+- События журнала `change.open` / `change.apply` / `change.revert` / `change.archive`
+  с привязкой `change_id`.
+- **K38**: `change validate` ловит дрейф якоря и `base_hash` до применения. Проверено
+  именованными тестами на пять засеянных дрейфов (`test_validate_detects_missing_anchor`,
+  `_base_hash_mismatch`, `_missing_target`, `_delta_without_target`, `_ambiguous_order`),
+  ложных срабатываний нет (`test_validate_on_correct_delta_has_no_errors`).
+- **K39**: `change apply` атомарен: при ошибке ни один файл не изменён. Проверено:
+  `test_apply_is_atomic_on_write_failure` (оба файла байт-в-байт прежние, статус `proposed`)
+  и `test_apply_reports_when_rollback_also_fails`.
+- **K42**, **K43**, **K46**: проверены именованными тестами (один вызов `context` на задаче
+  из 5 документов; объём ≤ бюджета без тел диффов; два запуска `verify` идентичны).
 
-### Фаза 3. Би-темпоральность
+Расхождения с планом, найденные при проверке:
 
-- Поля из §5.5, `--as-of`, инвалидация вместо удаления.
+1. `change apply` писал событие `kind: doc.edit` с `change_id: None`, поэтому
+   `log --change <id>` своей же истории не видел. Исправлено: все четыре команды передают
+   идентификатор изменения в регистратор журнала.
+2. §17.4 `history.require_change_for_multi_file` не реализован: пути многофайловой записи
+   в ядре нет (`apply_write_plan`, `apply_fix`, `apply_edit_ops` пишут один файл), поэтому
+   флагу нечего проверять. Зафиксировано в [известных проблемах](../state/11-known-issues.md)
+   как P1-12.
+3. `change archive` переносит папку в `changes/archive/<YYYY-MM-DD>-<slug>/`, поэтому
+   `change_dir` ищет запись в обоих местах, а `list_changes` читает `record_id` из
+   `change.json`, а не из имени папки.
+4. Шаблон `tasks.md` не содержит ни одного пункта: `change verify` считает незакрытые
+   чекбоксы, и пункт в шаблоне делал бы каждое свежее изменение неполным.
+
+### Фаза 3. Би-темпоральность — **РЕАЛИЗОВАНА 2026-11-25**
+
+- Поля из §5.5 у записей **и** отношений, `--as-of`, инвалидация вместо удаления.
+- `application/temporal.py`: нормализация моментов к UTC (лексикографический порядок
+  совпадает с хронологическим), полуоткрытый интервал, выборки по обоим часам, лента.
+- `records query --as-of D` и `timeline [--as-of D] [--path P] [--limit N]` — CLI вырос
+  с 45 до 46 листовых команд.
 - **K40**: point-in-time запрос корректен на засеянных интервалах (точно, без допусков).
-- **K41**: противоречащий факт закрывает старый, старый остаётся читаемым.
+  Проверено: `test_k40_point_in_time_is_exact_on_seeded_intervals` сверяет выборку на 11 днях
+  четырёх засеянных интервалов (включая открытые с обеих сторон), плюс
+  `test_k40_interval_end_is_exclusive_not_inclusive` фиксирует полуоткрытость.
+- **K41**: противоречащий факт закрывает старый, старый остаётся читаемым. Проверено:
+  `test_k41_contradicting_fact_closes_the_old_one` (закрытый факт остаётся в данных и в ленте,
+  виден только до `superseded_at`) и `test_k41_closed_fact_still_readable_through_records`.
+
+Расхождения с планом, найденные при проверке:
+
+1. В таблицу §8 добавлен код `temporal.invalid_instant` — неразбираемое значение даты или
+   момента. Без него опечатка в `--as-of` молча возвращала бы пустую выборку, и отличить её
+   от правды было бы нельзя; неразбираемое значение **в данных** делает факт невидимым, но
+   причина показывается в `validate`. Код описан в [каталоге диагностик](../state/06-validation-and-diagnostics.md).
+2. Темпоральные поля поддержаны не только на отношении (как в §5.5), но и на самой записи —
+   иначе `records query --as-of` не имел бы предмета: записи без полей видны всегда.
 
 ### Привязка критериев §17 к фазам
 
