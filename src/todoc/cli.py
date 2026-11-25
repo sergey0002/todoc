@@ -332,10 +332,17 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
     shown = [s for s in skills_list if show_all or not s.muted]
     if within:
         shown = [s for s in shown if s.section == within or s.section.startswith(within.rstrip("/") + "/")]
+    vault_configs, _fc_diags = load_folder_configs(vault_root)
+    section_meta = {rel: {"title": fc.title, "description": fc.description, "order": fc.order}
+                    for rel, fc in vault_configs.items()}
     if query:
         q = query.lower()
+        matched_sections = {rel for rel, fc in vault_configs.items()
+                            if q in " ".join([fc.title, fc.description, "|".join(fc.aliases),
+                                              " ".join(fc.tags)]).lower()}
         shown = [s for s in shown
-                 if q in s.name.lower() or q in s.description.lower() or q in s.path.lower()]
+                 if q in s.name.lower() or q in s.description.lower() or q in s.path.lower()
+                 or any(s.section == ms or s.section.startswith(ms + "/") for ms in matched_sections)]
 
     def _depth(s: Any) -> int:
         return 0 if s.section == "" else s.section.count("/") + 1
@@ -353,10 +360,11 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
                    "sections": len({s.section.split("/")[0] for s in skills_list if s.section}),
                    "muted": sum(1 for s in skills_list if s.muted)},
         "skills": items,
+        "section_meta": section_meta,
         "truncated": truncated,
     }
     if output == "table":
-        click.echo(_skills_tree_text(items, data["counts"], truncated, max_depth))
+        click.echo(_skills_tree_text(items, data["counts"], truncated, max_depth, section_meta))
         return
     _emit_ok(data, output, None,
              next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", "<путь из дерева>"],
@@ -364,24 +372,43 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
 
 
 def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
-                      truncated: bool, max_depth: int) -> str:
+                      truncated: bool, max_depth: int,
+                      sec_meta: dict[str, dict[str, Any]] | None = None) -> str:
     """ASCII-дерево как в образце идеи: описания в stdout, [!] для мьюта."""
+    sec_meta = sec_meta or {}
     lines = [f"skills/  ({counts['skills']} skills, {counts['sections']} sections, "
              f"{counts['muted']} muted){' [truncated]' if truncated else ''}"]
     sections: dict[str, list[dict[str, Any]]] = {}
     for s in shown:
         sections.setdefault(s["section"], []).append(s)
-    for section in sorted(sections):
-        depth = 0 if section == "" else section.count("/") + 1
+
+    children: dict[str, set[str]] = {}
+    for section in sections:
+        parts = section.split("/")
+        for i in range(len(parts)):
+            children.setdefault("/".join(parts[:i]), set()).add("/".join(parts[: i + 1]))
+
+    def _sec_key(section: str) -> tuple[int, str]:
+        order = (sec_meta.get(section) or {}).get("order")
+        return (order if isinstance(order, int) else 10**9, section)
+
+    def _render(node: str, depth: int) -> None:
         if depth >= max_depth:
-            continue
-        here = sections[section]
-        own = [s for s in here if s["section"] == section]
-        if section:
-            lines.append("  " * depth + f"{section.split('/')[-1]}/ ({len(own)})")
-        for s in sorted(own, key=lambda x: x["path"].lstrip("!")):
+            return
+        own = sorted(sections.get(node, []), key=lambda x: x["path"].lstrip("!"))
+        meta = sec_meta.get(node) or {}
+        if node and (own or meta):  # узел печатаем, если в нём есть скилы или у папки есть конфиг
+            label = f"{node.split('/')[-1]}/"
+            if meta.get("title"):
+                label += f" — {meta['title']}" + (f": {meta['description']}" if meta.get("description") else "")
+            lines.append("  " * depth + f"{label} ({len(own)})")
+        for s in own:
             label = f"[!] {s['name']}" if s["muted"] else s["name"]
             lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
+        for child in sorted(children.get(node, set()), key=_sec_key):
+            _render(child, depth + 1)
+
+    _render("", 0)
     return "\n".join(lines)
 
 

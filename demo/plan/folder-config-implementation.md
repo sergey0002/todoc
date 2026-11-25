@@ -363,15 +363,15 @@ git commit -m "feat(folder-config): docs suggest — Фаза A скоринга
   `--query` дополнительно матчит title/aliases/description/tags конфига раздела
   (substring, как остальной query).
 
-- [ ] **Шаг 1: падающие тесты** — vault с конфигом раздела: table содержит
+- [x] **Шаг 1: падающие тесты** — vault с конфигом раздела: table содержит
   `coding/ — Скилы кодинга:`; без конфига — как раньше; `--query` по alias
   раздела находит скилы внутри; порядок разделов по `order` (process=1 выше
   coding=3).
-- [ ] **Шаг 2: убедиться, что падает**
-- [ ] **Шаг 3: реализовать** — единый `load_folder_configs(vault_root)` на
+- [x] **Шаг 2: убедиться, что падает**
+- [x] **Шаг 3: реализовать** — единый `load_folder_configs(vault_root)` на
   вызов; скилы не трогаются (описание скила — из SKILL.md, §4).
-- [ ] **Шаг 4: проходят все skills-тесты.**
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 4: проходят все skills-тесты.**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_skills_tree.py
