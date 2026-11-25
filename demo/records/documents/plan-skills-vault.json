@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "record_id": "document:plan-skills-vault",
+  "entity_type": "document",
+  "title": "Хранилище-движок скилов: skills tree, валидация, мьют, импорт (план)",
+  "source_path": "plan/skills-vault-implementation.md",
+  "doc_type": "plan",
+  "lang": "ru",
+  "origin": "authored",
+  "lines": 467,
+  "tags": [
+    "skills",
+    "agent-skills",
+    "cli",
+    "validation",
+    "import",
+    "routing"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:implementation-plan"
+      }
+    }
+  ]
+}
