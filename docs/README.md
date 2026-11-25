@@ -24,7 +24,7 @@
 | Файл | О чём |
 |---|---|
 | [installation.md](installation.md) | Требования, установка из исходников, проверка, первый датасет, устранение неполадок |
-| [`../README.md`](../README.md) | Быстрый старт, все 26 команд, контракт вывода, коды выхода |
+| [`../README.md`](../README.md) | Быстрый старт, все 46 команд, контракт вывода, коды выхода |
 | [`../SKILL.md`](../SKILL.md) | Точка входа Agent Skill: короткий сценарий работы агента |
 
 ### `state/` — фактическое состояние системы
@@ -36,7 +36,7 @@
 |---|---|
 | [01-overview.md](state/01-overview.md) | Продукт, границы, статус MVP |
 | [02-architecture.md](state/02-architecture.md) | Слои, модули, поток данных |
-| [03-cli-reference.md](state/03-cli-reference.md) | Все 26 команд: флаги, вход, выход, коды выхода |
+| [03-cli-reference.md](state/03-cli-reference.md) | Все 46 команд: флаги, вход, выход, коды выхода |
 | [04-config-and-types.md](state/04-config-and-types.md) | `dataset.json`, правила, типы, резолвер |
 | [05-formats.md](state/05-formats.md) | Адаптеры Markdown/JSON/CSV |
 | [06-validation-and-diagnostics.md](state/06-validation-and-diagnostics.md) | Каталог диагностик, фиксы |

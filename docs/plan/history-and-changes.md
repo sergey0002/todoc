@@ -1,6 +1,11 @@
 # Хронология, дельты изменений и редизайн индекса — план реализации
 
-**Статус:** план, к реализации не приступали.
+**Статус:** **РЕАЛИЗОВАН 2026-11-25** — все пять фаз (§9) выполнены и приняты. Что именно
+построено, описано по коду в `docs/state/`: журнал и откат — [09](../state/09-storage-and-index.md),
+изменения и дельты — [08](../state/08-records-and-relations.md), би-темпоральность —
+[08](../state/08-records-and-relations.md), устаревание — [09](../state/09-storage-and-index.md).
+Этот файл оставлен как обоснование решений; единственное невыполненное — §17.4
+`history.require_change_for_multi_file` (причина в [11-known-issues.md](../state/11-known-issues.md), P1-12).
 **Дата:** 2026-11-25.
 **Область:** `application/registry.py`, `application/write.py`, `service.py`, `cli.py`,
 новый `application/history.py`, новый `application/changes.py`, новый `adapters/history/`.

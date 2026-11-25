@@ -166,6 +166,28 @@ MVP: 1 новый файл (`docs new` / `records create`) или 1 review-first
 
 Каждый этап: **цель → шаги → deliverables (файлы) → тесты → gate**. Следующий этап не начинается, пока не пройден gate предыдущего. Оценка объёма — в задачах, не в датах (даты ставятся после Этапа 0).
 
+#### Статус реализации на 2026-11-25
+
+MVP построен: **46 листовых команд / 25 верхнеуровневых**, 988 тестов, покрытие 100%.
+Как устроено реализованное — в `docs/state/`; ниже отмечено только то, что расходится с планом.
+
+| Этап | Статус | Расхождение с планом |
+|---|---|---|
+| 0 — Discovery | ✅ по существу | отдельного `plan/discovery-report.md` нет: сравнение с конкурентами живёт в [`competitive-analysis.md`](competitive-analysis.md) и `docs/research/`, метрики — в [`15-benchmark.md`](../state/15-benchmark.md) |
+| 0.5 — Design contracts | ✅ по существу | JSON Schemas есть **у типов** (`schema.json` в папке типа), а не у `dataset.json`/правил/описателей: их проверяет код (`config.invalid_schema`), а не схема |
+| 1 — Скелет Skill/CLI | ✅ | — |
+| 2 — Data schema и `init` | ✅ | в `assets/data-root-template/` лежит только README с раскладкой, JSON-шаблонов нет: `.todoc/` собирает `config.init_dataset` |
+| 3 — Scanner и resolver | ✅ | — |
+| 4 — Format adapters и validation | ✅ | — |
+| 5 — Registry/cache, search/read, query/aggregate | ✅ | **поколений индекса больше нет**: один снимок в `.todoc/index/current/` с инвалидацией по дайджесту корпуса |
+| 6 — Review-first diagnostics и fixes | ✅ | — |
+| 7 — Obsidian/profile, Skill, capture | ◐ частично | **Obsidian-профиля нет** (`.obsidian` только в списке исключений сканера); из capture есть лишь объявление `trusted_workflows.record-capture-v1`, команды capture нет. `SKILL.md`, `types guide` и references — есть |
+| 7.5 — v1-совместимость и CI | ✅ | CI + `LICENSE` + SPDX появились позже плана (P1-7) |
+
+Дальше по тексту статус этапа не повторяется — таблица выше и есть источник истины.
+Нереализованное осознанно: Obsidian-профиль и capture-workflow не входили в то, что
+проверялось бенчмарком; MCP, синхронизация, UI и векторный поиск остаются в `.after.md`.
+
 ### Этап 0 — Discovery: проверить проблему и сузить scope (до производственной реализации)
 
 **Цель:** подтвердить, что source-native QA + typed records реально экономят время на реальных папках, и выбрать один vertical slice. Без этого — не писать полный CLI.

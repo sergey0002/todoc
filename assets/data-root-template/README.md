@@ -12,21 +12,36 @@ DATA_ROOT/
       directory-rules.json  # dir_type resolution rules
       document-rules.json   # doc_type resolution rules
     dir_types/<type>/type.json
-    doc_types/<type>/type.json
-    entity_types/<type>/type.json
+    doc_types/<type>/type.json + template.md + prompts/{read,create,edit,delete}.md
+    entity_types/<type>/type.json + template.json + prompts/ + optional schema.json
     relation_types/<type>/type.json
-    schemas/<type>.schema.json
-    templates/<name>.md
-    queries/<name>.json
-    identities/             # stable IDs (derived, rebuildable)
-    index/                  # generations + CURRENT.json (derived, rebuildable)
-    cache/parse/            # parse cache (derived, rebuildable)
-    generated/              # types-reference.md etc. (derived, rebuildable)
+    queries/<name>.json         # saved query specs
+    generated/                  # types-reference.md etc. (derived, rebuildable)
+    index/                      # one snapshot, created on first read (derived)
+    cache/parse/                # parse cache (derived, rebuildable)
+    history/                    # journal + snapshots (see below; NOT derived)
+  changes/                  # change records + deltas (NOT derived; DATA_ROOT level)
   records/                  # typed JSON records (create-only via CLI)
   notes/                    # Markdown documents
   inbox/                    # capture drafts (docs new default)
   attachments/              # opaque files (never indexed as content)
 ```
 
+One type — one folder — one asset set. A record or document schema lives in its
+own type folder as `schema.json` (or at an explicit `schema` path inside
+DATA_ROOT); there is no top-level schema catalog. Templates live beside their
+type (`template.md` for documents, `template.json` for records), not in a shared
+`templates/` directory.
+
+`init` creates the folders above except `.todoc/index/`, `.todoc/cache/`,
+`.todoc/history/` and `changes/`, which appear on first use (verified: `history/`
+after the first write, `changes/` after `change open`).
+
 `.todoc/` and `.todoc.json` are never indexed as content. Existing sources are
 read-only; writes go through `docs new` / `records create` (review-first).
+
+**Not derived — do not delete:** `.todoc/history/` (append-only journal and
+snapshots) and `changes/` (change records and deltas) hold state that cannot be
+rebuilt from the sources. Everything else under `.todoc/` is derived and safe to
+delete: `index/`, `cache/`, `generated/` — the repository `.gitignore` ignores
+exactly these three.

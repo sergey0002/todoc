@@ -244,13 +244,19 @@ files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок з�
 `data`: `{dataset_id, path, title, doc_type, template, hash}`, где `template` — источник
 (`.todoc/doc_types/<id>/template.md`, путь к файлу, `type-without-template` или `none`).
 Отказы: `types.unknown`, `types.template_missing`, `types.template_invalid` (шаблон нарушает
-структуру своего типа — файл не создаётся), `docs.target_exists` (exit 5),
-`access.outside_data_root` (exit 4).
+структуру своего типа — файл не создаётся), `docs.empty_title` (заголовок из одних пробелов,
+exit 3), `docs.target_exists` (exit 5), `access.outside_data_root` (exit 4).
+
+`docs.unsafe_path` (exit 3) — второй эшелон защиты внутри `write.py`: срабатывает, если целевой
+путь начинается с `../` или `/` либо содержит `/../`. Через CLI до него обычно не доходит —
+containment-проверка слоя команд отвечает раньше тем же `access.outside_data_root` (проверено
+на `--path ../evil.md` и `--dir ../out`).
 
 ### `docs search --query Q [--type T] [--limit N] [--within PATH] [--budget BYTES] [--cursor C]`
 Лексический поиск. `data`: `{dataset_id, total, returned, truncated, cursor, items[]}`,
 `items[]`: `{id, path, title, heading_path, rank, relevance{method,matched_by}, matched_terms, snippet{text,line_start,line_end,truncated}}`.
 `--cursor` — смещение: вторая страница продолжает выдачу без пересечений с первой.
+Нецелое значение — `usage.invalid_cursor` (exit 3), а не traceback.
 
 ### `docs read --id ID [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget BYTES]`
 Ограниченное чтение. Поля ответа зависят от формата:
@@ -262,6 +268,7 @@ files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок з�
   `--rows 3 --where k=v` возвращает три подходящие строки, а не три первые с последующей
   фильтрацией (P1-5). `matched` — сколько строк подошло под условие, `total` — сколько их в файле.
 Общие поля: `{dataset_id, id, path, format, doc_type, hash}`.
+Некорректный `--line-range` — `usage.invalid_line_range` (exit 3).
 
 ### `docs tree [--within PATH] [--max-depth N]`
 `data`: `{dataset_id, folders[], documents[], total_folders, total_documents, max_depth}`.

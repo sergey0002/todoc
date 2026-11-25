@@ -8,8 +8,8 @@
 | Показатель | Значение |
 |---|---|
 | Команд CLI | 26 |
-| Тестов | 957 (все проходят) |
-| Покрытие | 100% — 2491 инструкция, 868 веток |
+| Тестов | 988 (все проходят) |
+| Покрытие | 100% — 4570 инструкций, 1676 веток |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
 | Демо-датасет | [`demo/`](demo/README.md): 248 документов, 157 записей, 0 диагностик |
 
@@ -168,14 +168,14 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
-src/todoc/            код: cli, application, domain, adapters, typing_system, output
-tests/                957 тестов: unit, cli, integration (покрытие 100%)
+src/todoc/            код: cli, application, domain, ports, adapters, typing_system, output
+tests/                988 тестов: unit, cli, integration (покрытие 100%)
 docs/
 ├── README.md         индекс всей документации
 ├── installation.md   установка, проверка, первый датасет
 ├── plan/             конституция, план реализации, конкурентный анализ, аудит, AFTER-планы,
 │                     engineering-draft.md — инженерный набросок §1–§18
-├── state/            документация текущего состояния системы (15 разделов)
+├── state/            документация текущего состояния системы (16 разделов)
 ├── guides/           гайды для агентов: CLI, MCP, Markdown KB
 └── research/         исследования и аудиты, skills-audit/ — материалы аудита
 references/           справка по подсистемам (входит в Skill)
@@ -228,7 +228,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **30.0 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-957 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+988 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 

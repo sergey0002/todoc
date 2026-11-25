@@ -20,7 +20,7 @@ copied: true
 |---|---|---|
 | [01-overview.md](01-overview.md) | Что такое `todoc`, границы продукта, статус MVP | человек + агент |
 | [02-architecture.md](02-architecture.md) | Слои, модули, поток данных, порты | человек + агент |
-| [03-cli-reference.md](03-cli-reference.md) | Все 26 команд: флаги, вход, выход, коды выхода | агент (основной) |
+| [03-cli-reference.md](03-cli-reference.md) | Все 46 команд: флаги, вход, выход, коды выхода | агент (основной) |
 | [04-config-and-types.md](04-config-and-types.md) | `dataset.json`, правила, типы, резолвер | человек + агент |
 | [05-formats.md](05-formats.md) | Адаптеры Markdown/JSON/CSV | человек + агент |
 | [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) | Каталог диагностик, фиксы | агент |
@@ -33,6 +33,7 @@ copied: true
 | [13-demo-dataset.md](13-demo-dataset.md) | Устройство демо-датасета `demo/` | человек + агент |
 | [14-glossary.md](14-glossary.md) | Термины | человек + агент |
 | [15-benchmark.md](15-benchmark.md) | Бенчмарк качества: 30 критериев, сравнение с конкурентами | человек |
+| [16-leftovers-report.md](16-leftovers-report.md) | Отчёт по остаткам: что открыто и в каком порядке | человек |
 
 ## Связанные документы
 
