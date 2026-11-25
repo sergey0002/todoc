@@ -44,6 +44,8 @@ DELINK = {
     # Repo-level docs index and installation guide: not copied into the demo.
     "../README.md",
     "../installation.md",
+    # The history/changes plan is deliberately not mirrored into the demo dataset.
+    "../plan/history-and-changes.md",
 }
 
 LINK = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)(?P<rest>[^)]*)\)")

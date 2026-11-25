@@ -69,11 +69,16 @@ class ScannedFolder:
         self.abs_path = abs_path
 
 
-def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int = 10485760) -> tuple[list[ScannedFolder], list[ScannedFile]]:
+def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int = 10485760,
+                 hash_cache: dict[str, dict[str, object]] | None = None) -> tuple[list[ScannedFolder], list[ScannedFile]]:
     """Walk root deterministically (sorted). Returns (folders, files).
 
     Hard-excludes apply before classification and cannot be lifted by config.
     Symlinks are not followed by default; symlink escapes are skipped.
+
+    ``hash_cache`` maps rel_path -> {hash, mtime, size}. An entry whose mtime and
+    size still match lets the walk reuse the stored hash instead of re-reading the
+    file, so a no-op command costs a stat() per file rather than a full read.
     """
     root_resolved = root.resolve()
     folders: list[ScannedFolder] = [ScannedFolder(".", root_resolved)]
@@ -102,7 +107,8 @@ def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int 
                 walk(entry_path, rel)
             elif entry.is_file(follow_symlinks=follow_symlinks):
                 try:
-                    size = entry.stat(follow_symlinks=follow_symlinks).st_size
+                    st = entry.stat(follow_symlinks=follow_symlinks)
+                    size, mtime = st.st_size, st.st_mtime_ns
                 except OSError:
                     files.append(ScannedFile(rel, entry_path, "opaque", 0, "sha256:", "permission_denied"))
                     continue
@@ -110,6 +116,12 @@ def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int 
                 if size > max_file_bytes:
                     files.append(ScannedFile(rel, entry_path, fmt, size, "sha256:", "unsupported"))
                     continue
+                cached = (hash_cache or {}).get(rel)
+                if isinstance(cached, dict) and cached.get("mtime") == mtime and cached.get("size") == size:
+                    digest = str(cached.get("hash") or "")
+                    if digest.startswith("sha256:"):
+                        files.append(ScannedFile(rel, entry_path, fmt, size, digest))
+                        continue
                 try:
                     digest = file_hash(entry_path)
                 except OSError:

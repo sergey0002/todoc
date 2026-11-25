@@ -204,24 +204,24 @@ def test_config_digest_unreadable_file(root):
     assert gen
 
 
-def test_load_current_missing_gen_dir(root):
+def test_load_current_missing_current_dir(root):
     store = RegistryStore(root)
-    gen = store.publish({"dataset_id": "ds"}, [], [], [], [], [])
-    shutil.rmtree(store.generations_dir / gen)
+    store.publish({"dataset_id": "ds"}, [], [], [], [], [])
+    shutil.rmtree(store.current_dir)
     assert store.load_current() is None
 
 
 def test_load_current_missing_file(root):
     store = RegistryStore(root)
-    gen = store.publish({"dataset_id": "ds"}, [], [], [], [], [])
-    (store.generations_dir / gen / "folders.json").unlink()
+    store.publish({"dataset_id": "ds"}, [], [], [], [], [])
+    (store.current_dir / "folders.json").unlink()
     assert store.load_current() is None
 
 
 def test_load_current_corrupt_file(root):
     store = RegistryStore(root)
-    gen = store.publish({"dataset_id": "ds"}, [], [], [], [], [])
-    (store.generations_dir / gen / "folders.json").write_text("not json")
+    store.publish({"dataset_id": "ds"}, [], [], [], [], [])
+    (store.current_dir / "folders.json").write_text("not json")
     assert store.load_current() is None
 
 
@@ -243,7 +243,8 @@ def test_publish_failure_cleans_tmp(root, monkeypatch):
     monkeypatch.setattr(registry_mod.json, "loads", bad_loads)
     with pytest.raises(ValueError):
         store.publish({"dataset_id": "ds"}, [], [], [], [], [])
-    assert list(store.generations_dir.glob(".tmp-*")) == []
+    assert list(store.index_dir.glob(".tmp-*")) == []
+    assert not store.current_dir.exists()
 
 
 # --- search ----------------------------------------------------------------

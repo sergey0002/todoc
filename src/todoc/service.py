@@ -7,11 +7,11 @@ from typing import Any
 
 from todoc.adapters.filesystem.scanner import scan_dataset
 from todoc.adapters.formats.jsonfmt import parse_json
-from todoc.application.registry import RegistryStore, parse_cache_key, read_parse_cache, write_parse_cache
+from todoc.application.registry import RegistryStore, corpus_digest, parse_cache_key, read_parse_cache, write_parse_cache
 from todoc.application.validator import stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
 from todoc.domain.models import Document, Folder
-from todoc.errors import ValidationError
+from todoc.errors import IncompleteError, ValidationError
 from todoc.typing_system.descriptors import TypeRegistry
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 
@@ -27,11 +27,15 @@ class DatasetContext:
         self.registry_types.validate_references(self.dir_rules, self.doc_rules)
         self.store = RegistryStore(self.root)
 
-    def scan_and_validate(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-        """Returns (folders, documents, records, relations, diagnostics) as dicts."""
-        follow = bool(self.dataset.get("follow_symlinks", False))
-        max_bytes = int((self.dataset.get("limits") or {}).get("max_file_bytes", 10485760))
-        scanned_folders, scanned_files = scan_dataset(self.root, follow_symlinks=follow, max_file_bytes=max_bytes)
+    def scan_and_validate(self, scanned: tuple[Any, Any] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Returns (folders, documents, records, relations, diagnostics) as dicts.
+
+        ``scanned`` lets a caller that already walked the tree (to compute the corpus
+        digest) pass the result in instead of paying for a second walk.
+        """
+        if scanned is None:
+            scanned = self.scan()
+        scanned_folders, scanned_files = scanned
         diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules,
                                            registry=self.registry_types)
 
@@ -97,15 +101,56 @@ class DatasetContext:
         diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]
         return folders, documents, records, relations, diag_dicts
 
-    def rebuild_index(self) -> dict[str, Any]:
-        folders, documents, records, relations, diagnostics = self.scan_and_validate()
-        gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics)
-        return {"dataset_id": self.dataset_id, "generation_id": gen_id, "folders": len(folders),
-                "documents": len(documents), "records": len(records), "relations": len(relations),
-                "diagnostics": len(diagnostics)}
+    def scan(self) -> tuple[Any, Any]:
+        """Walk the corpus once, reusing cached hashes for files whose mtime+size held."""
+        follow = bool(self.dataset.get("follow_symlinks", False))
+        max_bytes = int((self.dataset.get("limits") or {}).get("max_file_bytes", 10485760))
+        return scan_dataset(self.root, follow_symlinks=follow, max_file_bytes=max_bytes,
+                            hash_cache=self.store.read_stats())
 
-    def load_index(self) -> dict[str, Any]:
-        return self.store.require_current()
+    def rebuild_index(self, force: bool = True) -> dict[str, Any]:
+        """Recompute and publish the snapshot. ``force=False`` reuses a valid one."""
+        scanned = self.scan()
+        digest = corpus_digest(scanned[1], self.store.config_digest())
+        if not force:
+            meta = self.store.read_current_meta()
+            if meta and meta.get("corpus_digest") == digest:
+                existing = self.store.load_current()
+                if existing is not None:
+                    return {"dataset_id": self.dataset_id, "generation_id": existing.get("generation_id"),
+                            "corpus_digest": digest, "reused": True,
+                            "folders": len(existing.get("folders") or []),
+                            "documents": len(existing.get("documents") or []),
+                            "records": len(existing.get("records") or []),
+                            "relations": len(existing.get("relations") or []),
+                            "diagnostics": len(existing.get("diagnostics") or [])}
+        folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
+        gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest)
+        self.store.write_stats(scanned[1])
+        return {"dataset_id": self.dataset_id, "generation_id": gen_id, "corpus_digest": digest,
+                "reused": False, "folders": len(folders), "documents": len(documents),
+                "records": len(records), "relations": len(relations), "diagnostics": len(diagnostics)}
+
+    def ensure_index(self) -> dict[str, Any]:
+        """The single invalidation point: reuse the snapshot unless the corpus moved.
+
+        Read commands call this, not ``rebuild_index``. A command that only reads must
+        not publish, otherwise an unchanged corpus accumulates one snapshot per run.
+        """
+        scanned = self.scan()
+        digest = corpus_digest(scanned[1], self.store.config_digest())
+        meta = self.store.read_current_meta()
+        if meta and meta.get("corpus_digest") == digest:
+            payload = self.store.load_current()
+            if payload is not None:
+                return payload
+        folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
+        self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest)
+        self.store.write_stats(scanned[1])
+        payload = self.store.load_current()
+        if payload is None:
+            raise IncompleteError("Index publish produced no readable snapshot. Run `todoc index rebuild`.")
+        return payload
 
 
 def _document_id(rel_path: str, front_matter: dict[str, Any]) -> str:
