@@ -71,8 +71,10 @@ copied: true
    `incoming_ids` и `completeness: complete`.
 7. **Ссылки и код.** В `notes/how-to-read-this-demo.md` намеренно есть fenced-блок и инлайновый код
    с «битыми» ссылками — валидатор их игнорирует, а обычная ссылка и wikilink `[[data-root]]` проверяются.
-8. **CSV-проекция.** `docs read --columns doc_id,doc_type,lines --rows 75 --where doc_type=guide`
-   возвращает три строки гайдов.
+8. **CSV-проекция.** `docs read --id "doc:attachments/docs-inventory.csv" --columns doc_id,doc_type,lines
+   --rows 75 --where doc_type=guide` возвращает три строки гайдов. Без `--rows 75` те же
+   `--rows 3 --where …` дают 0 строк — `--rows` применяется до `--where` (см.
+   [11-known-issues.md](11-known-issues.md), P1-5).
 
 ## Проверенные команды
 
