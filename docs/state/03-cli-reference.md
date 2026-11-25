@@ -60,7 +60,7 @@
 Exit 3, если есть ошибки.
 
 ### `index status` / `index rebuild`
-`status` читает последнее опубликованное поколение: `{dataset_id, generation_id, current}`.
+`data.datasets[]`. `status` читает последнее опубликованное поколение: `{dataset_id, generation_id, current}`.
 **До первой пересборки возвращает `generation_id: null`** — сначала выполните `index rebuild`.
 `rebuild` публикует новое поколение: `{dataset_id, generation_id, folders, documents, records, relations, diagnostics}`.
 
