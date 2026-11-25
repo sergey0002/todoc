@@ -18,24 +18,163 @@ from jsonschema import Draft202012Validator
 
 
 class DuplicateKeyError(ValueError):
-    pass
+    """Повторный ключ. ``key`` нужен, чтобы найти позицию виновного места в тексте."""
+
+    def __init__(self, message: str, key: str | None = None) -> None:
+        super().__init__(message)
+        self.key = key
 
 
 class _InvalidConstant(ValueError):
-    pass
+    """``NaN``/``Infinity`` в JSON. ``name`` — текст константы для поиска позиции."""
+
+    def __init__(self, message: str, name: str | None = None) -> None:
+        super().__init__(message)
+        self.name = name
 
 
 def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     obj: dict[str, Any] = {}
     for key, value in pairs:
         if key in obj:
-            raise DuplicateKeyError(f"duplicate key: {key}")
+            raise DuplicateKeyError(f"duplicate key: {key}", key)
         obj[key] = value
     return obj
 
 
 def _reject_constant(value: str) -> Any:
-    raise _InvalidConstant(f"invalid constant: {value}")
+    raise _InvalidConstant(f"invalid constant: {value}", value)
+
+
+# --- Позиции в тексте --------------------------------------------------------
+#
+# Стандартный ``json`` не сообщает позицию ни для ``object_pairs_hook``, ни для
+# ``parse_constant``: оба получают уже разобранные значения. Поэтому позиция
+# восстанавливается отдельным проходом по тексту. Сканер намеренно **не парсер**:
+# он не решает, корректен ли JSON, он лишь находит смещения нужных токенов, и
+# потому не может изменить семантику разбора. На враждебном вводе он
+# останавливается, а не падает.
+
+_WS = " \t\n\r"
+_NUM_CHARS = "0123456789+-.eE"
+
+
+def _iter_tokens(text: str):
+    """Лексемы с их смещениями: ``(kind, payload, offset)``.
+
+    ``kind``: ``key`` (строка перед ``:``), ``string``, ``const`` (голое слово),
+    ``number``, ``open``, ``close``. Не разбирает содержимое строк дальше
+    необходимого и никогда не бросает исключений.
+    """
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        if ch in _WS:
+            i += 1
+            continue
+        if ch == '"':
+            start = i
+            i += 1
+            while i < n:
+                if text[i] == "\\":
+                    i += 2
+                    continue
+                if text[i] == '"':
+                    i += 1
+                    break
+                i += 1
+            raw = text[start:i]
+            try:
+                payload: Any = json.loads(raw)
+            except ValueError:
+                payload = raw
+            j = i
+            while j < n and text[j] in _WS:
+                j += 1
+            is_key = j < n and text[j] == ":"
+            yield ("key" if is_key else "string"), payload, start
+            continue
+        if ch in "{[":
+            yield "open", ch, i
+            i += 1
+            continue
+        if ch in "}]":
+            yield "close", ch, i
+            i += 1
+            continue
+        if ch in ":,":
+            i += 1
+            continue
+        if ch == "-" and text.startswith("-Infinity", i):
+            yield "const", "-Infinity", i
+            i += len("-Infinity")
+            continue
+        if ch == "-" or ch.isdigit():
+            start = i
+            while i < n and text[i] in _NUM_CHARS:
+                i += 1
+            yield "number", text[start:i], start
+            continue
+        start = i
+        while i < n and text[i] not in _WS and text[i] not in '{}[],:"':
+            i += 1
+        yield "const", text[start:i], start
+
+
+def _line_col(text: str, offset: int) -> tuple[int, int]:
+    """1-based строка и колонка для смещения."""
+    prefix = text[:offset]
+    return prefix.count("\n") + 1, offset - (prefix.rfind("\n") + 1) + 1
+
+
+def _duplicate_key_offset(text: str, key: str | None) -> int | None:
+    """Смещение **второго** вхождения ключа внутри того же объекта."""
+    stack: list[set[str]] = []
+    for kind, payload, offset in _iter_tokens(text):
+        if kind == "open" and payload == "{":
+            stack.append(set())
+        elif kind == "close" and payload == "}":
+            if stack:
+                stack.pop()
+        elif kind == "key" and stack:
+            seen = stack[-1]
+            if payload in seen:
+                if payload == key:
+                    return offset
+            else:
+                seen.add(payload)
+    return None
+
+
+def _constant_offset(text: str, name: str | None) -> int | None:
+    for kind, payload, offset in _iter_tokens(text):
+        if kind == "const" and payload == name:
+            return offset
+    return None
+
+
+def _depth_limit_offset(text: str, max_depth: int) -> int | None:
+    """Где вложенность впервые превысила лимит.
+
+    ``_depth()`` считает глубину значений: у k вложенных контейнеров она равна
+    k-1, поэтому порог здесь — ``max_depth + 1`` открывающих скобок.
+    """
+    depth = 0
+    for kind, _payload, offset in _iter_tokens(text):
+        if kind == "open":
+            depth += 1
+            if depth > max_depth + 1:
+                return offset
+        elif kind == "close":
+            depth = max(depth - 1, 0)
+    return None
+
+
+def _located(text: str, code: str, message: str, offset: int | None) -> "JsonError":
+    if offset is None:
+        return JsonError(code, message)
+    line, column = _line_col(text, offset)
+    return JsonError(code, message, line, column)
 
 
 def _depth(value: Any) -> int:
@@ -83,18 +222,23 @@ def parse_json(text: str, max_depth: int = 128) -> tuple[Any, list[JsonError]]:
     try:
         value = json.loads(text, object_pairs_hook=_no_duplicates, parse_constant=_reject_constant)
     except DuplicateKeyError as exc:
-        return None, [JsonError("json.duplicate_key", str(exc))]
+        return None, [_located(text, "json.duplicate_key", str(exc),
+                               _duplicate_key_offset(text, exc.key))]
     except _InvalidConstant as exc:
-        return None, [JsonError("json.invalid_constant", str(exc))]
+        return None, [_located(text, "json.invalid_constant", str(exc),
+                               _constant_offset(text, exc.name))]
     except json.JSONDecodeError as exc:
         # exc.msg alone: the full str(exc) repeats "line N column M (char K)",
         # which would duplicate the structured location.
         return None, [JsonError("json.syntax_error", exc.msg, exc.lineno, exc.colno)]
     except RecursionError:
-        return None, [JsonError("json.too_deep", "parser recursion limit exceeded")]
+        return None, [_located(text, "json.too_deep", "parser recursion limit exceeded",
+                               _depth_limit_offset(text, max_depth))]
     depth = _depth(value)  # iterative: cannot RecursionError on hostile nesting
     if depth > max_depth:
-        return None, [JsonError("json.too_deep", f"nesting depth {depth} exceeds limit {max_depth}")]
+        return None, [_located(text, "json.too_deep",
+                               f"nesting depth {depth} exceeds limit {max_depth}",
+                               _depth_limit_offset(text, max_depth))]
     return value, []
 
 

@@ -322,9 +322,11 @@ def validate_dataset(
             value, errors = parse_json(text, max_depth=max_depth)
             for err in errors:
                 code, _, rest = err.partition(": ")
-                location: dict[str, Any] = {}
-                if getattr(err, "line", None):
-                    location = {"line": err.line, "column": err.column or 1}
+                # У JsonError позиция есть всегда (P1-8): её восстанавливает проход
+                # по тексту, потому что стандартный json не сообщает смещений ни для
+                # object_pairs_hook, ни для parse_constant.
+                location: dict[str, Any] = ({"line": err.line, "column": err.column or 1}
+                                            if err.line else {})
                 diags.append(_diag(dataset_id, scanned.rel_path, code, rest or err, location=location))
             if isinstance(value, dict):
                 front_matter = value
