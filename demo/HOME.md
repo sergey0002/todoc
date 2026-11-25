@@ -20,6 +20,7 @@ lang: ru
 ### Активные планы (не начаты, 25.11.2026)
 
 - [Документирование софта: типовой профиль — типы, стартовые промпты, скилы](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — Фаза 1 идеи documentation-system: 4 doc_types, 6 entity_types, 4 dir_types, 4 relation_types, CRUD-промпты, 5 скилов и приёмочный флоу-документ.
+- [Конфиг папок: .config.json — самоописание, дерево с описаниями, suggest-скоринг](plan/folder-config-implementation.md) — 6 задач TDD: парсер+валидация `folder.*`, `folder_meta` в docs tree/explain-path, команда `docs suggest` (Фаза A скоринга), разделы skills tree из конфигов, буст docs search, 5 демо-конфигов; закрывает открытые вопросы идеи [folder-config](ideas/folder-config.md).
 - [Агентский стейт: state.json в движке](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — `todoc state set/get/list/unset`, файл вне данных.
 - [Скилы взаимодействия: захват, план, исполнение, переходы](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — статусы в документах/записях, 4 скила, relation `implements`.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
