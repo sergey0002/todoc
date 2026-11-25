@@ -49,7 +49,7 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 1. **Приоритеты резолвера**: front matter `doc_type` (приоритет 200) побеждает маску папки (приоритет 100);
    зарезервированные имена дают `dir_type`, когда правила молчат.
 2. **Записи с единицами измерения**: `records/metrics/*.json` → `records aggregate` возвращает `units` и `formula`.
-3. **Валидация по JSON Schema**: `.todoc/schemas/records/<entity_type>.json` применяются к записям;
+3. **Валидация по JSON Schema**: `.todoc/entity_types/<entity_type>/schema.json` применяются к записям;
    нарушение даёт `record.schema_violation` с JSON Pointer.
 4. **Отношения**: `documents`, `references`, `analyzes`, `describes`, `supersedes` — цель обязана существовать.
 5. **Ссылки**: обычные Markdown-ссылки проверяются, wikilinks резолвятся по имени файла,

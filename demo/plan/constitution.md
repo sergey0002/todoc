@@ -477,7 +477,7 @@ todoc --root ./knowledge docs edit --id doc_... --patch-file ./change.diff --if-
 
 **Entity type (`workout`):**
 ```json
-{"schema_version": 1, "type_id": "workout", "version": "0.1", "description": "Одна тренировка с упражнениями и подходами.", "format": "json", "schema_ref": "schemas/records/workout.schema.json", "id_pattern": "workout:{date}-{person-slug}-{slug}", "record_template": "templates/records/workout.json", "path_template": "records/workouts/{date_year}/{date_month}/{slug}.json", "required_relations": ["performed_by"], "default_workflow": "record-capture-v1", "views": {"compact": ["record_id", "date", "relations", "exercises.name", "exercises.muscle_groups"], "summary": ["date", "totals"]}}
+{"schema_version": 1, "type_id": "workout", "version": "0.1", "description": "Одна тренировка с упражнениями и подходами.", "format": "json", "schema": "schema.json", "id_pattern": "workout:{date}-{person-slug}-{slug}", "template": "template.json", "prompts": {"read": "prompts/read.md", "create": "prompts/create.md", "edit": "prompts/edit.md", "delete": "prompts/delete.md"}, "path_template": "records/workouts/{date_year}/{date_month}/{slug}.json", "required_relations": ["performed_by"], "default_workflow": "record-capture-v1", "views": {"compact": ["record_id", "date", "relations", "exercises.name", "exercises.muscle_groups"], "summary": ["date", "totals"]}}
 ```
 
 **Relation type:**

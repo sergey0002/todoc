@@ -3,7 +3,7 @@ id: doc:state-storage
 title: "Состояние: индекс, поколения, кэш"
 doc_type: reference
 lang: ru
-source: .doc/state/09-storage-and-index.md
+source: docs/state/09-storage-and-index.md
 copied: true
 ---
 # 09. Хранилище: индекс, поколения, кэш

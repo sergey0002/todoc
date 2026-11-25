@@ -25,7 +25,7 @@ from todoc.errors import EXIT_USAGE, AccessError, ConflictError, TodocError, Val
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics, prompt_files,
-                                             resolve_template, schema_file, type_kind_dir)
+                                             schema_file, template_file, type_kind_dir)
 
 
 def _emit_ok(data: dict[str, Any], output: str, out: str | None, diagnostics: list[dict[str, Any]] | None = None,
@@ -70,8 +70,9 @@ def _root_argv(roots: tuple[str, ...]) -> list[str]:
 
 
 def _record_schema(ctx: "DatasetContext", entity_type: str) -> dict[str, Any] | None:
-    """The entity type's JSON Schema, when it has one (type folder, then legacy catalog)."""
-    return _load_record_schemas(ctx.root, ctx.registry_types, ctx.dataset).get(entity_type)
+    """The entity type's JSON Schema, when it has one, from that type's own folder."""
+    loaded = _load_record_schemas(ctx.root, ctx.registry_types, ctx.dataset).get(entity_type)
+    return loaded[0] if loaded else None
 
 
 def _contained_out(root: Path, out: str) -> Path:
@@ -334,7 +335,7 @@ def _resolve_document_template(ctx: DatasetContext, doc_type: str | None,
     if type_id is None:
         return None, None, "none"
     descriptor = ctx.registry_types.doc_types[type_id]
-    declared, _origin = resolve_template(ctx.root, ctx.dataset, "doc_type", descriptor)
+    declared = template_file(ctx.root, ctx.dataset, "doc_type", descriptor)
     if declared is None:
         return type_id, None, "type-without-template"
     if not declared.is_file():
@@ -730,10 +731,10 @@ def _type_bundle(ctx: DatasetContext, kind: str, descriptor: dict[str, Any]) -> 
         return {"template": None, "prompts": {}, "schema": None}
     kind_dir = type_kind_dir(ctx.dataset, kind)
     type_id = str(descriptor.get("type_id", ""))
-    path, origin = resolve_template(ctx.root, ctx.dataset, kind, descriptor)
+    path = template_file(ctx.root, ctx.dataset, kind, descriptor)
     template = None
     if path is not None:
-        template = {"path": _rel_todoc(ctx.root, path), "exists": path.is_file(), "origin": origin}
+        template = {"path": _rel_todoc(ctx.root, path), "exists": path.is_file()}
     prompts = {
         operation: {"path": f".todoc/{kind_dir}/{type_id}/{path.relative_to(_type_base(ctx, kind, type_id)).as_posix()}",
                             "exists": path.is_file()}

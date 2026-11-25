@@ -3,7 +3,7 @@ id: doc:state-architecture
 title: "Состояние: архитектура, слои и модули"
 doc_type: reference
 lang: ru
-source: .doc/state/02-architecture.md
+source: docs/state/02-architecture.md
 copied: true
 ---
 # 02. Архитектура: слои, модули, поток данных

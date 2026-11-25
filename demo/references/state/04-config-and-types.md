@@ -3,7 +3,7 @@ id: doc:state-config-types
 title: "Состояние: конфигурация и типовая система"
 doc_type: reference
 lang: ru
-source: .doc/state/04-config-and-types.md
+source: docs/state/04-config-and-types.md
 copied: true
 ---
 # 04. Конфигурация и типовая система
@@ -49,10 +49,11 @@ copied: true
 ```
 
 Всё, что относится к типу, лежит в папке этого типа: `type.json`, `template.<ext>`,
-`prompts/{read,create,edit,delete}.md`, а у типов записей ещё и `schema.json`. Параллельных
-каталогов `templates/records/` и `schemas/records/` больше нет — прежние расположения читаются
-только как совместимость со старыми наборами данных, и `check-config` сообщает о них
-(`config.legacy_asset` — warning, `config.duplicate_asset` — error).
+`prompts/{read,create,edit,delete}.md`, а у типов записей ещё и `schema.json`. У каждого
+ассета ровно одно расположение, и никакого поиска по запасным каталогам нет: если файла нет
+в папке типа, его нет нигде. `check-config` сообщает о мёртвом указателе
+(`config.template_missing`, `config.prompt_missing`, `config.schema_missing`) и о двух файлах,
+претендующих на роль одного ассета (`config.duplicate_asset` — error).
 
 Каждый тип документа и записи получает стартовый шаблон и четыре CRUD-промпта: `init` пишет
 66 таких файлов (4 doc-типа + 7 entity-типов по 6 файлов).

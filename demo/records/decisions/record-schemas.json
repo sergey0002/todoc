@@ -4,7 +4,7 @@
   "entity_type": "decision",
   "title": "Валидация записей по JSON Schema 2020-12",
   "status": "accepted",
-  "decision": "Схемы лежат в .todoc/schemas/records/<entity_type>.json; нарушение даёт record.schema_violation с JSON Pointer.",
+  "decision": "Схема лежит в папке своего типа — .todoc/entity_types/<entity_type>/schema.json; нарушение даёт record.schema_violation с JSON Pointer.",
   "rationale": "Зависимость jsonschema была заявлена, но не использовалась; записи не проверялись.",
   "sources": [
     "plan/audit-implementation.md",

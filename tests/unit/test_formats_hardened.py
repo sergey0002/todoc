@@ -265,9 +265,9 @@ def test_validate_against_schema_reports_pointers():
 
 
 def test_record_schema_violation_is_reported(root):
-    schema_dir = root / ".todoc" / "schemas" / "records"
+    schema_dir = root / ".todoc" / "entity_types" / "workout"
     schema_dir.mkdir(parents=True, exist_ok=True)
-    (schema_dir / "workout.json").write_text(json.dumps({
+    (schema_dir / "schema.json").write_text(json.dumps({
         "type": "object",
         "properties": {"volume": {"type": "object", "properties": {"value": {"type": "number"}}, "required": ["value"]}},
     }), encoding="utf-8")
@@ -277,7 +277,8 @@ def test_record_schema_violation_is_reported(root):
         "schema_version": 1, "record_id": "workout:w1", "entity_type": "workout", "volume": {},
     }), encoding="utf-8")
     scanned = ScannedFile("records/w1.json", path, "json", path.stat().st_size, "sha256:")
-    diags, records = _validate_records("ds", root, [scanned], {})
+    registry = {"entity_types": {"workout": {"type_id": "workout"}}}
+    diags, records = _validate_records("ds", root, [scanned], {}, {}, registry)
     assert [d.code for d in diags] == ["record.schema_violation"]
     # pointer = exact address, line/column = where the key sits in the file
     assert diags[0].location["pointer"] == "/volume"
@@ -296,15 +297,17 @@ def test_record_without_schema_is_not_flagged(root):
 
 
 def test_invalid_schema_file_is_ignored(root):
-    schema_dir = root / ".todoc" / "schemas" / "records"
-    schema_dir.mkdir(parents=True, exist_ok=True)
-    (schema_dir / "note.json").write_text("{not json", encoding="utf-8")
-    (schema_dir / "bad.json").write_text("[1, 2]", encoding="utf-8")
+    """An unusable schema is skipped rather than failing the whole run."""
+    for type_id, payload in (("note", "{not json"), ("metric", "[1, 2]")):
+        base = root / ".todoc" / "entity_types" / type_id
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "schema.json").write_text(payload, encoding="utf-8")
     path = root / "records" / "n1.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"record_id": "n:1", "entity_type": "note"}), encoding="utf-8")
     scanned = ScannedFile("records/n1.json", path, "json", path.stat().st_size, "sha256:")
-    diags, _records = _validate_records("ds", root, [scanned], {})
+    registry = {"entity_types": {"note": {"type_id": "note"}, "metric": {"type_id": "metric"}}}
+    diags, _records = _validate_records("ds", root, [scanned], {}, {}, registry)
     assert diags == []
 
 
@@ -329,14 +332,6 @@ def test_unknown_relation_type_is_reported():
     assert [d.code for d in diags] == ["relation.unknown_type"]
 
 
-def test_relation_type_check_disabled_without_registry():
-    from todoc.application.validator import validate_relations
-
-    records = [{"record_id": "w:1", "path": "w.json",
-                "data": {"relations": [{"type_id": "loves", "target": {"id": "w:1"}}]}}]
-    assert validate_relations("ds", records) == []
-
-
 def test_relation_missing_target_is_reported():
     from todoc.application.validator import validate_relations
 
@@ -350,7 +345,7 @@ def test_relations_field_not_a_list_is_reported():
     from todoc.application.validator import validate_relations
 
     records = [{"record_id": "w:1", "path": "w.json", "data": {"relations": {"type_id": "x"}}}]
-    diags = validate_relations("ds", records)
+    diags = validate_relations("ds", records, {"performed_by"})
     assert [d.code for d in diags] == ["relation.malformed"]
 
 
@@ -394,7 +389,8 @@ def test_backlink_index_skips_external_and_anchor_links():
 def test_record_schemas_absent_dir(tmp_path):
     from todoc.application.validator import _load_record_schemas
 
-    assert _load_record_schemas(tmp_path) == {}
+    registry = {"entity_types": {"workout": {"type_id": "workout"}}}
+    assert _load_record_schemas(tmp_path, registry, {}) == {}
 
 
 def test_reference_link_after_two_inline_links():

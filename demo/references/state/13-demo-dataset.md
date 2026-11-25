@@ -3,7 +3,7 @@ id: doc:state-demo
 title: "Состояние: демо-датасет"
 doc_type: reference
 lang: ru
-source: .doc/state/13-demo-dataset.md
+source: docs/state/13-demo-dataset.md
 copied: true
 ---
 # 13. Демо-датасет `demo/`

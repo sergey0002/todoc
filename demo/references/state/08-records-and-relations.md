@@ -3,7 +3,7 @@ id: doc:state-records
 title: "Состояние: записи, отношения, запросы"
 doc_type: reference
 lang: ru
-source: .doc/state/08-records-and-relations.md
+source: docs/state/08-records-and-relations.md
 copied: true
 ---
 # 08. Записи, отношения, запросы

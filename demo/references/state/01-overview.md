@@ -3,7 +3,7 @@ id: doc:state-overview
 title: "Состояние: обзор продукта и статус MVP"
 doc_type: reference
 lang: ru
-source: .doc/state/01-overview.md
+source: docs/state/01-overview.md
 copied: true
 ---
 # 01. Обзор: что такое `todoc` и в каком он состоянии

@@ -208,7 +208,7 @@ def test_types_show_reports_template_and_prompt_locations(root):
     (root / ".todoc" / "doc_types" / "spec" / "prompts" / "read.md").write_text("# read\n", encoding="utf-8")
     data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "spec", "--output", "json"]))["data"]
     assert data["kind"] == "doc_type"
-    assert data["template"] == {"path": ".todoc/doc_types/spec/template.md", "exists": True, "origin": "type"}
+    assert data["template"] == {"path": ".todoc/doc_types/spec/template.md", "exists": True}
     assert data["prompts"]["read"] == {"path": ".todoc/doc_types/spec/prompts/read.md", "exists": True}
     assert data["prompts"]["create"]["exists"] is False
 
@@ -333,8 +333,21 @@ def test_types_show_reports_the_schema_of_an_entity_type(root):
     assert data["schema"] == {"path": ".todoc/entity_types/workout/schema.json", "exists": True}
 
 
+def test_types_show_reports_an_asset_outside_data_root_as_is(root):
+    """An asset declared by absolute path is shown verbatim, not rewritten into `.todoc/`."""
+    base = root / ".todoc" / "entity_types" / "workout"
+    outside = root.parent / "workout.v2.json"
+    outside.write_text(json.dumps({"type": "object"}), encoding="utf-8")
+    declared = json.loads((base / "type.json").read_text(encoding="utf-8"))
+    declared["schema"] = str(outside)
+    (base / "type.json").write_text(json.dumps(declared, indent=2), encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    assert _json(result)["data"]["schema"] == {"path": str(outside), "exists": True}
+
+
 def test_check_config_accepts_a_schema_kept_in_the_type_folder(root):
-    """The type folder is the primary home of a schema: no legacy catalog needed."""
+    """The type folder is the only home of a schema, and it needs no extra config."""
     (root / ".todoc" / "entity_types" / "workout" / "schema.json").write_text(
         json.dumps({"type": "object", "required": ["record_id"]}), encoding="utf-8")
     result = _run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"])
@@ -342,16 +355,29 @@ def test_check_config_accepts_a_schema_kept_in_the_type_folder(root):
     assert _json(result)["data"]["datasets"][0]["issues"] == 0
 
 
-def test_check_config_flags_a_schema_duplicated_in_two_places(root):
-    """The same schema in the type folder and the legacy catalog is reported, not guessed."""
+def test_check_config_flags_a_schema_declared_twice(root):
+    """Two files claiming to be the schema of one type is reported, not guessed."""
+    base = root / ".todoc" / "entity_types" / "workout"
     schema = json.dumps({"type": "object", "required": ["record_id"]})
-    (root / ".todoc" / "entity_types" / "workout" / "schema.json").write_text(schema, encoding="utf-8")
-    legacy = root / ".todoc" / "schemas" / "records"
-    legacy.mkdir(parents=True)
-    (legacy / "workout.json").write_text(schema, encoding="utf-8")
+    (base / "schema.json").write_text(schema, encoding="utf-8")
+    (base / "workout.v2.json").write_text(schema, encoding="utf-8")
+    declared = json.loads((base / "type.json").read_text(encoding="utf-8"))
+    declared["schema"] = "workout.v2.json"
+    (base / "type.json").write_text(json.dumps(declared, indent=2), encoding="utf-8")
     result = _run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"])
     codes = [d["code"] for d in _json(result)["diagnostics"]]
     assert "config.duplicate_asset" in codes
+
+
+def test_check_config_flags_a_declared_schema_that_is_missing(root):
+    """A dead schema pointer is an issue instead of silently validating nothing."""
+    base = root / ".todoc" / "entity_types" / "workout"
+    declared = json.loads((base / "type.json").read_text(encoding="utf-8"))
+    declared["schema"] = "absent.json"
+    (base / "type.json").write_text(json.dumps(declared, indent=2), encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"])
+    codes = [d["code"] for d in _json(result)["diagnostics"]]
+    assert "config.schema_missing" in codes
 
 
 def test_init_keeps_every_type_asset_inside_the_type_folder(root):
@@ -368,17 +394,18 @@ def test_init_keeps_every_type_asset_inside_the_type_folder(root):
     assert "templates" not in json.loads((todoc / "dataset.json").read_text(encoding="utf-8"))
 
 
-def test_a_legacy_record_template_is_still_usable(root):
-    """Datasets built before per-type templates keep working through the fallback."""
+def test_a_template_outside_the_type_folder_is_not_used(root):
+    """The type folder is the only home of a template: no parallel catalog is read."""
     (root / ".todoc" / "entity_types" / "workout" / "template.json").unlink()
-    legacy = root / ".todoc" / "templates" / "records"
-    legacy.mkdir(parents=True)
-    (legacy / "workout.json").write_text(
-        json.dumps({"schema_version": 1, "record_id": "workout:legacy", "entity_type": "workout", "title": ""}),
+    catalog = root / ".todoc" / "templates" / "records"
+    catalog.mkdir(parents=True)
+    (catalog / "workout.json").write_text(
+        json.dumps({"schema_version": 1, "record_id": "workout:x", "entity_type": "workout", "title": ""}),
         encoding="utf-8")
-    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"]))["data"]
-    assert data["template"]["origin"] == "legacy"
-    assert data["template"]["exists"] is True
+    result = _run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    data = _json(result)["data"]
+    assert data["template"] == {"path": ".todoc/entity_types/workout/template.json", "exists": False}
 
 
 def test_a_schema_violation_points_at_the_schema_in_the_type_folder(root):

@@ -3,7 +3,7 @@ id: doc:state-search-read
 title: "Состояние: поиск и чтение"
 doc_type: reference
 lang: ru
-source: .doc/state/07-search-and-read.md
+source: docs/state/07-search-and-read.md
 copied: true
 ---
 # 07. Поиск и чтение

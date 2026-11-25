@@ -310,59 +310,42 @@ def validate_dataset(
     return diags, doc_info
 
 
-def _load_record_schemas(root: Path, registry: Any = None,
-                         dataset: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
-    """Load the JSON Schema of every entity type (2020-12).
+def _load_record_schemas(root: Path, registry: Any,
+                         dataset: dict[str, Any]) -> dict[str, tuple[dict[str, Any], str]]:
+    """JSON Schema of every entity type, with the path it was loaded from.
 
-    Primary location is the type's own folder (``entity_types/<type>/schema.json``),
-    so everything that belongs to a type lives with it. The legacy top-level catalog
-    ``.todoc/schemas/records/<type>.json`` is still read for datasets created earlier,
-    and loses to the type folder when both exist (``check-config`` reports the duplicate).
+    A schema lives in its type's folder, so the registry is the only way to find
+    it — no top-level catalog is scanned. Returns ``{type_id: (schema, evidence)}``;
+    keeping the path lets a violation name the exact file that rejected the record.
     """
-    schemas: dict[str, dict[str, Any]] = {}
-    legacy_dir = root / ".todoc" / "schemas" / "records"
-    if legacy_dir.is_dir():
-        for path in sorted(legacy_dir.glob("*.json")):
-            try:
-                data = load_json_file(path)
-            except ValidationError:
-                continue
-            if isinstance(data, dict):
-                schemas[path.stem] = data
-    entity_types = _entity_types_of(registry)
-    if entity_types:
-        for type_id, descriptor in sorted(entity_types.items()):
-            path = schema_file(root, dataset or {}, "entity_type", descriptor)
-            if path is None or not path.is_file():
-                continue
-            try:
-                data = load_json_file(path)
-            except ValidationError:
-                continue
-            if isinstance(data, dict):
-                schemas[type_id] = data
+    schemas: dict[str, tuple[dict[str, Any], str]] = {}
+    for type_id, descriptor in sorted(_entity_types_of(registry).items()):
+        path = schema_file(root, dataset, "entity_type", descriptor)
+        if path is None or not path.is_file():
+            continue
+        try:
+            data = load_json_file(path)
+        except ValidationError:
+            continue
+        if isinstance(data, dict):
+            schemas[type_id] = (data, f"schema: {_rel_to_root(root, path)}")
     return schemas
 
 
+def _rel_to_root(root: Path, path: Path) -> str:
+    """Path as the user writes it: relative to DATA_ROOT when it is inside it."""
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def _entity_types_of(registry: Any) -> dict[str, Any]:
-    """Entity types from a TypeRegistry or a plain mapping, else empty."""
-    if registry is None:
-        return {}
-    return getattr(registry, "entity_types", None) or (
-        registry.get("entity_types", {}) if isinstance(registry, dict) else {})
-
-
-def _schema_evidence(root: Path, dataset: dict[str, Any], registry: Any, entity_type: str) -> str:
-    """Where the applied schema actually came from, for the diagnostic's evidence."""
-    descriptor = _entity_types_of(registry).get(entity_type)
-    if descriptor is not None:
-        path = schema_file(root, dataset, "entity_type", descriptor)
-        if path is not None:
-            try:
-                return f"schema: {path.relative_to(root).as_posix()}"
-            except ValueError:
-                return f"schema: {path}"
-    return f"schema: .todoc/schemas/records/{entity_type}.json"
+    """Entity types of a loaded TypeRegistry (a plain mapping works too)."""
+    entity_types = getattr(registry, "entity_types", None)
+    if entity_types is None and isinstance(registry, dict):
+        entity_types = registry.get("entity_types")
+    return entity_types or {}
 
 
 def _key_location(text: str, key: str) -> dict[str, Any]:
@@ -407,16 +390,16 @@ def _validate_records(
         seen_ids.add(record_id)
         if not entity_type:
             diags.append(_diag(dataset_id, scanned.rel_path, "record.missing_entity_type", "Record has no entity_type."))
-        schema = schemas.get(entity_type)
-        if schema:
+        loaded = schemas.get(entity_type)
+        if loaded:
+            schema, evidence = loaded
             for message in validate_against_schema(value, schema):
                 pointer, _, rest = message.partition(": ")
                 location = {"pointer": pointer, "entity_type": entity_type}
                 location.update(_key_location(text, pointer.rsplit("/", 1)[-1]))
                 diags.append(_diag(
                     dataset_id, scanned.rel_path, "record.schema_violation", rest or message,
-                    location=location,
-                    evidence=_schema_evidence(root, dataset, registry, entity_type),
+                    location=location, evidence=evidence,
                 ))
         records.append({
             "record_id": record_id, "entity_type": entity_type, "dataset_id": dataset_id,
@@ -428,12 +411,13 @@ def _validate_records(
 def validate_relations(
     dataset_id: str,
     records: list[dict[str, Any]],
-    known_relation_types: set[str] | None = None,
+    known_relation_types: set[str],
 ) -> list[Diagnostic]:
     """Check relations: declared type_id must exist, target must exist.
 
-    ``known_relation_types=None`` disables the type check (backwards
-    compatible); pass the registry's relation_type ids to enable it.
+    ``known_relation_types`` is the registry's set of relation_type ids and is
+    required: an unknown ``type_id`` is a defect, so there is no mode in which
+    the check is skipped.
     """
     diags: list[Diagnostic] = []
     known = {r["record_id"] for r in records}

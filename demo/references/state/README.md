@@ -3,7 +3,7 @@ id: doc:state-readme
 title: "Состояние системы todoc: оглавление"
 doc_type: reference
 lang: ru
-source: .doc/state/README.md
+source: docs/state/README.md
 copied: true
 ---
 # Состояние системы `todoc` — документация

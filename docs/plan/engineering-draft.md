@@ -560,7 +560,7 @@ DATA_ROOT можно напрямую открыть в Obsidian как vault. �
   "version": "1.0",
   "description": "Табличные результаты эксперимента.",
   "allowed_formats": ["csv"],
-  "schema_ref": "schemas/document-types/experiment-results.schema.json",
+  "schema": "schema.json",
   "validation_profile": "tabular-v1",
   "handler_id": "builtin.tabular"
 }
@@ -577,9 +577,9 @@ DATA_ROOT можно напрямую открыть в Obsidian как vault. �
   "version": "0.1",
   "description": "Одна тренировка с упражнениями и подходами.",
   "format": "json",
-  "schema_ref": "schemas/records/workout.schema.json",
+  "schema": "schema.json",
   "id_pattern": "workout:{date}-{person-slug}-{slug}",
-  "record_template": "templates/records/workout.json",
+  "template": "template.json",
   "path_template": "records/workouts/{date_year}/{date_month}/{slug}.json",
   "required_relations": ["performed_by"],
   "default_workflow": "record-capture-v1",

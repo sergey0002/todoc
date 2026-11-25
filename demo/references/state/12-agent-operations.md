@@ -3,7 +3,7 @@ id: doc:state-agent-ops
 title: "Состояние: как агенту работать с todoc"
 doc_type: reference
 lang: ru
-source: .doc/state/12-agent-operations.md
+source: docs/state/12-agent-operations.md
 copied: true
 ---
 # 12. Как агенту работать с `todoc`

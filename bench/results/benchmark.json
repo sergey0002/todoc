@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 07:58:02",
+    "date": "2026-11-25 09:14:08",
     "corpus": "/tmp/todoc-bench-corpus",
     "documents": 256,
     "records": 159,
     "relations": 140,
     "latency_ms": {
-      "status": 146,
-      "types list": 145,
-      "docs search": 1439,
-      "docs read": 1004,
-      "records list": 1008,
-      "validate": 1006
+      "status": 158,
+      "types list": 150,
+      "docs search": 1627,
+      "docs read": 1085,
+      "records list": 1060,
+      "validate": 1002
     },
     "seeded_defects": 9
   },
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note:bench-safety-b03811ae.json, файлов изменено: 0"
+      "detail": "target=records/note/note:bench-safety-e5b19eed.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=146мс, types list=145мс, docs search=1439мс, docs read=1004мс, records list=1008мс, validate=1006мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=158мс, types list=150мс, docs search=1627мс, docs read=1085мс, records list=1060мс, validate=1002мс"
     },
     {
       "id": "K28",
@@ -242,7 +242,7 @@
       "name": "Тестовый набор проходит",
       "status": "pass",
       "score": 1.0,
-      "detail": "419 passed"
+      "detail": "420 passed"
     },
     {
       "id": "K29",
@@ -496,37 +496,37 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 146,
+        "median_ms": 158,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "types list",
-        "median_ms": 145,
+        "median_ms": 150,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "docs search",
-        "median_ms": 1439,
+        "median_ms": 1627,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "docs read",
-        "median_ms": 1004,
+        "median_ms": 1085,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "records list",
-        "median_ms": 1008,
+        "median_ms": 1060,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "validate",
-        "median_ms": 1006,
+        "median_ms": 1002,
         "limit_ms": 4000,
         "within": true
       }
