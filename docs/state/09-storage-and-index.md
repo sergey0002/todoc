@@ -211,8 +211,8 @@ front matter полями `stale_acknowledged_at`, `stale_ack_reason`, `stale_ac
   `write.hash_mismatch` и exit 5. У `records create` блокировки по хешу нет: план
   создаётся с `expected_hash=None`, а защита — «только создание»: занятый
   `record_id` даёт `record.duplicate_id`, занятый путь — `record.target_exists`,
-  оба с exit 5. Флаг `--if-hash-new` принимается, но не проверяется
-  (см. [известные проблемы](11-known-issues.md)).
+  оба с exit 5. Отдельного флага для этой гарантии нет: она безусловна, а флаг,
+  намекающий, что её нужно включать, был удалён (P1-4).
 
 ## Связанные разделы
 

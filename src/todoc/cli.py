@@ -1016,13 +1016,20 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     elif doc["format"] == "csv":
         csv_doc = parse_csv(text)
         cols = [c.strip() for c in columns.split(",")] if columns else csv_doc.headers
-        selected_rows = csv_doc.rows[: rows or len(csv_doc.rows)]
+        # Сначала отбор, потом окно: --rows 3 --where k=v должен вернуть три
+        # подходящие строки, а не три первые с последующей фильтрацией (P1-5).
+        selected_rows = csv_doc.rows
         if where:
             key, _, val = where.partition("=")
             selected_rows = [r for r in selected_rows if str(r.get(key.strip(), "")) == val.strip()]
+        matched = len(selected_rows)
+        if rows is not None:
+            selected_rows = selected_rows[:rows]
         data["columns"] = cols
         data["rows"] = [{c: r.get(c, "") for c in cols} for r in selected_rows]
         data["total"] = len(csv_doc.rows)
+        data["matched"] = matched
+        data["truncated"] = matched > len(selected_rows)
     else:
         data["text"] = text[: budget or 4000]
     _emit_ok(data, output, None)
@@ -1104,9 +1111,8 @@ def records(ctx: click.Context) -> None:
 @click.option("--input-file", required=True)
 @click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_", is_flag=True)
-@click.option("--if-hash-new", is_flag=True)
 def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_type: str, input_file: str,
-                   preview: bool, apply_: bool, if_hash_new: bool) -> None:
+                   preview: bool, apply_: bool) -> None:
     """Create-only new JSON record (preview default)."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
@@ -1118,6 +1124,10 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
     schema = _record_schema(ctx, entity_type)
     plan = create_record_plan(ctx.dataset, ctx.registry_types.entity_types, record, existing_ids, existing_paths,
                               schema)
+    # Флага --if-hash-new больше нет (P1-4): он обещал проверку, которую команда и так
+    # выполняет безусловно — create_record_plan отказывает занятому пути, а
+    # apply_write_plan повторно проверяет цель в момент записи. Флаг, намекающий, что
+    # гарантия включается по желанию, был дефектом, а не возможностью.
     if not apply_:
         _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan.to_dict()}, output, None)
         return
@@ -1428,11 +1438,17 @@ def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, pr
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--check", default=None, help="Comma-separated check ids.")
-@click.option("--scope", default=None)
+@click.option("--scope", default=None, help="Группа проверок: dataset | environment | all.")
 @click.option("--fix", "fix_", is_flag=True, help="Separate repair mode (dry-run by default).")
 def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | None, scope: str | None, fix_: bool) -> None:
     """Read-only environment diagnostics (stable IDs, never auto-repairs)."""
     wanted = {c.strip() for c in check.split(",")} if check else None
+    # --scope раньше принимался и игнорировался (P1-4): `--scope nonsense` выполнял
+    # все проверки. Теперь он отбирает группу, а неизвестное значение — ошибка вызова,
+    # а не молчаливый полный прогон.
+    if scope is not None and scope not in DOCTOR_SCOPES:
+        raise TodocError(f"--scope ожидает одно из {', '.join(sorted(DOCTOR_SCOPES))}, получено {scope!r}",
+                         EXIT_USAGE, "usage.error")
     reports = []
     for ctx in _contexts(roots):
         checks = [
@@ -1440,10 +1456,14 @@ def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | Non
             ("index", ctx.store.current_generation_id() is not None, "Index generation is current."),
             ("python", True, f"Python {sys.version.split()[0]}."),
         ]
+        if scope is not None and scope != "all":
+            allowed = DOCTOR_SCOPES[scope]
+            checks = [c for c in checks if c[0] in allowed]
         if wanted:
             checks = [c for c in checks if c[0] in wanted]
         passed = sum(1 for _id, ok, _msg in checks if ok)
-        reports.append({"dataset_id": ctx.dataset_id, "checks_total": len(checks), "passed": passed,
+        reports.append({"dataset_id": ctx.dataset_id, "scope": scope or "all",
+                        "checks_total": len(checks), "passed": passed,
                         "checks": [{"id": cid, "status": "pass" if ok else "fail", "message": msg} for cid, ok, msg in checks],
                         "fix_mode": bool(fix_)})
     _emit_ok({"datasets": reports}, output, None)
@@ -1458,11 +1478,24 @@ def status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     reports = []
     for ctx in _contexts(roots):
         payload = ctx.store.load_current()
-        reports.append({"dataset_id": ctx.dataset_id,
-                        "generation_id": payload.get("generation_id") if payload else None,
-                        "documents": len(payload["documents"]) if payload else 0,
-                        "records": len(payload["records"]) if payload else 0})
-    _emit_ok({"datasets": reports}, output, None)
+        if payload:
+            reports.append({"dataset_id": ctx.dataset_id, "index_built": True,
+                            "generation_id": payload.get("generation_id"),
+                            "documents": len(payload["documents"]),
+                            "records": len(payload["records"])})
+        else:
+            # P1-6: нули до первой пересборки читались как «в датасете ничего нет».
+            # Честный ответ — «ещё не измерено» (null), а не выдуманное число.
+            reports.append({"dataset_id": ctx.dataset_id, "index_built": False,
+                            "generation_id": None, "documents": None, "records": None})
+    next_actions = ([{"action": "todoc index rebuild",
+                     "reason": "Индекс ещё не опубликован: считать документы не по чему."}]
+                    if any(not r["index_built"] for r in reports) else None)
+    _emit_ok({"datasets": reports}, output, None, next_actions=next_actions)
+
+
+DOCTOR_SCOPES = {"dataset": ("config", "index"), "environment": ("python",),
+                 "all": ("config", "index", "python")}
 
 
 def _emit_error(code: str, message: str, exit_code: int) -> None:
