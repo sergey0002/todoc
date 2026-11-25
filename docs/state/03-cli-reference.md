@@ -35,10 +35,13 @@
 
 ## Команды
 
-### `init --root PATH`
+### `init --root PATH [--dataset-id ID]`
 Создаёт `.todoc/` (датасет, правила, каталоги типов; у каждого типа — `type.json`, `template.<ext>`,
 `prompts/{read,create,edit,delete}.md`) и `queries/`. Данные пользователя не трогает. Повторный вызов — `config.already_initialized` (exit 3).
 `data`: `{dataset_id, root, created}`.
+Без `--dataset-id` идентификатор случаен (`dataset-` + 8 шестнадцатеричных); явное значение делает
+демо-датасеты и фикстуры воспроизводимыми. Значение обрезается от пробелов; пустое отклоняется
+как `config.invalid_schema` (exit 3).
 
 ### `check-config`
 Загружает конфигурацию и реестр типов. `data.datasets[]`: `{dataset_id, ok, warnings, dir_types, doc_types, entity_types, relation_types, issues}`.

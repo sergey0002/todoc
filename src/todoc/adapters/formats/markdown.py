@@ -376,3 +376,57 @@ def section_bounds(text: str, selector: str) -> tuple[int, int] | None:
                 break
         return heading.line, end
     return None
+
+
+# ---------------------------------------------------------------------------
+# Сериализация разбора для кэша парсинга (P1-3)
+# ---------------------------------------------------------------------------
+
+#: Версия формы кэша. Любое изменение состава полей обязано её поднять: кэш
+#: производный и пересобираемый, а молча прочитанная запись старой формы дала бы
+#: диагностику не по тому разбору.
+DOC_PAYLOAD_VERSION = 1
+
+
+def doc_to_payload(doc: MarkdownDoc) -> dict[str, Any]:
+    """Разобранный документ как JSON-совместимый словарь.
+
+    Заголовки кладутся плоским списком с ``parent_index`` — дерево ``children``
+    восстанавливается из него тем же проходом, что и в ``parse_markdown``, поэтому
+    прочитанный из кэша документ неотличим от разобранного заново. ``text`` не
+    сохраняется: потребителям разбора нужны заголовки, ссылки и front matter, а
+    текст при попадании в кэш всё равно не читается.
+    """
+    return {
+        "version": DOC_PAYLOAD_VERSION,
+        "title": doc.title,
+        "front_matter": doc.front_matter,
+        "headings": [[h.title, h.level, h.line, h.anchor, h.parent_index] for h in doc.headings],
+        "links": [[link.text, link.target, link.line, link.column, link.is_wikilink, link.end_column]
+                  for link in doc.links],
+        "warnings": [[lineno, message] for lineno, message in doc.warnings],
+        "errors": list(doc.errors),
+    }
+
+
+def doc_from_payload(payload: dict[str, Any]) -> MarkdownDoc:
+    """Обратное к :func:`doc_to_payload`. Бросает исключение на записи чужой формы.
+
+    Исключение намеренно не глотается здесь: решает вызывающий — кэш считает
+    такую запись промахом и разбирает файл заново.
+    """
+    if payload.get("version") != DOC_PAYLOAD_VERSION:
+        raise ValueError(f"unsupported markdown cache version: {payload.get('version')!r}")
+    headings = [Heading(title=row[0], level=int(row[1]), line=int(row[2]), anchor=row[3],
+                        parent_index=None if row[4] is None else int(row[4]))
+                for row in payload["headings"]]
+    for index, heading in enumerate(headings):
+        if heading.parent_index is not None:
+            headings[heading.parent_index].children.append(heading)
+    links = [Link(text=row[0], target=row[1], line=int(row[2]), column=int(row[3]),
+                  is_wikilink=bool(row[4]), end_column=int(row[5]))
+             for row in payload["links"]]
+    return MarkdownDoc(title=payload["title"], front_matter=payload["front_matter"],
+                       headings=headings, links=links, text="",
+                       errors=list(payload["errors"]),
+                       warnings=[(int(row[0]), str(row[1])) for row in payload["warnings"]])

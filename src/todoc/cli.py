@@ -161,11 +161,14 @@ def cli(ctx: click.Context, roots: tuple[str, ...], output: str, no_input: bool)
 
 @cli.command()
 @click.option("--root", "root", required=True, help="DATA_ROOT to initialize.")
+@click.option("--dataset-id", default=None,
+              help="Идентификатор датасета. По умолчанию случаен; явное значение делает "
+                   "демо-датасет и фикстуры воспроизводимыми.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def init(root: str, output: str, no_input: bool) -> None:
+def init(root: str, dataset_id: str | None, output: str, no_input: bool) -> None:
     """Create portable .todoc/ control files (never scans/moves user data)."""
-    dataset = init_dataset(Path(root))
+    dataset = init_dataset(Path(root), dataset_id)
     _emit_ok({"dataset_id": dataset["dataset_id"], "root": str(Path(root).resolve()), "created": ".todoc/"}, output, None)
 
 
@@ -1204,7 +1207,14 @@ def records_aggregate(roots: tuple[str, ...], output: str, no_input: bool, metri
     """Aggregate with units/formula/provenance."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
-    result = aggregate_records(payload["records"], entity_type or "workout", metric, group_by)
+    resolved_type = entity_type or "workout"
+    # metric_fields.<f> несёт промпт и единицу; вычисляемой формулы в типе нет (P1-11),
+    # поэтому объявленный промпт просто доходит до ответа вместе с тем, что ядро посчитало.
+    descriptor = _entity_types_of(ctx.registry_types).get(resolved_type) or {}
+    metric_fields = descriptor.get("metric_fields")
+    spec = metric_fields.get(metric) if isinstance(metric_fields, dict) else None
+    result = aggregate_records(payload["records"], resolved_type, metric, group_by,
+                               metric_spec=spec if isinstance(spec, dict) else None)
     result["dataset_id"] = ctx.dataset_id
     _emit_ok(result, output, None)
 

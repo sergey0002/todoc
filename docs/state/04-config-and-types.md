@@ -74,7 +74,7 @@ records/change/{slug}.json`); отношение `blocked_by` связывает
 | `required_fields` | entity_type | проверяется в `records create` |
 | `path_template` | entity_type | целевой путь; подстановки `{record_id}`, `{slug}` |
 | `views` | entity_type | проекции для `records read --view` |
-| `metric_fields` | entity_type | единицы и формула (документативно) |
+| `metric_fields` | entity_type | `unit` и `prompt` метрики; под-ключи проверяются, `formula` отклоняется |
 | `endpoints` | relation_type | допустимые концы ребра (документативно) |
 | `template` | doc_type, entity_type | имя стартового шаблона в папке типа |
 | `prompts` | doc_type, entity_type | переопределение путей CRUD-промптов |

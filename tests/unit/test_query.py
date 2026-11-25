@@ -119,3 +119,24 @@ def test_graph_neighbors():
     edges2 = graph_neighbors(relations, "workout:1", None, depth=2, limit=10)
     assert any(e["to"] == "person:sergei" for e in edges2)
     assert graph_neighbors(relations, "unknown", None, depth=1, limit=10) == []
+
+
+def test_aggregate_carries_the_declared_prompt():
+    """metric_fields.<f> объявляет промпт; он доходит до ответа неизменным (P1-11)."""
+    spec = {"unit": "kg", "prompt": "Суммарный тоннаж за тренировку."}
+    result = aggregate_records(_records(), "workout", "volume", metric_spec=spec)
+    assert result["prompt"] == "Суммарный тоннаж за тренировку."
+    assert result["formula"] == "sum(volume)"
+    assert result["groups"]["all"] == 30.0
+
+
+def test_aggregate_without_a_declared_metric_has_an_empty_prompt():
+    result = aggregate_records(_records(), "workout", "volume")
+    assert result["prompt"] == ""
+
+
+def test_aggregate_ignores_a_malformed_metric_spec():
+    """Не-словарь вместо описателя не роняет агрегацию: промпт просто пуст."""
+    result = aggregate_records(_records(), "workout", "volume", metric_spec="не словарь")
+    assert result["prompt"] == ""
+    assert result["groups"]["all"] == 30.0

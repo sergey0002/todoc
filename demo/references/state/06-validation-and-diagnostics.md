@@ -93,6 +93,13 @@ copied: true
 | `json.invalid_constant` | `NaN`/`Infinity`/`-Infinity` |
 | `json.too_deep` | глубина больше `limits.max_json_depth` |
 
+Все четыре несут `line`/`column`. Для `syntax_error` позицию даёт сам `json`, а для
+остальных трёх — отдельный проход по тексту: стандартная библиотека не сообщает смещений
+ни для `object_pairs_hook`, ни для `parse_constant`, потому что оба получают уже разобранные
+значения. Сканер позиций намеренно не парсер — он не решает, корректен ли JSON, и потому не
+может изменить семантику разбора. `duplicate_key` указывает **второе** вхождение ключа
+внутри того же объекта, `too_deep` — скобку, на которой лимит впервые превышен.
+
 ### CSV
 
 | Код | Когда |
@@ -128,6 +135,10 @@ copied: true
 | `relation.missing_target` | у отношения нет `target.id` |
 | `relation.malformed` | элемент `relations` не объект или поле не список |
 
+Все четыре несут `pointer` (`/relations/<i>/…`) и, кроме того, `line`/`column` ключа —
+по тому же соглашению, что и `record.schema_violation`: строка открывает файл в нужном
+месте, а точный адрес остаётся в `pointer`.
+
 ### Документы, чтение, правки
 
 | Код | Когда |
@@ -160,6 +171,58 @@ copied: true
 | `fix.file_missing` / `fix.target_not_found` | файл или цель пропали |
 | `write.hash_mismatch` | `--if-hash` не совпал (exit 5) |
 | `write.target_exists` / `write.target_missing` | конфликт цели (exit 5) |
+
+### История
+
+| Код | Когда |
+|---|---|
+| `history.journal_unreadable` | строка журнала не разбирается как JSON |
+| `history.journal_truncated_line` | последняя строка оборвана (допустимо, игнорируется) |
+| `history.object_missing` | снимок содержимого отсутствует в `objects/` — в том числе после обрезки по `max_history_objects` |
+| `history.revision_unknown` | неизвестный `rev`, либо образа «до» не существует (создание файла, базовая линия) |
+| `history.range_conflict` | **warning**: файл изменён после откатываемой ревизии, откат сотрёт более поздние правки |
+| `history.backend_unavailable` | **warning**: выбран бэкенд `git`, но git недоступен; деградация в `embedded` |
+
+### Устаревание зависимостей
+
+| Код | Когда |
+|---|---|
+| `staleness.dependency_changed` | хеш зависимости разошёлся с записанным в `derived_from` |
+| `staleness.dependency_missing` | файл зависимости удалён |
+| `staleness.owner_not_found` | `--ack` для пути без объявленных зависимостей |
+| `staleness.ack_unsupported` | `--ack` для зависимости, которую нельзя признать (не файл/не раздел) |
+
+### Изменения и дельты
+
+| Код | Когда |
+|---|---|
+| `change.not_found` | изменение с таким id не найдено |
+| `change.id_invalid` | недопустимый статус или откат неприменённого изменения |
+| `change.delta_target_missing` | целевой файл дельты не существует (или у дельты нет `target`) |
+| `change.delta_anchor_missing` | заголовок-якорь не найден в целевом файле |
+| `change.base_hash_mismatch` | файл ушёл из-под дельты: `base_hash` не совпал с текущим |
+| `change.blocked_by_unresolved` | зависимость `blocked_by` не в `archived`/`applied` |
+| `change.already_applied` | повторное применение уже применённого изменения |
+| `change.apply_order_ambiguous` | две дельты на один файл без явного `order` |
+| `change.post_apply_invalid` | пробное применение ломает структуру документа, схему его `doc_type`, либо запись/откат не удались |
+| `document.schema_violation` | front matter документа нарушает схему его `doc_type` (`location.pointer` — RFC 6901) |
+
+`change.*` — это проверка **применимости к живому состоянию**, а не формата дельты: тот же
+набор кодов выдаёт `change validate` до применения и `change apply` в конверте отказа.
+
+### Би-темпоральность
+
+| Код | Когда |
+|---|---|
+| `temporal.invalid_interval` | `valid_to` не позже `valid_from`: интервал пуст или перевёрнут |
+| `temporal.invalid_instant` | значение не разбирается как дата или момент ISO-8601 — и в данных, и в `--as-of` |
+
+Проверяются и у самой записи (`location.pointer` = `/valid_to`), и у каждого отношения
+(`/relations/<i>/valid_from`), потому что интервал может жить и там, и там.
+
+Неразбираемое значение **в данных** делает факт невидимым в `--as-of`-выборке: порядок по
+мусору недетерминирован, а выдумывать его нельзя (P5). Причина при этом не молчит — её
+показывает `validate`.
 
 ### Общее
 

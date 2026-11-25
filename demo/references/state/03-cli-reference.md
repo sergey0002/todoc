@@ -6,7 +6,7 @@ lang: ru
 source: docs/state/03-cli-reference.md
 copied: true
 ---
-# 03. Справочник CLI: 36 команд
+# 03. Справочник CLI: 46 листовых команд
 
 Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`
 (или `python -m todoc`).
@@ -43,10 +43,13 @@ copied: true
 
 ## Команды
 
-### `init --root PATH`
+### `init --root PATH [--dataset-id ID]`
 Создаёт `.todoc/` (датасет, правила, каталоги типов; у каждого типа — `type.json`, `template.<ext>`,
 `prompts/{read,create,edit,delete}.md`) и `queries/`. Данные пользователя не трогает. Повторный вызов — `config.already_initialized` (exit 3).
 `data`: `{dataset_id, root, created}`.
+Без `--dataset-id` идентификатор случаен (`dataset-` + 8 шестнадцатеричных); явное значение делает
+демо-датасеты и фикстуры воспроизводимыми. Значение обрезается от пробелов; пустое отклоняется
+как `config.invalid_schema` (exit 3).
 
 ### `check-config`
 Загружает конфигурацию и реестр типов. `data.datasets[]`: `{dataset_id, ok, warnings, dir_types, doc_types, entity_types, relation_types, issues}`.
@@ -99,6 +102,7 @@ Exit 3, если есть ошибки.
 1-based включительные диапазоны изменённых строк, из них собирается лента по разделу.
 
 `kind` — один из `doc.create`, `doc.edit`, `doc.fix`, `record.create`, `record.edit`,
+`change.open`, `change.apply`, `change.archive`, `change.revert`,
 `snapshot` (базовая линия `history adopt`) и `external.change` (правка мимо todoc,
 обнаруженная сканированием в режиме `observed`).
 
@@ -108,9 +112,9 @@ Exit 3, если есть ошибки.
 | `show [REV] --path P [--budget B]` | содержимое файла **на** ревизии (без REV — текущее): `{path, rev, content}` |
 | `diff REV_A [REV_B] --path P [--context N] [--budget B]` | `{changed, lines, diff[]}`; без `REV_B` — против текущего состояния |
 | `blame --path P [--section S]` | кто и когда менял файл или раздел: `{entries[]}` с `rev`, `at`, `kind`, `actor`, `ranges` |
-| `revert REV --path P [--apply] [--expected-hash H]` | без `--apply` — план `{applied: false, current_hash, new_hash}`; с `--apply` пишет файл и своё событие |
+| `revert REV --path P [--apply] [--expected-hash H]` | без `--apply` — план `{applied: false, current_hash, new_hash, range_conflict}`; с `--apply` пишет файл и своё событие. Если файл менялся после `REV`, в конверте появляется предупреждение `history.range_conflict`: откат сотрёт более поздние правки |
 | `tag NAME [--rev R] [--message M]` | метка на событие (по умолчанию последнее); имя разрешается вместо `rev` |
-| `history gc [--keep-objects N] [--purge-before D] [--dry-run]` | `{removed_events, kept_events, objects_before, objects_referenced, orphans_removed, dry_run}` |
+| `history gc [--keep-objects N] [--purge-before D] [--dry-run]` | `{removed_events, kept_events, objects_before, objects_referenced, orphans_removed, trimmed_for_size, objects_trimmed, dry_run}` |
 | `history adopt` | снимает текущее состояние как базовую линию: `{rev, paths}` |
 | `history export --to PATH` | копирует `.todoc/history/` целиком: `{exported, to}`. Путь только внутри DATA_ROOT |
 
@@ -119,9 +123,121 @@ Exit 3, если есть ошибки.
 (как `git revert <c>`). Откат события создания файла или базовой линии невозможен: состояния
 «до» не существует, команда отвечает `history.revision_unknown` с объяснением.
 
-Хранится только образ «до», поэтому `history gc` удаляет сирот и лишние снимки, не трогая
-события, на которые есть ссылки. `--purge-before` стирает события старше даты: «удалил» в
-истории не равно «удалил» на диске.
+Хранится только образ «до», поэтому `history gc` удаляет сирот и лишние снимки.
+`--purge-before` стирает события старше даты: «удалил» в истории не равно «удалил» на диске.
+
+Потолки обслуживания берутся из `limits` датасета и не влияют на запись в журнал — иначе
+целостность файлов (P1) зависела бы от размера служебной папки:
+
+| Лимит | По умолчанию | Что ограничивает |
+|---|---|---|
+| `max_journal_bytes` | 8388608 | `gc` подрезает самые старые события; счёт — в `trimmed_for_size` |
+| `max_history_objects` | 20000 | значение по умолчанию для `--keep-objects`; счёт — в `objects_trimmed` |
+| `max_diff_lines` | 2000 | строк на один дифф в `diff` и `context --with-diff` |
+
+Явный `--keep-objects` важнее лимита. Обрезка снимков настоящая: у затёртой ревизии `show`
+и `revert` честно отвечают `history.object_missing`, а не выдумывают содержимое.
+
+### `timeline [--as-of D] [--path P] [--limit N]`
+
+Единая лента: события журнала (время знания) и интервалы фактов (время правды) в одном
+хронологическом порядке. `data`: `{dataset_id, as_of, path, count, truncated, entries[]}`.
+
+У записи `entry` есть `kind` (`"fact"` или вид события) и `entry` (`"fact"` | `"event"`);
+у факта — `valid_from`, `valid_to`, `observed_at`, `superseded_at`, `source_id`, `target_id`,
+`type_id`, у события — `at`, `rev`, `path`, `change_id`.
+
+`--as-of` срезает обе половины одним моментом: события позже T ещё не произошли, факты
+позже T ещё не правда. Это ответ на «что было известно на дату T» — то, чего не даёт
+ни `git log` (нет времени правды), ни `git bisect` (нет фактов).
+
+Закрытый `superseded_at` факт **остаётся в ленте и в файле**: инвалидация вместо удаления.
+Сортировка детерминированная — по времени, затем по виду записи и идентификатору.
+
+### Изменения: `change list` / `open` / `show` / `validate` / `verify` / `apply` / `archive` / `revert`
+
+Запись изменения — обычный `entity_type: change`, поэтому ей бесплатно достаются валидация
+схемы, `records query --where status=…` и обход графа `blocked_by`. Папка изменения живёт
+в DATA_ROOT, а не в `.todoc/`: намерение человека должно версионироваться git'ом и читаться
+в Obsidian.
+
+```
+changes/<change-id>/
+├── change.json          # машиночитаемое состояние
+├── proposal.md          # зачем это изменение
+├── tasks.md             # пункты `- [ ] …`, их считает verify
+└── deltas/<target>.md   # дельты: что именно меняется в целевых файлах
+changes/archive/<YYYY-MM-DD>-<change-id>/   # после `change archive`
+```
+
+`change-id` выводится из заголовка транслитерацией (`«Обновить суть»` → `change:obnovit-sut`),
+при неудаче — `change-<8 знаков sha256>`. Статусы: `proposed` → `in_progress` → `blocked`
+→ `applied` → `archived` | `reverted`.
+
+Дельта — markdown с front matter и операциями по якорям-заголовкам:
+
+```markdown
+---
+target: docs/state/09-storage-and-index.md
+base_hash: sha256:aa…      # опционально, для строгой проверки
+order: 1                   # опционально, порядок при нескольких дельтах на один файл
+---
+
+## MODIFIED: ## Поколение индекса
+…новое тело раздела…
+
+## ADDED: ## Журнал событий
+…
+
+## REMOVED: ## Устаревшее
+```
+
+| Команда | Что возвращает |
+|---|---|
+| `change list [--status S]` | `{changes[]}` — активные и архивные |
+| `change open --title T [--blocked-by ID]… [--artifact P]…` | создаёт запись и папку, снимает базовую линию (хеши артефактов и список диагностик): `{change_id, path, status, artifacts}` |
+| `change show ID` | запись и её дельты: `{record, deltas[]}` |
+| `change validate ID` | **применимость к живому состоянию**: `{applicable, errors}` + диагностики в конверте |
+| `change verify ID` | три измерения без модели: `{found, status, findings[], clean}` |
+| `change apply ID [--apply] [--if-hash PATH=sha256:…]` | без `--apply` — план; с `--apply` — bundle-транзакция «всё или ничего» |
+| `change archive ID [--tag T]` | статус `archived`, папка уносится в `changes/archive/`, `--tag` ставит метку истории |
+| `change revert ID [--apply]` | возврат артефактов к базовой линии изменения |
+
+`change validate` проверяет не формат дельты, а применимость: целевой файл существует
+(`change.delta_target_missing`), якорь найден (`change.delta_anchor_missing`), `base_hash`
+совпадает (`change.base_hash_mismatch`), зависимости закрыты (`change.blocked_by_unresolved`),
+порядок применения однозначен (`change.apply_order_ambiguous`), а пробное применение не
+ломает структуру документа и схему его `doc_type` (`change.post_apply_invalid`).
+
+`change apply --apply` атомарен: сначала считаются все новые содержимые и проверяются все
+дельты, и только затем идёт запись. Если запись не удалась, уже записанные файлы возвращаются
+к исходным байтам — частичного применения не остаётся.
+
+`change verify` — детерминированный аналог `converge`, поэтому результат воспроизводим и
+может быть гейтом в CI:
+
+- **completeness** — все пункты `tasks.md` закрыты, артефакты действительно изменены;
+- **correctness** — текущее состояние файлов соответствует дельтам (проверяется только для
+  `applied`/`in_progress`: до применения документ и должен отличаться);
+- **coherence** — `validate --all` не даёт новых диагностик относительно базовой линии.
+
+`change revert` восстанавливает артефакты по базовой линии, а не по обратным дельтам:
+обратной дельты для `REMOVED` не существует, а базовый хеш существует всегда.
+
+### `context --change ID \| --tag NAME [--budget N] [--with-diff]`
+
+Весь контекст задачи одним вызовом, в пределах бюджета байт (по умолчанию 8000). Бюджет
+считается по сериализованному объёму добавляемых кусков, а не по числу строк: агенту важно,
+сколько байт он получит.
+
+Возвращает `{dataset_id, change_id, tag, budget, truncated, record, deltas[], events[],
+files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок заполнения: запись →
+дельты → события → файлы → диффы; когда кусок не влезает, взводится `truncated`, и ответ
+никогда не превышает бюджет. Дифф обрезается также по `limits.max_diff_lines`.
+
+Дифф считается от образа «до» первого события по файлу до текущего содержимого; без
+базового хеша сравнивать не с чем, и вместо шума `revision_unknown` путь просто
+пропускается.
 
 ### `explain-path PATH`
 Объясняет типизацию пути: `{dataset_id, path, doc_type, format, rule_source, document_id}`.
@@ -150,7 +266,9 @@ Exit 3, если есть ошибки.
 - Markdown с `--section`/`--anchor`: `{section, heading_path, lines[], text}` — окно до 40 строк от заголовка;
 - Markdown с `--line-range`: `{lines[], text}`;
 - JSON: `{value}` (с `--pointer` — значение по RFC 6901);
-- CSV: `{columns, rows[], total}`.
+- CSV: `{columns, rows[], total, matched, truncated}`. `--where` применяется **до** `--rows`:
+  `--rows 3 --where k=v` возвращает три подходящие строки, а не три первые с последующей
+  фильтрацией (P1-5). `matched` — сколько строк подошло под условие, `total` — сколько их в файле.
 Общие поля: `{dataset_id, id, path, format, doc_type, hash}`.
 
 ### `docs tree [--within PATH] [--max-depth N]`
@@ -161,16 +279,28 @@ Exit 3, если есть ошибки.
 Без `--apply` возвращается `{preview: true, ops}`. С `--apply` — `{applied: true, new_hash}`.
 Несовпадение `--if-hash` — exit 5.
 
-### `records create --type T --input-file F [--preview] [--apply] [--if-hash-new]`
+### `records create --type T --input-file F [--preview] [--apply]`
 Create-only. `--preview`: `{preview: true, plan{target_path, new_content, expected_hash, new_hash, basis, validations}}`.
-`--apply`: `{created, new_hash}`. Повторный `record_id` — exit 5; неизвестный тип — exit 3.
+`--apply`: `{created, new_hash}`. Повторный `record_id` — `record.duplicate_id`, занятый путь —
+`record.target_exists`, оба с exit 5; неизвестный тип — exit 3.
+
+Флага `--if-hash-new` больше нет (P1-4): он принимался и ничего не делал, а гарантию
+«только создание» команда даёт безусловно — ещё в preview. Флаг, намекающий, что guarantee
+включается по желанию, вводил в заблуждение; вызов с ним теперь `usage.error` (exit 2).
 
 ### `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N]`
 `data`: `{dataset_id, total, returned, truncated, items[]}`.
 
-### `records query --query-file F`
+### `records query --query-file F [--as-of D]`
 QuerySpec: `{entity_type, filters, limit}`; фильтры поддерживают равенство, `$in`, `$gte`, `$lte`.
-`data`: `{dataset_id, total, truncated, items[]}`.
+`data`: `{dataset_id, as_of, total, truncated, items[]}`.
+
+`--as-of` срезает выборку по **времени правды**: остаются записи, для которых
+`valid_from <= T < valid_to` и которые ещё не закрыты `superseded_at`. Интервал полуоткрытый,
+поэтому на день `valid_to` записи в выборке уже нет. Записи без темпоральных полей видны
+всегда — обратная совместимость. Неразбираемое значение `--as-of` — это
+`temporal.invalid_instant` (exit 3), а не пустая выборка: отличить опечатку от правды
+должно быть возможно.
 
 ### `records aggregate --metric FIELD --type T [--group-by FIELD]`
 `data`: `{entity_type, metric, units, formula, groups, incoming_ids, completeness, dataset_id}`.
@@ -203,11 +333,21 @@ ID диагностики — SHA-256 от `path + code + message`, поэтом
 
 ### `doctor [--check IDS] [--scope S] [--fix]`
 Только чтение: проверки `config`, `index`, `python`. `data.datasets[]`:
-`{dataset_id, checks_total, passed, checks[{id,status,message}], fix_mode}`.
+`{dataset_id, scope, checks_total, passed, checks[{id,status,message}], fix_mode}`.
+
+`--scope` отбирает группу проверок: `dataset` (`config`, `index`), `environment` (`python`)
+или `all`. Неизвестное значение — `usage.error` (exit 2), а не молчаливый полный прогон:
+раньше флаг принимался и игнорировался (P1-4). `--scope` и `--check` сочетаются: сначала
+группа, затем конкретные id.
 
 ### `status`
-Быстрый снимок: `data.datasets[]`: `{dataset_id, generation_id, documents, records}`.
+Быстрый снимок: `data.datasets[]`:
+`{dataset_id, index_built, generation_id, documents, records}`.
 Читает опубликованное поколение, не пересобирая индекс.
+
+До первой пересборки `index_built: false`, а `documents`/`records` — `null`, не `0`: нули
+читались как «в датасете ничего нет» (P1-6). В этом случае конверт несёт `next_actions`
+с `todoc index rebuild`.
 
 ## Типовые последовательности
 

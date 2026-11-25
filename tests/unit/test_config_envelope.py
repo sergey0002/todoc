@@ -130,3 +130,29 @@ def test_envelope_table_out_file(tmp_path):
     out = tmp_path / "report.txt"
     emit(make_envelope(True, {"a": 1}), "markdown", str(out))
     assert "ok: True" in out.read_text()
+
+
+def test_init_dataset_accepts_an_explicit_id(tmp_path):
+    """Явный идентификатор делает демо-датасет воспроизводимым (P2)."""
+    dataset = init_dataset(tmp_path, "demo-fixed")
+    assert dataset["dataset_id"] == "demo-fixed"
+    assert load_dataset(tmp_path)["dataset_id"] == "demo-fixed"
+
+
+def test_init_dataset_trims_and_rejects_an_empty_id(tmp_path):
+    import pytest
+    assert init_dataset(tmp_path, "  spaced  ")["dataset_id"] == "spaced"
+    fresh = tmp_path / "other"
+    fresh.mkdir()
+    with pytest.raises(ValidationError) as exc:
+        init_dataset(fresh, "   ")
+    assert exc.value.code == "config.invalid_schema"
+
+
+def test_init_dataset_default_id_stays_random(tmp_path):
+    first = init_dataset(tmp_path)
+    second_dir = tmp_path / "second"
+    second_dir.mkdir()
+    second = init_dataset(second_dir)
+    assert first["dataset_id"].startswith("dataset-")
+    assert first["dataset_id"] != second["dataset_id"]

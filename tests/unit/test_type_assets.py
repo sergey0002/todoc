@@ -16,6 +16,7 @@ from todoc.config import (DEFAULT_DOC_TYPES, DEFAULT_ENTITY_TYPES, _write_type_a
 from todoc.errors import ConflictError, ValidationError
 from todoc.typing_system.descriptors import (
     KIND_FIELDS,
+    METRIC_FIELD_KEYS,
     TypeRegistry,
     load_json_file,
     PROMPT_OPERATIONS,
@@ -613,3 +614,42 @@ def test_document_schema_accepts_valid_front_matter(root):
     found, _info = validate_dataset(root, dataset, scanned[1], dir_rules, doc_rules,
                                     registry=registry)
     assert [d.code for d in found] == []
+
+
+# ---------------------------------------------------------------------------
+# metric_fields: объявляется промпт, а не формула (P1-11)
+# ---------------------------------------------------------------------------
+
+ENTITY = {"schema_version": 1, "type_id": "metric", "version": "0.1", "kind": "entity_type",
+          "description": "Показатель.", "format": "json"}
+
+
+def test_metric_fields_accepts_unit_and_prompt(tmp_path):
+    descriptor = dict(ENTITY, metric_fields={"value": {"unit": "count", "prompt": "Целое число."}})
+    assert descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "c.json") == []
+
+
+def test_metric_fields_formula_is_an_unknown_field(tmp_path):
+    """Формула в типе — мёртвая конфигурация: ядро её никогда не вычисляло."""
+    descriptor = dict(ENTITY, metric_fields={"value": {"unit": "count", "formula": "sum(value)"}})
+    found = descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "c.json")
+    unknown = [item for item in found if item["code"] == "config.unknown_field"]
+    assert len(unknown) == 1
+    assert "formula" in unknown[0]["message"]
+    assert "prompt" in unknown[0]["message"]
+
+
+def test_metric_fields_shapes_are_checked(tmp_path):
+    descriptor = dict(ENTITY, metric_fields={"a": "не объект", "b": {"unit": 7}, "c": {"prompt": "  "}})
+    codes = [item["code"] for item in descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "c.json")]
+    assert codes == ["config.invalid_schema", "config.invalid_schema", "config.invalid_schema"]
+
+
+def test_metric_fields_must_be_an_object(tmp_path):
+    descriptor = dict(ENTITY, metric_fields=["value"])
+    codes = [item["code"] for item in descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "c.json")]
+    assert codes == ["config.invalid_schema"]
+
+
+def test_metric_field_keys_are_fixed():
+    assert METRIC_FIELD_KEYS == {"unit", "prompt"}

@@ -119,12 +119,22 @@ def _write_type_assets(type_dir: Path, kind: str, type_id: str, description: str
         (prompts_dir / f"{operation}.md").write_text(text, encoding="utf-8")
 
 
-def init_dataset(root: Path) -> dict[str, Any]:
-    """Create .todoc/ control files. Never scans/moves user data."""
+def init_dataset(root: Path, dataset_id: str | None = None) -> dict[str, Any]:
+    """Create .todoc/ control files. Never scans/moves user data.
+
+    ``dataset_id`` по умолчанию случаен, но его можно задать явно: без этого
+    демо-датасет и тестовые фикстуры невозможно воспроизвести байт в байт, а
+    одинаковый набор файлов каждый раз даёт разный идентификатор.
+    """
     todoc_dir = root / ".todoc"
     if (todoc_dir / "dataset.json").is_file():
         raise ValidationError(f"Dataset already initialized at {root}", "config.already_initialized")
-    dataset_id = f"dataset-{uuid.uuid4().hex[:8]}"
+    if dataset_id is not None:
+        if not isinstance(dataset_id, str) or not dataset_id.strip():
+            raise ValidationError("dataset_id must be a non-empty string", "config.invalid_schema")
+        dataset_id = dataset_id.strip()
+    else:
+        dataset_id = f"dataset-{uuid.uuid4().hex[:8]}"
     dataset = default_dataset(dataset_id)
 
     (todoc_dir / "rules").mkdir(parents=True, exist_ok=True)

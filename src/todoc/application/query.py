@@ -51,17 +51,25 @@ def query_records(records: list[dict[str, Any]], entity_type: str | None = None,
 
 
 def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_field: str,
-                      group_by: str | None = None) -> dict[str, Any]:
-    """Sum a numeric field, optionally grouped. Returns units/formula/provenance.
+                      group_by: str | None = None,
+                      metric_spec: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Sum a numeric field, optionally grouped. Returns units/provenance.
 
     Units are checked **per group**: aggregating metrics measured in ``count``,
     ``ratio`` and ``ms`` is legitimate when they are grouped apart, while mixing
     two units inside one group is the error worth refusing. The previous global
     check made any heterogeneous metric set unaggregatable, even with --group-by.
+
+    ``metric_spec`` is the ``metric_fields.<field>`` entry of the entity type, when
+    the type declares one. It carries a natural-language ``prompt`` and a ``unit``;
+    nothing in it is evaluated. The core aggregates by summing this one field, and
+    says so in ``aggregation`` — a derived metric (``reps × weight_kg``) is a stored
+    field or the caller's arithmetic, not something this function will invent.
     """
     selected = [r for r in records if r.get("entity_type") == entity_type]
     if not selected:
         raise ValidationError(f"No records of type {entity_type!r}", "query.no_records")
+    spec = metric_spec if isinstance(metric_spec, dict) else {}
     groups: dict[str, float] = {}
     group_units: dict[str, str] = {}
     incoming: list[str] = []
@@ -94,7 +102,11 @@ def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_fi
         "metric": metric_field,
         "units": distinct[0] if len(distinct) == 1 else "",
         "group_units": group_units,
+        # FR-8.2 требует формулу в ответе. Здесь она честная: описывает то, что ядро
+        # действительно сделало (сумма одного поля), а не то, что кто-то объявил.
+        # Объявляется в типе не формула, а `prompt` — вычисляемых выражений нет (P1-11).
         "formula": f"sum({metric_field})",
+        "prompt": str(spec.get("prompt", "")),
         "groups": groups,
         "incoming_ids": sorted(incoming),
         "completeness": "complete",

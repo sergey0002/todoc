@@ -8,7 +8,7 @@ from typing import Any
 from todoc.adapters.filesystem.scanner import scan_dataset
 from todoc.adapters.formats.jsonfmt import parse_json
 from todoc.application.history import observe_external_changes, open_backend, record_write
-from todoc.application.registry import RegistryStore, corpus_digest, parse_cache_key, read_parse_cache, write_parse_cache
+from todoc.application.registry import RegistryStore, corpus_digest
 from todoc.application import temporal
 from todoc.application.validator import stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
@@ -90,11 +90,6 @@ class DatasetContext:
                 rule_source=str(info.get("rule_source", "default")), hash=scanned.hash, size=scanned.size,
                 title=str(info.get("title", "")), status=scanned.status if scanned.status != "ok" else "ok",
             ).to_dict())
-            # Parse cache (derived, rebuildable).
-            key = parse_cache_key(self.dataset_id, scanned.rel_path, scanned.hash, "todoc-0.1.0")
-            if read_parse_cache(self.root, key) is None:
-                write_parse_cache(self.root, key, {"path": scanned.rel_path, "hash": scanned.hash, "doc_type": info.get("doc_type")})
-
         # Records + relations from JSON files.
         records: list[dict[str, Any]] = []
         relations: list[dict[str, Any]] = []

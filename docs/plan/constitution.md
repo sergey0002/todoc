@@ -189,7 +189,9 @@
 
 ### S7. Запросить и агрегировать записи
 
-Пример: все `workout` Сергея за месяц, только `muscle_groups contains triceps`, сумма `reps × weight_kg` в `kg·reps`. CLI возвращает формулу, выборку IDs, paths/JSON Pointers, timezone/units, статус полноты. Неизвестная схема/метрика → abstain/clarify.
+Пример: все `workout` Сергея за месяц, только `muscle_groups contains triceps`, сумма `volume` в `kg`. CLI возвращает формулу фактически выполненной операции (`sum(volume)`), выборку IDs, paths/JSON Pointers, timezone/units, статус полноты и промпт метрики из описателя типа. Неизвестная схема/метрика → abstain/clarify.
+
+Ядро агрегирует **одно числовое поле суммой** и не вычисляет выражений: в `metric_fields.<field>` объявляется `prompt` (что это за величина и как её читать) и `unit`, а не формула. Производная метрика вроде `reps × weight_kg` — это либо сохранённое поле записи, либо арифметика вызывающей стороны; вычисляемого поля в описателе нет, и `check-config` отклоняет его как `config.unknown_field`. Единицы при этом проверяются по группам, а смешение единиц внутри группы даёт `query.unit_mismatch`.
 *Требует:* FR-8.
 
 ### S8. Личный лог (`workout` / `person`)
@@ -318,7 +320,7 @@
 - **FR-7.1 (MUST):** Typed relations: declarative relation descriptors (source/target kind+type, cardinality/uniqueness, inverse, dangling/missing-target policy). CLI проверяет endpoint types/targets/cardinality до подтверждения записи. Unknown/ambiguous target → diagnostic/clarify.
 - **FR-7.2 (MUST):** Graph/backlink index — derived, пересоздаваемый. `relations graph --from … --type … --depth … --limit …` выдаёт явные typed edges + краткие neighbours. Cross-dataset refs в MVP запрещены.
 - **FR-8.1 (MUST):** Safe query/aggregate: только schema-known поля, typed filters, projections, explicit aggregate metrics, provenance. Query/metric syntax — allowlisted JSON AST; запрещены Python/SQL/`eval`/import/shell/network/dynamic imports. Ресурсные лимиты обязательны.
-- **FR-8.2 (MUST):** Агрегация возвращает metric definition, единицы, формулу, timezone/date policy, входящие IDs/paths/pointers, статус полноты. Оператор явно определяет local date/timezone, правила перевода единиц, пропущенный/неизмеримый вес, учёт compound/multi-category (без двойного счёта). JSON Schema сама по себе не доказывает semantics.
+- **FR-8.2 (MUST):** Агрегация возвращает metric definition, единицы, формулу **фактически выполненной операции** (`sum(<field>)` — вычисляемых выражений в описателе типа нет, вместо них `prompt`), timezone/date policy, входящие IDs/paths/pointers, статус полноты. Оператор явно определяет local date/timezone, правила перевода единиц, пропущенный/неизмеримый вес, учёт compound/multi-category (без двойного счёта). JSON Schema сама по себе не доказывает semantics.
 - **FR-8.3 (SHOULD):** Saved QuerySpec/metric definitions — versioned JSON в `.todoc/queries/`, schema-checked, тестируемые. Необычное lifecycle/metric — явное versioned declarative operation или trusted installed handler с тестами; Skill выбирает и собирает входы, но не является единственным источником математической истины.
 
 ### 6.8. Контролируемая запись (FR-5.5, FR-6.2 — сводка)

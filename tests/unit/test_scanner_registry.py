@@ -3,8 +3,9 @@ import json
 import pytest
 
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root, scan_dataset
-from todoc.application.registry import (RegistryStore, corpus_digest, parse_cache_key,
-                                          read_parse_cache, write_parse_cache)
+from todoc.application.registry import (PARSER_VERSION, RegistryStore, corpus_digest,
+                                          invalidate_parse_cache, parse_cache_key,
+                                          parse_cache_path, read_parse_cache, write_parse_cache)
 from todoc.service import DatasetContext
 from todoc.errors import IncompleteError
 
@@ -74,18 +75,56 @@ def test_registry_corrupt_current(root):
 
 
 def test_parse_cache_roundtrip(root):
-    key = parse_cache_key("ds", "a.md", "sha256:x", "v1")
-    write_parse_cache(root, key, {"path": "a.md"})
-    assert read_parse_cache(root, key) == {"path": "a.md"}
-    assert read_parse_cache(root, "missing") is None
+    write_parse_cache(root, "a.md", "sha256:x", {"title": "A"})
+    assert read_parse_cache(root, "a.md", "sha256:x") == {"title": "A"}
+    assert read_parse_cache(root, "missing.md", "sha256:x") is None
+
+
+def test_parse_cache_key_depends_only_on_path(root):
+    """Имя записи — от пути: иначе её нельзя найти и сбросить при записи в файл."""
+    assert parse_cache_key("a.md") == parse_cache_key("a.md")
+    assert parse_cache_key("a.md") != parse_cache_key("b.md")
+    assert parse_cache_path(root, parse_cache_key("a.md")).name == f"{parse_cache_key('a.md')}.json"
+
+
+def test_parse_cache_misses_on_changed_content(root):
+    """Хеш содержимого живёт внутри записи: файл изменился — кэш промахнулся."""
+    write_parse_cache(root, "a.md", "sha256:old", {"title": "старое"})
+    assert read_parse_cache(root, "a.md", "sha256:new") is None
+    assert read_parse_cache(root, "a.md", "sha256:old") == {"title": "старое"}
+
+
+def test_parse_cache_misses_on_other_parser_version(root):
+    write_parse_cache(root, "a.md", "sha256:x", {"title": "A"}, parser_version="todoc-0.0.1")
+    assert read_parse_cache(root, "a.md", "sha256:x") is None
+
+
+def test_parse_cache_ignores_a_foreign_envelope(root):
+    """Запись без разбора или не-словарь — промах, а не ошибка."""
+    write_parse_cache(root, "a.md", "sha256:x", {"title": "A"})
+    path = parse_cache_path(root, parse_cache_key("a.md"))
+    path.write_text(json.dumps({"path": "a.md", "content_hash": "sha256:x",
+                                "parser_version": PARSER_VERSION, "doc": "не словарь"}), encoding="utf-8")
+    assert read_parse_cache(root, "a.md", "sha256:x") is None
+    path.write_text("[1, 2]", encoding="utf-8")
+    assert read_parse_cache(root, "a.md", "sha256:x") is None
 
 
 def test_parse_cache_corrupt(root):
-    key = "badkey"
     cache_dir = root / ".todoc" / "cache" / "parse"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    (cache_dir / f"{key}.json").write_text("not json")
-    assert read_parse_cache(root, key) is None
+    (cache_dir / f"{parse_cache_key('bad.md')}.json").write_text("not json", encoding="utf-8")
+    assert read_parse_cache(root, "bad.md", "sha256:x") is None
+
+
+def test_invalidate_parse_cache(root):
+    """Запись в файл обязана сбрасывать его кэш (P1-3)."""
+    write_parse_cache(root, "a.md", "sha256:x", {"title": "A"})
+    assert read_parse_cache(root, "a.md", "sha256:x") is not None
+    assert invalidate_parse_cache(root, "a.md") is True
+    assert read_parse_cache(root, "a.md", "sha256:x") is None
+    # Повторный сброс — не ошибка: разбирать было уже нечего.
+    assert invalidate_parse_cache(root, "a.md") is False
 
 
 # --- Фаза 0: один снимок и инвалидация по дайджесту (K31, K32) --------------
@@ -274,3 +313,20 @@ def test_ensure_index_rebuilds_when_snapshot_vanished(root, sample_md, monkeypat
     monkeypatch.setattr(ctx.store, "load_current", flaky)
     payload = ctx.ensure_index()
     assert payload["documents"]
+
+
+def test_write_parse_cache_survives_an_unwritable_cache_dir(root):
+    """Кэш производный: неудавшаяся запись не должна ронять разбор."""
+    (root / ".todoc" / "cache").mkdir(parents=True, exist_ok=True)
+    # `parse` — файл, а не каталог: mkdir внутри atomic_write падает в OSError.
+    (root / ".todoc" / "cache" / "parse").write_text("занято", encoding="utf-8")
+    write_parse_cache(root, "a.md", "sha256:x", {"title": "A"})
+    assert read_parse_cache(root, "a.md", "sha256:x") is None
+
+
+def test_invalidate_parse_cache_survives_a_directory_in_its_way(root):
+    cache_dir = root / ".todoc" / "cache" / "parse"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    # На месте записи каталог: unlink даёт IsADirectoryError, а не FileNotFoundError.
+    (cache_dir / f"{parse_cache_key('a.md')}.json").mkdir()
+    assert invalidate_parse_cache(root, "a.md") is False

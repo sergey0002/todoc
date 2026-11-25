@@ -24,8 +24,11 @@ RESERVED_DIR_TYPES: dict[str, str] = {
     "glossary": "glossary",
     "plan": "plan",
 }
-# Alias: only via explicit config, never fuzzy.
-RESERVED_ALIASES: dict[str, str] = {"harnes": "harness"}
+
+# Алиасов здесь намеренно нет: зарезервированное имя совпадает только буквально.
+# Прежнее RESERVED_ALIASES = {"harnes": "harness"} не читалось никем, а по DoD алиас
+# возможен только явной конфигурацией правила — захардкоженная таблица опечаток
+# противоречила бы и этому, и собственному правилу «never fuzzy».
 
 
 def glob_to_regex(pattern: str) -> re.Pattern[str]:
