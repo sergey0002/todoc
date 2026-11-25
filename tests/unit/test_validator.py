@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 
 from todoc.adapters.filesystem.scanner import scan_dataset
+from todoc.application.registry import PARSER_VERSION
 from todoc.application.validator import validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
 
@@ -151,3 +153,74 @@ def test_validate_relations_malformed_entries_are_located():
     assert [d.code for d in diags2] == ["relation.malformed"]
     assert diags2[0].location["pointer"] == "/relations/0"
     assert diags2[0].location["line"] == 2
+
+
+def test_markdown_cache_of_a_foreign_shape_is_a_miss(root):
+    """Запись кэша чужой формы — промах: файл разбирается заново, диагностика та же."""
+    from todoc.adapters.filesystem.scanner import scan_dataset
+    from todoc.application.registry import parse_cache_key, parse_cache_path
+    from todoc.config import load_dataset, load_rules
+
+    notes = root / "notes"
+    notes.mkdir()
+    (notes / "a.md").write_text('---\ntitle: "A"\n---\n\n# Заголовок\n', encoding="utf-8")
+
+    dataset = load_dataset(root)
+    dir_rules, doc_rules = load_rules(root, dataset)
+    scanned = scan_dataset(root)
+    first, _ = validate_dataset(root, dataset, scanned[1], dir_rules, doc_rules)
+
+    # Портим запись кэша: конверт валиден, а разбор внутри — чужой формы.
+    rel = "notes/a.md"
+    digest = next(f.hash for f in scanned[1] if f.rel_path == rel)
+    cache_file = parse_cache_path(root, parse_cache_key(rel))
+    cache_file.write_text(json.dumps({"path": rel, "content_hash": digest,
+                                      "parser_version": PARSER_VERSION,
+                                      "doc": {"version": 999}}), encoding="utf-8")
+
+    second, _ = validate_dataset(root, dataset, scanned[1], dir_rules, doc_rules)
+    assert [d.to_dict() for d in second] == [d.to_dict() for d in first]
+
+
+def test_validate_dataset_reads_markdown_from_the_cache(root, monkeypatch):
+    """Второй проход не парсит файл: разбор берётся из кэша (P1-3)."""
+    import todoc.application.validator as mod
+    notes = root / "notes"
+    notes.mkdir()
+    (notes / "a.md").write_text('---\ntitle: "A"\n---\n\n# Заголовок\n\n[ссылка](b.md)\n', encoding="utf-8")
+
+    first, info = _validate(root)
+    assert "notes/a.md" in info
+
+    calls: list[str] = []
+    real = mod.parse_markdown
+
+    def _spy(text):
+        calls.append(text)
+        return real(text)
+
+    monkeypatch.setattr(mod, "parse_markdown", _spy)
+    second, _ = _validate(root)
+    assert calls == [], "файл был разобран заново, хотя кэш пригоден"
+    assert [d.to_dict() for d in second] == [d.to_dict() for d in first]
+
+
+def test_changed_content_invalidates_the_cache_hit(root, monkeypatch):
+    """Хеш разошёлся — кэш промахнулся, файл разбирается заново."""
+    import todoc.application.validator as mod
+    notes = root / "notes"
+    notes.mkdir()
+    target = notes / "a.md"
+    # Без title во front matter: заголовок документа берётся из H1, и по нему видно,
+    # что разбор действительно повторился, а не достался из кэша.
+    target.write_text('# Старое\n', encoding="utf-8")
+    _validate(root)
+
+    calls: list[str] = []
+    real = mod.parse_markdown
+    monkeypatch.setattr(mod, "parse_markdown", lambda t: (calls.append(t), real(t))[1])
+
+    target.write_text('# Новое\n', encoding="utf-8")
+    _diags, info = _validate(root)
+    assert len(calls) == 1, "изменённый файл обязан разбираться заново"
+    assert info["notes/a.md"]["title"] == "Новое"

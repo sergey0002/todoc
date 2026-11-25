@@ -60,3 +60,43 @@ def test_empty_document():
     assert doc.title == ""
     assert doc.headings == []
     assert doc.links == []
+
+
+# --- Кэш парсинга: разбор сериализуется и восстанавливается без потерь (P1-3) ---
+
+SRC = ('---\ntitle: "Заголовок"\n---\n\n# Один\n\n[ссылка](other.md) и [[wiki]].\n\n'
+       '## Под\n\n```md\n[в-коде](nope.md)\n```\n')
+
+
+def test_doc_payload_roundtrip_is_lossless():
+    from todoc.adapters.formats.markdown import doc_from_payload, doc_to_payload
+    original = parse_markdown(SRC)
+    restored = doc_from_payload(doc_to_payload(original))
+    key = lambda d: (  # noqa: E731 - короткое сравнение структур
+        d.title, d.front_matter,
+        [(h.title, h.level, h.line, h.anchor, h.parent_index) for h in d.headings],
+        [(l.text, l.target, l.line, l.column, l.is_wikilink, l.end_column) for l in d.links],
+        d.warnings, d.errors)
+    assert key(restored) == key(original)
+    # Дерево children восстанавливается из parent_index тем же проходом.
+    assert [[c.title for c in h.children] for h in restored.headings] == \
+           [[c.title for c in h.children] for h in original.headings]
+    # Текст в кэш не кладётся: потребителям разбора он не нужен.
+    assert restored.text == ""
+
+
+def test_doc_payload_carries_front_matter_warnings():
+    from todoc.adapters.formats.markdown import doc_from_payload, doc_to_payload
+    doc = parse_markdown('---\nkey: A: B\n---\n\n# Заголовок\n')
+    restored = doc_from_payload(doc_to_payload(doc))
+    assert restored.warnings == doc.warnings
+    assert restored.warnings, "небезопасный front matter обязан дать предупреждение"
+
+
+def test_doc_from_payload_rejects_a_foreign_version():
+    """Запись чужой версии формы — ошибка, а не тихо принятый разбор."""
+    import pytest
+    from todoc.adapters.formats.markdown import DOC_PAYLOAD_VERSION, doc_from_payload
+    with pytest.raises(ValueError):
+        doc_from_payload({"version": DOC_PAYLOAD_VERSION + 1, "title": "", "front_matter": {},
+                          "headings": [], "links": [], "warnings": [], "errors": []})

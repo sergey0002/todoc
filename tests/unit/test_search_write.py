@@ -4,6 +4,7 @@ import pytest
 
 from todoc.adapters.filesystem.scanner import file_hash
 from todoc.application.search import search_documents, tokenize
+from todoc.application.validator import validate_dataset
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_record_plan,
                                      load_input_record, portable_name)
 from todoc.errors import ConflictError, ValidationError
@@ -268,3 +269,52 @@ def test_load_input_record_invalid(tmp_path):
     path.write_text("[1, 2]")
     with pytest.raises(ValidationError):
         load_input_record(path)
+
+
+def test_write_invalidates_the_parse_cache(root):
+    """Запись в файл сбрасывает его кэш парсинга (P1-3)."""
+    from todoc.adapters.filesystem.scanner import scan_dataset
+    from todoc.application.registry import parse_cache_key, parse_cache_path
+    from todoc.application.write import apply_edit_ops
+    from todoc.config import load_dataset, load_rules
+
+    notes = root / "notes"
+    notes.mkdir()
+    (notes / "a.md").write_text('---\ntitle: "A"\n---\n\n# Заголовок\n', encoding="utf-8")
+
+    dataset = load_dataset(root)
+    dir_rules, doc_rules = load_rules(root, dataset)
+    validate_dataset(root, dataset, scan_dataset(root)[1], dir_rules, doc_rules)
+
+    cache_file = parse_cache_path(root, parse_cache_key("notes/a.md"))
+    assert cache_file.is_file(), "после разбора запись кэша обязана появиться"
+
+    apply_edit_ops(root, "notes/a.md", [{"line": 5, "text": "# Другой заголовок"}])
+    assert not cache_file.exists(), "запись в файл обязана сбросить его кэш"
+
+
+def test_snippet_picks_the_most_relevant_window_not_the_first_match():
+    """Первое вхождение — в оглавлении; сниппет обязан показать содержательное место."""
+    from todoc.application.search import _snippet
+
+    filler = "абзац без единого нужного слова. " * 30
+    text = (f"токен упоминается в оглавлении\n\n{filler}\n"
+            f"Здесь токен разобран подробно: токен и ещё токен, рядом второй термин.\n")
+    snippet, line_start, _line_end, _trunc = _snippet(text, ["токен", "термин"])
+    assert "второй термин" in snippet, "выбрано окно без второго термина запроса"
+    assert line_start > 1, "сниппет остался на первом вхождении из оглавления"
+
+
+def test_snippet_without_any_match_falls_back_to_the_head():
+    from todoc.application.search import _snippet
+    snippet, line_start, line_end, truncated = _snippet("короткий текст", ["нет-такого"])
+    assert snippet == "короткий текст"
+    assert (line_start, line_end) == (1, 1)
+    assert truncated is False
+
+
+def test_snippet_is_deterministic_regardless_of_term_order():
+    """Равенство очков разрешается самым ранним окном — порядок терминов не важен (P5)."""
+    from todoc.application.search import _snippet
+    text = "альфа и бета\n\n" + ("наполнитель. " * 40) + "\nбета и альфа снова\n"
+    assert _snippet(text, ["альфа", "бета"]) == _snippet(text, ["бета", "альфа"])

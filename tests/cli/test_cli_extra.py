@@ -476,3 +476,22 @@ def test_status_before_first_rebuild_reports_nulls(root):
     after = _json(_run(runner, ["--root", str(root), "status", "--output", "json"]))["data"]["datasets"][0]
     assert after["index_built"] is True
     assert isinstance(after["documents"], int) and isinstance(after["records"], int)
+
+
+def test_init_accepts_an_explicit_dataset_id(tmp_path):
+    """`init --dataset-id` делает демо-датасет воспроизводимым (P2)."""
+    runner = CliRunner()
+    fresh = tmp_path / "kb"
+    fresh.mkdir()
+    result = _run(runner, ["init", "--root", str(fresh), "--dataset-id", "demo-fixed", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    assert _json(result)["data"]["dataset_id"] == "demo-fixed"
+
+
+def test_init_rejects_an_empty_dataset_id(tmp_path):
+    runner = CliRunner()
+    fresh = tmp_path / "kb"
+    fresh.mkdir()
+    result = _run(runner, ["init", "--root", str(fresh), "--dataset-id", "  ", "--output", "json"])
+    assert result.exit_code == 3, result.output
+    assert result.exception.code == "config.invalid_schema"

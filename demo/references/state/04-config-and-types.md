@@ -28,6 +28,12 @@ copied: true
 | `limits.max_csv_rows` | `1000000` | больше — `csv.too_many_rows` |
 | `limits.max_query_results` | `200` | потолок выборки |
 | `limits.max_record_create_path` | `512` | потолок длины пути записи |
+| `limits.max_journal_bytes` | `8388608` | `history gc` подрезает самые старые события журнала |
+| `limits.max_history_objects` | `20000` | значение по умолчанию для `history gc --keep-objects` |
+| `limits.max_diff_lines` | `2000` | строк на один дифф в `diff` и `context --with-diff` |
+
+Три последних ограничивают обслуживание и выдачу, но не запись: журнал пишется всегда, иначе
+целостность файлов (P1) зависела бы от размера служебной папки.
 
 ## Что создаёт `init`
 
@@ -36,20 +42,27 @@ copied: true
 ├── dataset.json
 ├── rules/{directory-rules.json, document-rules.json}
 ├── dir_types/{research, plan, architecture, constitution, harness, glossary}/type.json
-├── doc_types/{adr, glossary-entry, research-note, note}/
+├── doc_types/{adr, delta, glossary-entry, research-note, note}/
 │   ├── type.json
 │   ├── template.md              # стартовый шаблон документа
 │   └── prompts/{read,create,edit,delete}.md
-├── entity_types/{note, research, link, plan, product, person, workout}/
+├── entity_types/{change, link, note, person, plan, product, research, workout}/
 │   ├── type.json
 │   ├── template.json            # стартовая запись
 │   └── prompts/{read,create,edit,delete}.md
-├── relation_types/{performed_by, derived_from, supports, contradicts}/type.json
+├── relation_types/{blocked_by, contradicts, derived_from, performed_by, supports}/type.json
 └── queries/
 ```
 
 Всё, что относится к типу, лежит в папке этого типа: `type.json`, `template.<ext>`,
-`prompts/{read,create,edit,delete}.md`, а у типов записей ещё и `schema.json`. У каждого
+`prompts/{read,create,edit,delete}.md`, а у типов записей и документов ещё и `schema.json`
+(у `doc_type` схема необязательна — первым её объявил тип `delta`).
+
+Тип `delta` — формат дельты изменения: `any_of_sections` из трёх операций
+(`## ADDED:`, `## MODIFIED:`, `## REMOVED:`) и `schema: schema.json`, которая требует
+`target` и проверяет формат `base_hash`. Тип `change` — запись изменения
+(`required_fields: [record_id, entity_type, title, status]`, `path_template:
+records/change/{slug}.json`); отношение `blocked_by` связывает изменения в граф зависимостей. У каждого
 ассета ровно одно расположение, и никакого поиска по запасным каталогам нет: если файла нет
 в папке типа, его нет нигде. `check-config` сообщает о мёртвом указателе
 (`config.template_missing`, `config.prompt_missing`, `config.schema_missing`) и о двух файлах,
@@ -69,7 +82,7 @@ copied: true
 | `required_fields` | entity_type | проверяется в `records create` |
 | `path_template` | entity_type | целевой путь; подстановки `{record_id}`, `{slug}` |
 | `views` | entity_type | проекции для `records read --view` |
-| `metric_fields` | entity_type | единицы и формула (документативно) |
+| `metric_fields` | entity_type | `unit` и `prompt` метрики; под-ключи проверяются, `formula` отклоняется |
 | `endpoints` | relation_type | допустимые концы ребра (документативно) |
 | `template` | doc_type, entity_type | имя стартового шаблона в папке типа |
 | `prompts` | doc_type, entity_type | переопределение путей CRUD-промптов |
@@ -101,6 +114,15 @@ copied: true
 `required_sections` — список заголовков. Селектор задаётся строкой: `"## Purpose"` (уровень +
 текст) или `"Purpose"` (любой уровень). Сопоставление идёт по **разобранному** тексту заголовка,
 поэтому инлайн-разметка не мешает: `` ## Пробел относительно `todoc` `` совпадает с `## Пробел относительно todoc`.
+
+`any_of_sections` — список заголовков, из которых в документе обязан присутствовать **хотя бы
+один**. Это то, чего `required_sections` выразить не может: дельте достаточно любой из
+`## ADDED:` / `## MODIFIED:` / `## REMOVED:`, а требовать все три сразу было бы неверно.
+Нарушение даёт `markdown.section.missing` с перечислением альтернатив в сообщении.
+
+`schema` — путь к JSON Schema для **front matter документов** этого типа (по умолчанию
+`schema.json` рядом с `type.json`). Поле необязательное: у существующих типов его нет, и их
+проверка не меняется. Нарушение даёт `document.schema_violation` с `location.pointer`.
 
 `section_rules` — список правил вида
 `{"heading": "### Requirement:", "min_children": 1, "child_level": 4, "severity": "error"}`.
@@ -169,7 +191,12 @@ copied: true
 | `reserved-harness` | basename `harness` | dir_type `harness` | 100 |
 | `reserved-glossary` | basename `glossary` | dir_type `glossary` | 100 |
 | `adr-markdown` | glob `**/adr/*.md` | doc_type `adr` | 50 |
+| `change-delta` | glob `**/changes/*/deltas/*.md` | doc_type `delta` | 150 |
 | `glossary-by-front-matter` | front matter `doc_type: glossary-entry` | doc_type `glossary-entry` | 200 |
+
+Правило `change-delta` разбирает дельты по маске папки, а не по front matter: дельта
+обязана определяться типом по своему месту, иначе `any_of_sections` и схема `delta`
+не применились бы.
 
 Практический вывод: **явное объявление в front matter (200) перебивает маску папки (100)**.
 Это видно в `explain-path` через `rule_source: rule:fm-<type>`.

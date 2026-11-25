@@ -68,6 +68,60 @@ Create-only: перезапись существующих записей зап
 Проверено на демо: `relations graph --from decision:no-lsp --depth 2` вернул рёбра
 `documents` к двум документам и далее рёбра этих документов.
 
+## Записи изменений (`entity_type: change`)
+
+Изменение — **обычная запись**, а не отдельная сущность. Поэтому ему бесплатно достаются
+валидация схемы, `records query --where status=proposed` и обход графа зависимостей через
+`relations graph`. Отдельный механизм не вводился — это прямое использование P9.
+
+```json
+{"schema_version": 1, "record_id": "change:add-history", "entity_type": "change",
+ "title": "Журнал изменений и откат", "status": "proposed",
+ "created_at": "2026-11-25T10:00:00Z", "applied_at": null,
+ "artifacts": ["docs/state/09-storage-and-index.md"],
+ "relations": [{"type_id": "blocked_by",
+                "target": {"kind": "record", "id": "change:index-redesign"}}]}
+```
+
+Жизненный цикл: `proposed` → `in_progress` → `blocked` → `applied` → `archived` | `reverted`.
+Недопустимый переход отклоняется кодом `change.id_invalid`.
+
+Файл записи живёт не в `records/`, а в `changes/<change-id>/change.json`: рядом с дельтами,
+`proposal.md` и `tasks.md`, потому что намерение человека читается целиком. После
+`change archive` папка уносится в `changes/archive/<YYYY-MM-DD>-<change-id>/`, и запись
+остаётся читаемой по тому же `record_id`.
+
+Отношение `blocked_by` — зависимость между изменениями: `change validate` отказывает кодом
+`change.blocked_by_unresolved`, пока зависимость не в `archived` или `applied`.
+
+## Би-темпоральность: время правды и время знания
+
+У отношения (и у самой записи) четыре опциональных поля:
+
+```json
+{"type_id": "employs", "target": {"kind": "record", "id": "person:sergei"},
+ "valid_from": "2024-01-01", "valid_to": "2026-06-30",
+ "observed_at": "2026-11-25T10:00:00Z", "superseded_at": null}
+```
+
+| Поле | О чём |
+|---|---|
+| `valid_from` / `valid_to` | когда факт был правдой **в мире** |
+| `observed_at` / `superseded_at` | когда todoc о нём **узнал** и когда **закрыл** |
+
+Точка во времени: `valid_from <= T AND (valid_to IS NULL OR T < valid_to)`. Интервал
+полуоткрытый — на день `valid_to` факт уже не правда. Даты сравниваются как
+нормализованные к UTC строки ISO-8601, поэтому порядок не зависит от написания
+(`2024-01-01T12:00:00+03:00` — это `2024-01-01T09:00:00Z`).
+
+**Инвалидация вместо удаления.** Противоречащий факт закрывает старый через
+`superseded_at`, а сам старый остаётся в файле, в `records read` и в `timeline`. Он исчезает
+только из выборки «на момент T». Закрытие — всегда явное действие человека (правка записи
+или `change`): ядро детерминированное (P5) и противоречия само не угадывает.
+
+Поля опциональны: записи и отношения без них ведут себя точно как раньше и видны в любой
+выборке.
+
 ## Запросы (`records query`)
 
 QuerySpec — JSON-файл:

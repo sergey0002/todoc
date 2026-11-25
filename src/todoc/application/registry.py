@@ -176,22 +176,72 @@ def _mtime_ns(path: Path) -> int:
 
 
 
-def parse_cache_key(dataset_id: str, path: str, content_hash: str, parser_version: str) -> str:
-    raw = f"{dataset_id}|{path}|{content_hash}|{parser_version}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+#: Версия разбора. Поднимается при любом изменении того, как файл превращается в
+#: структуру: запись кэша чужой версии — промах, а не источник правды.
+PARSER_VERSION = "todoc-0.2.0"
 
 
-def write_parse_cache(root: Path, key: str, payload: dict[str, Any]) -> None:
-    cache_dir = root / ".todoc" / "cache" / "parse"
-    atomic_write(cache_dir / f"{key}.json", json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+def parse_cache_key(path: str) -> str:
+    """Имя записи кэша — только от пути.
+
+    Хеш содержимого в имени участвовать не может: тогда запись нельзя было бы найти
+    и удалить по пути при записи в файл. Хеш лежит внутри записи и сверяется при
+    чтении, так что устаревшая запись даёт промах, а не чужой разбор. Каталог кэша
+    и так внутри DATA_ROOT, поэтому `dataset_id` в ключе избыточен.
+    """
+    return hashlib.sha256(path.encode("utf-8")).hexdigest()[:16]
 
 
-def read_parse_cache(root: Path, key: str) -> dict[str, Any] | None:
-    path = root / ".todoc" / "cache" / "parse" / f"{key}.json"
-    if not path.is_file():
+def parse_cache_path(root: Path, key: str) -> Path:
+    return root / ".todoc" / "cache" / "parse" / f"{key}.json"
+
+
+def write_parse_cache(root: Path, path: str, content_hash: str, payload: dict[str, Any],
+                      parser_version: str = PARSER_VERSION) -> None:
+    """Положить разбор файла в кэш. Запись производная: ошибка записи не fatal."""
+    envelope = {"path": path, "content_hash": content_hash,
+                "parser_version": parser_version, "doc": payload}
+    try:
+        atomic_write(parse_cache_path(root, parse_cache_key(path)),
+                     json.dumps(envelope, indent=2, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def read_parse_cache(root: Path, path: str, content_hash: str,
+                     parser_version: str = PARSER_VERSION) -> dict[str, Any] | None:
+    """Разбор файла из кэша либо None.
+
+    Промах — это не только отсутствие записи: несовпавший хеш содержимого, другая
+    версия разбора, битый JSON и запись не-словарь дают тот же результат, поэтому
+    вызывающий всегда разбирает файл заново и никогда не получает чужой разбор.
+    """
+    cache_file = parse_cache_path(root, parse_cache_key(path))
+    if not cache_file.is_file():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(cache_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return data if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    if data.get("content_hash") != content_hash or data.get("parser_version") != parser_version:
+        return None
+    doc = data.get("doc")
+    return doc if isinstance(doc, dict) else None
+
+
+def invalidate_parse_cache(root: Path, path: str) -> bool:
+    """Сбросить кэш парсинга одного файла. True, если запись была.
+
+    Вызывается при записи в файл: кэш обязан сбрасываться вместе с данными, которые
+    он описывает. Отсутствие записи — не ошибка (файл могли ещё не разбирать).
+    """
+    cache_file = parse_cache_path(root, parse_cache_key(path))
+    try:
+        cache_file.unlink()
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+    return True

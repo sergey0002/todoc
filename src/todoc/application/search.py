@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from bisect import bisect_left
 from pathlib import Path
 from typing import Any
 
@@ -38,17 +39,52 @@ def _document_text(root: Path, rel_path: str, fmt: str) -> tuple[str, str]:
     return text, text
 
 
+#: Сколько окон-кандидатов рассматривается. Ограничение нужно, чтобы частый термин
+#: в большом файле не превращал поиск в квадратичный; берётся всегда одно и то же
+#: начало списка позиций, поэтому выбор остаётся детерминированным.
+_MAX_SNIPPET_ANCHORS = 2000
+
+
 def _snippet(text: str, terms: list[str], max_chars: int = 240) -> tuple[str, int, int, bool]:
+    """Окно вокруг **наиболее релевантного** совпадения, а не первого попавшегося.
+
+    Первое вхождение термина часто оказывается в заголовке или оглавлении, и тогда
+    сниппет показывает место, где термин только назван, а не обсуждается. Релевантность
+    окна — сколько различных терминов запроса в него попало, затем сколько всего вхождений.
+    При равенстве выигрывает самое раннее окно: результат детерминирован (P5) и не
+    зависит от порядка терминов в запросе.
+    """
     lowered = text.lower()
-    best_pos = -1
-    for term in terms:
-        pos = lowered.find(term)
-        if pos != -1 and (best_pos == -1 or pos < best_pos):
-            best_pos = pos
-    if best_pos == -1:
+    positions: dict[str, list[int]] = {}
+    for term in dict.fromkeys(terms):
+        found: list[int] = []
+        index = lowered.find(term)
+        while index != -1:
+            found.append(index)
+            index = lowered.find(term, index + 1)
+        if found:
+            positions[term] = found
+    if not positions:
         return text[:max_chars], 1, 1, len(text) > max_chars
-    start = max(0, best_pos - 80)
-    end = min(len(text), best_pos + 160)
+
+    anchors = sorted(set().union(*positions.values()))[:_MAX_SNIPPET_ANCHORS]
+    lists = list(positions.values())
+    best_key: tuple[int, int, int] | None = None
+    start, end = 0, min(len(text), max_chars)
+    for pos in anchors:
+        cand_start = max(0, pos - max_chars // 3)
+        cand_end = min(len(text), cand_start + max_chars)
+        distinct = total = 0
+        for found in lists:
+            lo = bisect_left(found, cand_start)
+            hi = bisect_left(found, cand_end)
+            if hi > lo:
+                distinct += 1
+                total += hi - lo
+        key = (distinct, total, -cand_start)
+        if best_key is None or key > best_key:
+            best_key = key
+            start, end = cand_start, cand_end
     snippet = text[start:end].replace("\n", " ").strip()
     truncated = end < len(text) or start > 0
     line_start = text.count("\n", 0, start) + 1

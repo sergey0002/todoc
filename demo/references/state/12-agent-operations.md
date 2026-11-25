@@ -78,6 +78,39 @@ todoc records create --root KB --type note --input-file note.json --apply
 - для защиты от гонок используйте `--if-hash <hash из docs read>`;
 - никогда не стройте shell-команду из текста модели и не передавайте секреты аргументами.
 
+## Широкая правка: через изменение
+
+Одиночную правку делайте как раньше — `docs edit` и `fix` работают без церемонии. Но если
+правка затрагивает несколько файлов, ведите её как изменение: сначала намерение, потом дельты,
+потом применение одной транзакцией.
+
+```bash
+todoc change open --root KB --title "Обновить суть" --artifact notes/a.md --artifact notes/b.md
+# положить дельты в changes/<change-id>/deltas/*.md
+todoc change validate KB:change:obnovit-sut     # применимость к живому состоянию
+todoc change apply change:obnovit-sut           # план (review-first)
+todoc change apply change:obnovit-sut --apply   # всё или ничего
+todoc change verify change:obnovit-sut          # completeness / correctness / coherence
+todoc change archive change:obnovit-sut --tag v1.2
+```
+
+Порядок обязателен: `validate` до `apply`, потому что он ловит дрейф якоря и `base_hash`
+**до** записи, а не после. Если две дельты правят один файл, задайте `order` во front matter —
+иначе порядок применения неоднозначен и вы получите `change.apply_order_ambiguous`.
+
+Контекст задачи берите одним вызовом, а не серией чтений:
+
+```bash
+todoc context --root KB --change change:obnovit-sut --budget 8000 --with-diff
+```
+
+Ответ ограничен бюджетом байт; если кусок не влез, взведётся `truncated` — тогда сузьте
+задачу или поднимите бюджет, но не игнорируйте флаг.
+
+Откат — `todoc change revert <id> --apply`: артефакты возвращаются к базовой линии изменения.
+Если после применения файл правили ещё раз, `todoc revert` предупредит
+`history.range_conflict`: откат возможен, но сотрёт более поздние правки.
+
 ## Ремонт
 
 ```bash

@@ -10,6 +10,7 @@ from typing import Any
 
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
+from todoc.application.registry import invalidate_parse_cache
 from todoc.domain.models import WritePlan
 from todoc.errors import ConflictError, ValidationError
 
@@ -126,6 +127,8 @@ def apply_write_plan(root: Path, plan: WritePlan, expected_hash: str | None = No
             raise ConflictError("Caller expected_hash does not match plan", "write.hash_mismatch")
     before = target.read_bytes() if target.is_file() else None
     atomic_write(target, plan.new_content)
+    # Кэш парсинга сбрасывается вместе с данными, которые он описывает (P1-3).
+    invalidate_parse_cache(root, plan.target_path)
     if history is not None:
         # kind различает документ и запись по расширению цели: у WritePlan нет отдельного
         # флага формата, а список видов зафиксирован в плане (docs/plan/history-and-changes.md).
@@ -151,6 +154,7 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
     new_text = text.replace(old_target, new_target, 1)
     before = target.read_bytes()
     atomic_write(target, new_text)
+    invalidate_parse_cache(root, rel_path)
     if history is not None:
         history.record(rel_path, before, new_text.encode("utf-8"), "doc.fix",
                        f"fix link {old_target!r} -> {new_target!r}")
@@ -175,6 +179,7 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
     new_text = "\n".join(lines) + "\n"
     before = target.read_bytes()
     atomic_write(target, new_text)
+    invalidate_parse_cache(root, rel_path)
     if history is not None:
         history.record(rel_path, before, new_text.encode("utf-8"), "doc.edit",
                        f"docs edit {len(ops)} ops")

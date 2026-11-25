@@ -23,6 +23,7 @@ from typing import Any
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
 from todoc.adapters.formats.jsonfmt import validate_against_schema
 from todoc.adapters.formats.markdown import parse_markdown, section_bounds
+from todoc.application.registry import invalidate_parse_cache
 from todoc.domain.models import Diagnostic
 from todoc.errors import ValidationError
 
@@ -571,6 +572,8 @@ def apply_change(root: Path, change_id: str, *, apply: bool = False,
             path = root / item["path"]
             written.append((path, path.read_bytes()))
             atomic_write(path, item["content"])
+            # Кэш парсинга сбрасывается вместе с данными, которые он описывает (P1-3).
+            invalidate_parse_cache(root, item["path"])
             if history is not None:
                 history.record(item["path"], written[-1][1], item["content"].encode("utf-8"),
                                "change.apply", f"change apply {change_id}")
@@ -669,6 +672,7 @@ def revert_change(root: Path, change_id: str, *, apply: bool = False,
                     f"Не удалось восстановить {item['path']} из истории ({status})", code)
             restored.append((path, path.read_bytes()) if path.is_file() else (path, b""))
             atomic_write(path, data.decode("utf-8"))
+            invalidate_parse_cache(root, item["path"])
             if history is not None:
                 history.record(item["path"], restored[-1][1], data, "change.revert",
                                f"change revert {change_id}")

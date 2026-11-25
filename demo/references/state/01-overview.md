@@ -22,10 +22,10 @@ copied: true
 | Показатель | Значение | Как проверено |
 |---|---|---|
 | Версия пакета | `0.1.0` | `todoc --version` |
-| Листовых команд CLI | 26 | обход дерева Click |
-| Строк в `src/todoc` | 4100 | `wc -l` по модулям |
-| Тестов | 437 (все проходят) | `pytest tests` |
-| Покрытие | 100% — 2510 инструкций, 874 ветки, 0 пропусков | `coverage run -m pytest` + `coverage report` |
+| Листовых команд CLI | 46 (25 верхнеуровневых) | обход дерева Click |
+| Строк в `src/todoc` | 7767 | `wc -l` по модулям |
+| Тестов | 988 проходят, 18 пропущено | `pytest tests` |
+| Покрытие | 100% — 4570 инструкций, 1676 веток, 0 пропусков | `coverage run --branch` + `coverage report -m` |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` | `pyproject.toml` |
 | Python | 3.11.2 | `todoc doctor` |
 | Демо-датасет | 248 документов, 157 записей, 0 диагностик | `todoc validate --root demo --all` |
@@ -41,8 +41,16 @@ copied: true
 - **Записи**: создание create-only через WritePlan, списки, декларативные запросы, агрегация с
   единицами и формулой, проекции `views`.
 - **Отношения**: типизированный граф, BFS до заданной глубины, проверка целей и типов.
-- **Индекс**: атомарные поколения в `.todoc/index/generations/`, кэш парсинга.
+- **Индекс**: один снимок в `.todoc/index/current/`, инвалидация по дайджесту корпуса, кэш парсинга.
 - **Ремонт**: `fix --preview/--apply` по одной диагностике, `doctor` с отдельным режимом ремонта.
+- **История**: журнал событий записи `.todoc/history/`, снимки «до», `log`/`show`/`diff`/`blame`/
+  `revert`/`tag`, лента по разделу, внешние правки в режиме `observed`, бэкенды `embedded`/`git`.
+- **Устаревание**: `derived_from` с якорями (JSON Pointer и `section:`), `stale`, `stale --ack`.
+- **Изменения**: `entity_type: change`, дельты `ADDED`/`MODIFIED`/`REMOVED`,
+  `change open/show/validate/verify/apply/archive/revert`, атомарное применение «всё или ничего».
+- **Контекст**: `context --change|--tag` — весь контекст задачи одним вызовом, в пределах бюджета байт.
+- **Би-темпоральность**: `valid_from`/`valid_to` и `observed_at`/`superseded_at` у записей и
+  отношений, `records query --as-of`, `timeline`; инвалидация вместо удаления.
 
 ## Что сознательно НЕ реализовано в MVP
 

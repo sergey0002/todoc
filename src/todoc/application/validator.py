@@ -13,7 +13,9 @@ from typing import Any
 from todoc.adapters.filesystem.scanner import ScannedFile
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
-from todoc.adapters.formats.markdown import parse_markdown, resolve_link_target
+from todoc.adapters.formats.markdown import (doc_from_payload, doc_to_payload, parse_markdown,
+                                             resolve_link_target)
+from todoc.application.registry import read_parse_cache, write_parse_cache
 from todoc.application import temporal
 from todoc.domain.models import Diagnostic, SuggestedFix
 from todoc.errors import ValidationError
@@ -135,20 +137,41 @@ def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any, candidate
     )
 
 
+def _markdown_doc(root: Path, scanned: ScannedFile) -> Any:
+    """Разбор Markdown из кэша парсинга либо None, если кэш не пригоден.
+
+    Промахом считается всё, что не даёт разбор, идентичный повторному: нет записи,
+    не совпал хеш содержимого, другая версия разбора, битый JSON или запись чужой
+    формы. Тогда вызывающий читает и парсит файл сам и кладет результат в кэш.
+    """
+    cached = read_parse_cache(root, scanned.rel_path, scanned.hash)
+    if cached is None:
+        return None
+    try:
+        return doc_from_payload(cached)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
+
 def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all_paths: set[str],
-                          basename_index: tuple[dict[str, list[str]], list[str]] | None = None) -> list[Diagnostic]:
+                          basename_index: tuple[dict[str, list[str]], list[str]] | None = None,
+                          doc: Any = None) -> list[Diagnostic]:
     """Report local links whose target is not in the scanned file set.
 
     Targets are normalized by ``resolve_link_target`` (same code path as the
     index/backlinks), so validator and index can never disagree about what a
     link points to. Wikilinks resolve by basename/stem anywhere in the root.
+
+    ``doc`` — уже готовый разбор: вызывающий, который только что разбирал файл,
+    отдаёт его сюда, и файл не читается второй раз (P1-3).
     """
     diags: list[Diagnostic] = []
-    try:
-        text = scanned.abs_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return [Diagnostic(dataset_id, stable_id(scanned.rel_path, "markdown.unreadable"), "markdown.unreadable", "error", scanned.rel_path, "Cannot read Markdown file.")]
-    doc = parse_markdown(text)
+    if doc is None:
+        try:
+            text = scanned.abs_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return [Diagnostic(dataset_id, stable_id(scanned.rel_path, "markdown.unreadable"), "markdown.unreadable", "error", scanned.rel_path, "Cannot read Markdown file.")]
+        doc = parse_markdown(text)
     by_basename, basenames = basename_index if basename_index is not None else _basename_index(all_paths)
     for link in doc.links:
         if link.is_wikilink:
@@ -294,25 +317,30 @@ def validate_dataset(
             diags.append(_diag(dataset_id, scanned.rel_path, "file.permission_denied", "Cannot read file."))
             doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
             continue
-        try:
-            text = scanned.abs_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            diags.append(_diag(dataset_id, scanned.rel_path, "file.unreadable", "Cannot read file as UTF-8."))
-            doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
-            continue
-
         front_matter: dict[str, Any] = {}
         title = ""
         headings: list[Any] = []
+        # Сквозной кэш парсинга (P1-3): при попадании файл не читается и не парсится.
+        doc = _markdown_doc(root, scanned) if fmt == "markdown" else None
+        if doc is None:
+            try:
+                text = scanned.abs_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                diags.append(_diag(dataset_id, scanned.rel_path, "file.unreadable", "Cannot read file as UTF-8."))
+                doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
+                continue
+            if fmt == "markdown":
+                doc = parse_markdown(text)
+                write_parse_cache(root, scanned.rel_path, scanned.hash, doc_to_payload(doc))
         if fmt == "markdown":
-            doc = parse_markdown(text)
             front_matter = doc.front_matter
             title = doc.title
             headings = doc.headings
             for lineno, message in doc.warnings:
                 diags.append(_diag(dataset_id, scanned.rel_path, "markdown.front_matter.yaml_unsafe",
                                    message, severity="warning", location={"line": lineno, "column": 1}))
-            diags.extend(_check_markdown_links(dataset_id, scanned, root, all_paths, by_basename))
+            # Разбор уже в руках — второй раз файл не читается и не парсится.
+            diags.extend(_check_markdown_links(dataset_id, scanned, root, all_paths, by_basename, doc=doc))
         elif fmt == "csv":
             csv_doc = parse_csv(text, max_rows=max_rows)
             for err in csv_doc.errors:

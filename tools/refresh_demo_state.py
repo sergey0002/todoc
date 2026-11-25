@@ -46,6 +46,8 @@ DELINK = {
     "../installation.md",
     # The history/changes plan is deliberately not mirrored into the demo dataset.
     "../plan/history-and-changes.md",
+    # Repo source is not copied into the demo dataset either.
+    "../../src/todoc/adapters/formats/jsonfmt.py",
 }
 
 LINK = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)(?P<rest>[^)]*)\)")

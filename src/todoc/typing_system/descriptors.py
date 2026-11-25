@@ -102,6 +102,15 @@ KIND_FIELDS: dict[str, set[str]] = {
     "relation_type": {"schema_version", "type_id", "version", "kind", "description", "endpoints"},
 }
 
+#: Keys each ``metric_fields.<field>`` entry accepts.
+#:
+#: ``prompt`` is a natural-language description of the metric, not an expression:
+#: the core aggregates by summing one numeric field and never evaluates anything, so a
+#: declarative ``formula`` here would be config the core silently ignores. Derived
+#: metrics (``reps × weight_kg``) are a stored field or the caller's arithmetic — the
+#: prompt tells an agent what the number means and how to read it.
+METRIC_FIELD_KEYS: set[str] = {"unit", "prompt"}
+
 #: The four starter prompts every type may ship, one per CRUD operation.
 PROMPT_OPERATIONS: tuple[str, ...] = ("read", "create", "edit", "delete")
 
@@ -201,6 +210,27 @@ def descriptor_diagnostics(root: Path, dataset: dict[str, Any], kind: str,
                 if operation in PROMPT_OPERATIONS and (not isinstance(value, str) or not value):
                     out.append({"code": "config.invalid_schema", "path": rel_config,
                                 "message": f"prompts.{operation} must be a non-empty relative file name."})
+    metric_fields = descriptor.get("metric_fields")
+    if metric_fields is not None:
+        if not isinstance(metric_fields, dict):
+            out.append({"code": "config.invalid_schema", "path": rel_config,
+                        "message": "metric_fields must be an object of field -> {unit, prompt}."})
+        else:
+            for field_name, spec in sorted(metric_fields.items()):
+                if not isinstance(spec, dict):
+                    out.append({"code": "config.invalid_schema", "path": rel_config,
+                                "message": f"metric_fields.{field_name} must be an object "
+                                           f"of {', '.join(sorted(METRIC_FIELD_KEYS))}."})
+                    continue
+                for key in sorted(set(spec) - METRIC_FIELD_KEYS):
+                    out.append({"code": "config.unknown_field", "path": rel_config,
+                                "message": f"metric_fields.{field_name}: unknown field {key!r} "
+                                           f"(allowed: {', '.join(sorted(METRIC_FIELD_KEYS))})."})
+                for key in ("unit", "prompt"):
+                    if key in spec and (not isinstance(spec[key], str) or not spec[key].strip()):
+                        out.append({"code": "config.invalid_schema", "path": rel_config,
+                                    "message": f"metric_fields.{field_name}.{key} must be a "
+                                               f"non-empty string."})
     required = descriptor.get("required_sections")
     if required is not None:
         if not isinstance(required, list) or not all(isinstance(item, str) and item.strip() for item in required):
