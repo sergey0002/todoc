@@ -1,4 +1,4 @@
-# 03. Справочник CLI: 45 листовых команд
+# 03. Справочник CLI: 46 листовых команд
 
 Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`
 (или `python -m todoc`).
@@ -126,6 +126,22 @@ Exit 3, если есть ошибки.
 
 Явный `--keep-objects` важнее лимита. Обрезка снимков настоящая: у затёртой ревизии `show`
 и `revert` честно отвечают `history.object_missing`, а не выдумывают содержимое.
+
+### `timeline [--as-of D] [--path P] [--limit N]`
+
+Единая лента: события журнала (время знания) и интервалы фактов (время правды) в одном
+хронологическом порядке. `data`: `{dataset_id, as_of, path, count, truncated, entries[]}`.
+
+У записи `entry` есть `kind` (`"fact"` или вид события) и `entry` (`"fact"` | `"event"`);
+у факта — `valid_from`, `valid_to`, `observed_at`, `superseded_at`, `source_id`, `target_id`,
+`type_id`, у события — `at`, `rev`, `path`, `change_id`.
+
+`--as-of` срезает обе половины одним моментом: события позже T ещё не произошли, факты
+позже T ещё не правда. Это ответ на «что было известно на дату T» — то, чего не даёт
+ни `git log` (нет времени правды), ни `git bisect` (нет фактов).
+
+Закрытый `superseded_at` факт **остаётся в ленте и в файле**: инвалидация вместо удаления.
+Сортировка детерминированная — по времени, затем по виду записи и идентификатору.
 
 ### Изменения: `change list` / `open` / `show` / `validate` / `verify` / `apply` / `archive` / `revert`
 
@@ -257,9 +273,16 @@ Create-only. `--preview`: `{preview: true, plan{target_path, new_content, expect
 ### `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N]`
 `data`: `{dataset_id, total, returned, truncated, items[]}`.
 
-### `records query --query-file F`
+### `records query --query-file F [--as-of D]`
 QuerySpec: `{entity_type, filters, limit}`; фильтры поддерживают равенство, `$in`, `$gte`, `$lte`.
-`data`: `{dataset_id, total, truncated, items[]}`.
+`data`: `{dataset_id, as_of, total, truncated, items[]}`.
+
+`--as-of` срезает выборку по **времени правды**: остаются записи, для которых
+`valid_from <= T < valid_to` и которые ещё не закрыты `superseded_at`. Интервал полуоткрытый,
+поэтому на день `valid_to` записи в выборке уже нет. Записи без темпоральных полей видны
+всегда — обратная совместимость. Неразбираемое значение `--as-of` — это
+`temporal.invalid_instant` (exit 3), а не пустая выборка: отличить опечатку от правды
+должно быть возможно.
 
 ### `records aggregate --metric FIELD --type T [--group-by FIELD]`
 `data`: `{entity_type, metric, units, formula, groups, incoming_ids, completeness, dataset_id}`.

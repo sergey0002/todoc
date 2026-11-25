@@ -16,17 +16,18 @@ CLI (click)  →  application  →  domain / typing_system
 
 | Модуль | Строк | Ответственность |
 |---|---|---|
-| `cli.py` | 1465 | 45 листовых команд, флаги, конвертация `TodocError` в код выхода |
+| `cli.py` | 1494 | 46 листовых команд, флаги, конвертация `TodocError` в код выхода |
 | `application/changes.py` | 706 | Жизненный цикл изменения, дельты, `validate`/`verify`/`apply`/`archive`/`revert` |
 | `application/history.py` | 565 | Журнал событий: `log`/`show`/`diff`/`blame`/`revert`/`tag`, `gc`, внешние правки |
-| `application/validator.py` | 510 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
+| `application/validator.py` | 522 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
 | `adapters/formats/markdown.py` | 378 | Токены markdown-it-py: заголовки, ссылки, front matter, границы секций |
 | `typing_system/prompts.py` | 309 | Генерация стартовых шаблонов и CRUD-промптов типа |
 | `typing_system/descriptors.py` | 282 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
+| `application/temporal.py` | 243 | Би-темпоральность: `valid_from`/`valid_to`, `--as-of`, лента фактов |
 | `application/staleness.py` | 278 | `derived_from` с якорями, расхождение хешей, `--ack` |
 | `application/write.py` | 251 | WritePlan, create record, фикс ссылки, line-операции правки |
 | `config.py` | 225 | `dataset.json`, правила и типы по умолчанию, `init`, ассеты типов |
-| `service.py` | 213 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация, `HistoryRecorder` |
+| `service.py` | 218 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация, `HistoryRecorder` |
 | `domain/models.py` | 205 | Document, Folder, Diagnostic, SuggestedFix, SearchHit, WritePlan |
 | `application/registry.py` | 197 | Снимок индекса, `CURRENT.json`, кэш парсинга |
 | `application/context.py` | 164 | `context`: запись → дельты → события → файлы → диффы, в пределах бюджета |
@@ -34,7 +35,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `typing_system/resolver.py` | 143 | Маски, приоритеты, резолв `dir_type`/`doc_type`, конфликты |
 | `adapters/formats/jsonfmt.py` | 142 | Строгий JSON, глубина, JSON Pointer, JSON Schema |
 | `adapters/filesystem/scanner.py` | 135 | Обход, hard-excludes, containment, `atomic_write`, хеши |
-| `application/query.py` | 123 | Фильтры, агрегация с единицами, BFS по графу |
+| `application/query.py` | 130 | Фильтры, агрегация с единицами, BFS по графу |
 | `adapters/history/journal.py` | 117 | Append-only JSONL, `rev`, чтение, атомарная перезапись |
 | `adapters/history/backends.py` | 110 | `embedded` и `git`; единственный `subprocess` в `src/todoc` |
 | `adapters/history/objects.py` | 79 | Снимки «до»: zlib-6, имя = sha256 содержимого |
@@ -44,7 +45,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `ports/history.py` | 39 | Порт бэкенда истории: ядро от git не зависит |
 | `__main__.py` | 6 | Точка входа `python -m todoc` |
 
-Итого `src/todoc`: 7033 строки.
+Итого `src/todoc`: 7329 строк.
 
 Слои: `ports/` объявляет интерфейс бэкенда истории, `adapters/history/backends.py` его
 реализует. Единственный `subprocess` во всём `src/todoc` — в `backends.py`, поэтому ядро

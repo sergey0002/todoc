@@ -29,6 +29,7 @@ from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
+from todoc.application.temporal import InvalidInstant, timeline as build_timeline
 from todoc.application.validator import _entity_types_of, _load_schemas, stable_id
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
@@ -440,6 +441,27 @@ def blame_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str, se
     entries = history_blame(ctx.root, path, section)
     _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "section": section,
               "entries": entries}, output, None)
+
+
+@cli.command("timeline")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--as-of", "as_of", default=None, help="Состояние на этот момент (ISO-8601).")
+@click.option("--path", default=None, help="Только события и факты этого файла.")
+@click.option("--limit", type=int, default=200, show_default=True)
+def timeline_cmd(roots: tuple[str, ...], output: str, no_input: bool, as_of: str | None,
+                 path: str | None, limit: int) -> None:
+    """Единая лента: события записи и интервалы фактов в одном хронологическом порядке."""
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    try:
+        result = build_timeline(ctx.root, payload["records"], payload["relations"],
+                                as_of=as_of, path=path, limit=limit)
+    except InvalidInstant as exc:
+        raise ValidationError(str(exc), "temporal.invalid_instant") from exc
+    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None,
+             [d.to_dict() for d in journal_diagnostics(ctx.dataset_id, ctx.root)])
 
 
 @cli.command("revert")
@@ -1140,7 +1162,9 @@ def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_typ
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--query-file", required=True)
-def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_file: str) -> None:
+@click.option("--as-of", "as_of", default=None, help="Только записи, бывшие правдой на этот момент.")
+def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_file: str,
+                  as_of: str | None) -> None:
     """Run a saved declarative QuerySpec."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
@@ -1148,9 +1172,14 @@ def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_fil
         spec = json.loads(Path(query_file).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValidationError(f"Invalid query file: {exc}", "query.invalid_file") from exc
-    items, total, truncated = query_records(payload["records"], spec.get("entity_type"),
-                                            spec.get("filters"), int(spec.get("limit", 200)))
-    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "truncated": truncated, "items": items}, output, None)
+    try:
+        items, total, truncated = query_records(payload["records"], spec.get("entity_type"),
+                                                spec.get("filters"), int(spec.get("limit", 200)),
+                                                as_of=as_of)
+    except InvalidInstant as exc:
+        raise ValidationError(str(exc), "temporal.invalid_instant") from exc
+    _emit_ok({"dataset_id": ctx.dataset_id, "as_of": as_of, "total": total, "truncated": truncated,
+              "items": items}, output, None)
 
 
 @records.command("aggregate")

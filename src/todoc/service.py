@@ -9,6 +9,7 @@ from todoc.adapters.filesystem.scanner import scan_dataset
 from todoc.adapters.formats.jsonfmt import parse_json
 from todoc.application.history import observe_external_changes, open_backend, record_write
 from todoc.application.registry import RegistryStore, corpus_digest, parse_cache_key, read_parse_cache, write_parse_cache
+from todoc.application import temporal
 from todoc.application.validator import stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
 from todoc.domain.models import Document, Folder
@@ -115,8 +116,12 @@ class DatasetContext:
                             "dataset_id": self.dataset_id, "path": doc["path"], "hash": doc["hash"], "data": value})
             for rel in (value.get("relations") or []):
                 if isinstance(rel, dict) and (rel.get("target") or {}).get("id"):
-                    relations.append({"type_id": str(rel.get("type_id", "")), "source_id": str(value["record_id"]),
-                                      "target_id": str(rel["target"]["id"]), "dataset_id": self.dataset_id})
+                    edge = {"type_id": str(rel.get("type_id", "")), "source_id": str(value["record_id"]),
+                            "target_id": str(rel["target"]["id"]), "dataset_id": self.dataset_id}
+                    # Би-темпоральные поля (§5.5) попадают в ребро, иначе `--as-of`
+                    # не смог бы решить, было ли ребро правдой на момент T.
+                    edge.update(temporal.temporal_of(rel))
+                    relations.append(edge)
         rel_diags = validate_relations(self.dataset_id, records, set(self.registry_types.relation_types))
         diags.extend(d.to_dict() for d in rel_diags)
         diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]

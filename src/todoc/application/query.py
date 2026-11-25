@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from todoc.application import temporal
 from todoc.errors import ValidationError
 
 
@@ -34,8 +35,14 @@ def _matches(data: dict[str, Any], filters: dict[str, Any]) -> bool:
 
 
 def query_records(records: list[dict[str, Any]], entity_type: str | None = None,
-                  filters: dict[str, Any] | None = None, limit: int = 200) -> tuple[list[dict[str, Any]], int, bool]:
-    selected = [r for r in records if entity_type is None or r.get("entity_type") == entity_type]
+                  filters: dict[str, Any] | None = None, limit: int = 200,
+                  as_of: str | None = None) -> tuple[list[dict[str, Any]], int, bool]:
+    """``as_of`` срезает выборку по времени правды: остаются записи, для которых
+    ``valid_from <= T < valid_to`` и которые ещё не закрыты ``superseded_at``.
+    Записи без темпоральных полей видны всегда — обратная совместимость (§10).
+    """
+    selected = temporal.records_as_of(records, as_of)
+    selected = [r for r in selected if entity_type is None or r.get("entity_type") == entity_type]
     if filters:
         selected = [r for r in selected if _matches(r.get("data") or {}, filters)]
     selected.sort(key=lambda r: str(r.get("record_id", "")))
