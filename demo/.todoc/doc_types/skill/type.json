@@ -4,5 +4,13 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "SKILL.md: точка входа Agent Skill.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Choose the data root",
+    "## Validate before trusting",
+    "## Search and read (bounded)",
+    "## Records: query and aggregate",
+    "## Capture (review-first)"
+  ]
 }

@@ -3,5 +3,9 @@
   "type_id": "glossary-entry",
   "version": "0.1",
   "description": "Document type glossary-entry.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Связи"
+  ]
 }

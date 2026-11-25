@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "record_id": "document:<slug>",
+  "entity_type": "document",
+  "title": "<title>",
+  "source_path": "<source_path>",
+  "doc_type": "<doc_type>",
+  "relations": []
+}

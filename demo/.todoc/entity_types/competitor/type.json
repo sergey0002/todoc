@@ -19,5 +19,6 @@
       "name",
       "category"
     ]
-  }
+  },
+  "template": "template.json"
 }

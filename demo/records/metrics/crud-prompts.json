@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:crud-prompts",
+  "entity_type": "metric",
+  "name": "CRUD-промптов типов",
+  "aspect": "types",
+  "value": {
+    "value": 124,
+    "unit": "count"
+  },
+  "source": "Счёт .todoc/*_types/*/prompts/*.md"
+}

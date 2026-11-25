@@ -4,5 +4,9 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Архитектурное описание подсистемы.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Связи"
+  ]
 }

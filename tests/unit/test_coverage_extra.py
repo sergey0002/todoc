@@ -483,6 +483,29 @@ def test_service_ambiguous_folder_rule(root, sample_md):
     assert any(d["code"] == "config.ambiguous_rule" for d in diagnostics)
 
 
+def test_ambiguous_rule_ids_are_stable(root, sample_md):
+    """Folder-rule diagnostic ids must not depend on PYTHONHASHSEED.
+
+    They were built with ``hash()``, which is salted per process, so an id saved
+    from one run could not be used in the next — the same defect that stable_id()
+    fixed for the validator, left over in the folder branch.
+    """
+    rules_file = root / ".todoc" / "rules" / "directory-rules.json"
+    data = json.loads(rules_file.read_text())
+    data["rules"] = [
+        {"id": "a", "match": {"kind": "directory", "basename": "notes"}, "assign": {"dir_type": "research"}, "priority": 10},
+        {"id": "b", "match": {"kind": "directory", "basename": "notes"}, "assign": {"dir_type": "plan"}, "priority": 10},
+    ]
+    rules_file.write_text(json.dumps(data))
+    ids = set()
+    for _ in range(3):
+        _f, _d, _r, _rel, diagnostics = DatasetContext(root).scan_and_validate()
+        found = [d["id"] for d in diagnostics if d["code"] == "config.ambiguous_rule"]
+        assert found, "ожидалась диагностика config.ambiguous_rule"
+        ids.add(tuple(found))
+    assert len(ids) == 1, f"id диагностик меняются между запусками: {ids}"
+
+
 def test_service_invalid_json_skipped(root):
     (root / "bad.json").write_text("{bad json")
     ctx = DatasetContext(root)

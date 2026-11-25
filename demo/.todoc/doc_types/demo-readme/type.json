@@ -4,5 +4,12 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "README демо-датасета: что это и как проверить.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Структура",
+    "## Быстрая проверка",
+    "## Что демонстрирует датасет",
+    "## Связь с репозиторием"
+  ]
 }

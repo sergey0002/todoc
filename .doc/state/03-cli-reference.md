@@ -64,14 +64,22 @@ Exit 3, если есть ошибки.
 Объясняет типизацию пути: `{dataset_id, path, doc_type, format, rule_source, document_id}`.
 `rule_source` показывает, какое правило сработало (`rule:<id>`, `reserved`, `default`, `ambiguous`).
 
-### `docs new --title T [--dir DIR] [--template NAME]`
-Создаёт Markdown-документ (по умолчанию `--dir inbox`, `--template note`).
-`data`: `{dataset_id, path, title, template}`. Конфликт имени — `docs.target_exists` (exit 5).
+### `docs new --title T [--dir DIR] [--path P] [--type T] [--template NAME]`
+Создаёт документ из стартового шаблона типа (create-only, без перезаписи).
+`--type` выбирает тип документа; `--template` принимает **id типа или путь к файлу**
+(путь должен лежать внутри DATA_ROOT). Плейсхолдеры шаблона подставляются как текст:
+`{title}`, `{slug}`, `{date}`, `{type_id}`, `{id}`, `{format}`; неизвестные остаются как есть.
+Если тип не объявил шаблон, документ создаётся как `# <заголовок>`.
+`data`: `{dataset_id, path, title, doc_type, template, hash}`, где `template` — источник
+(`.todoc/doc_types/<id>/template.md`, путь к файлу, `type-without-template` или `none`).
+Отказы: `types.unknown`, `types.template_missing`, `types.template_invalid` (шаблон нарушает
+структуру своего типа — файл не создаётся), `docs.target_exists` (exit 5),
+`access.outside_data_root` (exit 4).
 
 ### `docs search --query Q [--type T] [--limit N] [--within PATH] [--budget BYTES] [--cursor C]`
 Лексический поиск. `data`: `{dataset_id, total, returned, truncated, cursor, items[]}`,
 `items[]`: `{id, path, title, heading_path, rank, relevance{method,matched_by}, matched_terms, snippet{text,line_start,line_end,truncated}}`.
-**`--cursor` в текущей реализации не продолжает выдачу** (см. [11-known-issues.md](11-known-issues.md)).
+`--cursor` — смещение: вторая страница продолжает выдачу без пересечений с первой.
 
 ### `docs read --id ID [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget BYTES]`
 Ограниченное чтение. Поля ответа зависят от формата:
@@ -111,9 +119,16 @@ QuerySpec: `{entity_type, filters, limit}`; фильтры поддержива�
 ### `relations graph --from ID [--type T] [--depth N] [--limit N]`
 BFS по типизированным рёбрам (обход ненаправленный). `data`: `{dataset_id, from, edges[{type_id, from, to}]}`.
 
-### `types list` / `types show TYPE_ID` / `types guide [--format markdown|json] [--out PATH]`
+### `types list` / `types show TYPE_ID` / `types prompt TYPE_ID [--op OP]` / `types guide [--format markdown|json] [--out PATH]`
 `list`: `{dataset_id, dir_types[], doc_types[], entity_types[], relation_types[]}`.
-`show`: `{dataset_id, type{...}}`. `guide`: `{dataset_id, guide}` — сгенерированное описание типовой системы.
+`show`: `{dataset_id, kind, type{...}, template, prompts}` — `template` и `prompts` дают путь
+и признак `exists` для каждого из четырёх CRUD-промптов (`read`, `create`, `edit`, `delete`);
+у типов папок и отношений keduanya пустые. Отсутствующий файл виден как `exists: false`,
+а не исчезает из ответа.
+`prompt`: `{dataset_id, type_id, kind, operation, path, prompt, chars}` — текст стартового
+промпта одной операции. Отказы: `types.prompt_missing`, `types.unknown` (exit 3);
+неизвестная операция — ошибка использования (exit 2).
+`guide`: `{dataset_id, guide}` — сгенерированное описание типовой системы.
 
 ### `fix --diagnostic ID [--preview] [--apply] [--if-hash H]`
 Применяет один предложенный фикс (замена цели ссылки). `--preview`: `{diagnostic, preview: true, fix}`;

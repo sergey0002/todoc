@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,7 @@ from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.adapters.formats.markdown import parse_markdown, resolve_link_target
 from todoc.domain.models import Diagnostic, SuggestedFix
 from todoc.errors import ValidationError
-from todoc.typing_system.descriptors import load_json_file
+from todoc.typing_system.descriptors import load_json_file, parse_heading_selector
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 
 
@@ -143,17 +144,90 @@ def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all
     return diags
 
 
+def _normalize_heading(text: str) -> str:
+    """Compare headings on plain text: inline markup carries no structural meaning.
+
+    A parsed heading loses its markup (``## Пробел относительно `todoc` `` parses to
+    ``Пробел относительно todoc``), so a selector written the way the author typed it
+    in the file must still match.
+    """
+    return re.sub(r"\s+", " ", text.replace("`", "").replace("*", "").replace("_", "")).strip()
+
+
+def _heading_matches(heading: Any, level: int | None, title: str) -> bool:
+    if level is not None and heading.level != level:
+        return False
+    actual = _normalize_heading(heading.title)
+    wanted = _normalize_heading(title)
+    if wanted.endswith(":"):
+        return actual.startswith(wanted)
+    return actual == wanted
+
+
+def _check_structure(dataset_id: str, rel_path: str, headings: list[Any],
+                     descriptor: dict[str, Any]) -> list[Diagnostic]:
+    """Enforce the structure a doc_type declares (required sections, section rules).
+
+    Locations: a missing section is anchored at the document start (line 1) because
+    there is no heading to point at; an empty section points at its own heading line.
+    """
+    diags: list[Diagnostic] = []
+    for selector in descriptor.get("required_sections") or []:
+        if not isinstance(selector, str) or not selector.strip():
+            continue
+        level, title = parse_heading_selector(selector)
+        if not any(_heading_matches(h, level, title) for h in headings):
+            diags.append(_diag(
+                dataset_id, rel_path, "markdown.section.missing",
+                f"Required section missing: {selector}",
+                location={"line": 1, "column": 1},
+                evidence=f"doc_type declares required_sections: {selector}",
+                fixes=(SuggestedFix(kind="add_heading", replacement=selector,
+                                    basis="doc_type.required_sections", autofixable=False),),
+            ))
+    for index, rule in enumerate(descriptor.get("section_rules") or []):
+        if not isinstance(rule, dict):
+            continue
+        selector = str(rule.get("heading", ""))
+        if not selector.strip():
+            continue
+        level, title = parse_heading_selector(selector)
+        child_level = rule.get("child_level")
+        min_children = int(rule.get("min_children", 1))
+        severity = rule.get("severity") or "error"
+        for heading in headings:
+            if not _heading_matches(heading, level, title):
+                continue
+            wanted = int(child_level) if isinstance(child_level, int) else heading.level + 1
+            found = sum(1 for child in heading.children if child.level == wanted)
+            if found < min_children:
+                diags.append(_diag(
+                    dataset_id, rel_path, "markdown.section.empty",
+                    f"Section {heading.title!r} needs at least {min_children} level-{wanted} "
+                    f"subsection(s), found {found}.",
+                    severity=severity,
+                    location={"line": heading.line, "column": 1},
+                    evidence=f"section_rules[{index}]: heading={selector}",
+                    fixes=(SuggestedFix(kind="add_heading", replacement=f"level-{wanted} subsection",
+                                        basis=f"doc_type.section_rules[{index}]", autofixable=False),),
+                ))
+    return diags
+
+
 def validate_dataset(
     root: Path,
     dataset: dict[str, Any],
     scanned_files: list[ScannedFile],
     dir_rules: list[dict[str, Any]],
     doc_rules: list[dict[str, Any]],
-    registry: dict[str, Any] | None = None,
+    registry: Any = None,
 ) -> tuple[list[Diagnostic], dict[str, dict[str, Any]]]:
     """Validate all scanned files. Returns (diagnostics, doc_info).
 
     doc_info maps rel_path -> {doc_type, rule_source, front_matter, title, format}.
+
+    ``registry`` is the loaded ``TypeRegistry``; when given, doc types that declare
+    ``required_sections``/``section_rules`` are enforced against the parsed headings.
     """
     dataset_id = dataset["dataset_id"]
     limits = dataset.get("limits") or {}
@@ -163,6 +237,10 @@ def validate_dataset(
     by_basename = _basename_index(all_paths)
     diags: list[Diagnostic] = []
     doc_info: dict[str, dict[str, Any]] = {}
+    doc_type_descriptors: dict[str, Any] = {}
+    if registry is not None:
+        doc_type_descriptors = getattr(registry, "doc_types", None) or (
+            registry.get("doc_types", {}) if isinstance(registry, dict) else {})
 
     for scanned in scanned_files:
         fmt = scanned.format
@@ -186,10 +264,12 @@ def validate_dataset(
 
         front_matter: dict[str, Any] = {}
         title = ""
+        headings: list[Any] = []
         if fmt == "markdown":
             doc = parse_markdown(text)
             front_matter = doc.front_matter
             title = doc.title
+            headings = doc.headings
             for lineno, message in doc.warnings:
                 diags.append(_diag(dataset_id, scanned.rel_path, "markdown.front_matter.yaml_unsafe",
                                    message, severity="warning", location={"line": lineno, "column": 1}))
@@ -217,6 +297,9 @@ def validate_dataset(
         for conflict_id in conflicts:
             diags.append(_diag(dataset_id, scanned.rel_path, "config.ambiguous_rule",
                                f"Ambiguous rules {conflicts} for {scanned.rel_path}.", severity="warning"))
+        descriptor = doc_type_descriptors.get(doc_type)
+        if descriptor and headings:
+            diags.extend(_check_structure(dataset_id, scanned.rel_path, headings, descriptor))
         doc_info[scanned.rel_path] = {
             "doc_type": doc_type, "rule_source": source, "front_matter": front_matter, "title": title, "format": fmt,
         }

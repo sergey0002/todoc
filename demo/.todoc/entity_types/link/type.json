@@ -3,5 +3,6 @@
   "type_id": "link",
   "version": "0.1",
   "description": "Entity type link.",
-  "format": "json"
+  "format": "json",
+  "template": "template.json"
 }

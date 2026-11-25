@@ -4,5 +4,6 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Табличный инвентарь (CSV).",
-  "format": "csv"
+  "format": "csv",
+  "template": "template.md"
 }

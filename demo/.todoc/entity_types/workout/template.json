@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "record_id": "workout:<slug>",
+  "entity_type": "workout",
+  "relations": []
+}

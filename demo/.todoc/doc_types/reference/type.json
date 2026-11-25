@@ -4,5 +4,6 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Справочник по одной подсистеме.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md"
 }

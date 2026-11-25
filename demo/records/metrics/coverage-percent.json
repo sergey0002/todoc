@@ -2,11 +2,11 @@
   "schema_version": 1,
   "record_id": "metric:coverage-percent",
   "entity_type": "metric",
-  "name": "Покрытие, процентов",
+  "name": "Покрытие, %",
   "aspect": "tests",
   "value": {
     "value": 100,
     "unit": "count"
   },
-  "source": "coverage report, branch=true"
+  "source": "coverage report"
 }

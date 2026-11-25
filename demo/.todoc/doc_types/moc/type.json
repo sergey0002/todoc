@@ -4,5 +4,13 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Map of Content: навигационная страница-оглавление.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Нормативный слой",
+    "## Пост-MVP направления (`plan/after/`)",
+    "## Исследования и срезы (`.research/`)",
+    "## Гайды",
+    "## Справка (`references/`)"
+  ]
 }

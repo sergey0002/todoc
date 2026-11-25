@@ -1,6 +1,6 @@
 # Бенчмарк todoc
 
-Дата: 2026-11-25 05:57:48 · датасет: `/tmp/todoc-bench-corpus` · документов: 254 · записей: 157
+Дата: 2026-11-25 07:28:26 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
 
 **Итоговый балл: 29.5 из 30** (98%)
 
@@ -22,7 +22,7 @@
 | K7 | Точные локации (line/column) у диагностик | partial | 0.55 | 6 из 11 диагностик имеют номер строки |
 | K8 | Front matter совместим с внешним YAML-парсером | pass | 1.0 | PyYAML: 0 файлов разобрано, 0 с ошибкой |
 | K9 | Присвоение doc_type: front matter важнее маски папки | pass | 1.0 | doc_type=guide, rule_source=rule:fm-guide |
-| K10 | Валидация записей: схема, тип, целостность отношений | pass | 1.0 | отказы записи: [('missing_field', 'record.missing_field'), ('unknown_type', 'record.unknown_entity_type')]; файл не создан: True; коды отношений: ['relation.dangling_target', 'relation.unknown_type'] |
+| K10 | Валидация записей: схема, тип, целостность отношений | pass | 1.0 | отказы записи: [('missing_field', 'record.schema_violation'), ('unknown_type', 'record.unknown_entity_type')]; файл не создан: True; коды отношений: ['relation.dangling_target', 'relation.unknown_type'] |
 
 ## Детерминизм
 
@@ -36,7 +36,7 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note:bench-safety-c4d79c59.json, файлов изменено: 0 |
+| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note:bench-safety-c04c1510.json, файлов изменено: 0 |
 | K15 | create-only: повторная запись → конфликт (exit 5) | pass | 1.0 | первая запись exit=0, повторная exit=5 |
 | K16 | Containment: --out не пишет вне DATA_ROOT | pass | 1.0 | файл вне корня создан: False, exit=4 |
 
@@ -69,13 +69,13 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=147мс, types list=142мс, docs search=1409мс, docs read=977мс, records list=995мс, validate=935мс |
+| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=156мс, types list=150мс, docs search=1435мс, docs read=987мс, records list=987мс, validate=970мс |
 
 ## Качество кода
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K28 | Тестовый набор проходит | pass | 1.0 | 332 passed |
+| K28 | Тестовый набор проходит | pass | 1.0 | 403 passed |
 | K29 | Покрытие кода тестами | pass | 1.0 | покрытие 100%, пропущено инструкций: 0, веток: 0 |
 
 ## Портабельность
@@ -101,7 +101,7 @@
     "front_matter_index": 88,
     "available": true,
     "front_matter_warnings": 3,
-    "reused_from": "/tmp/prev-benchmark.json"
+    "reused_from": "bench/results/benchmark.json"
   },
   "open-knowledge": {
     "available": true,
@@ -131,7 +131,7 @@
     "version": "0.28.2",
     "subcommands": 12,
     "writes_into_corpus": [],
-    "reused_from": "/tmp/prev-benchmark.json"
+    "reused_from": "bench/results/benchmark.json"
   },
   "open-knowledge-capabilities": {
     "validate": false,
@@ -144,7 +144,7 @@
     "graph": false,
     "types": false,
     "records": false,
-    "reused_from": "/tmp/prev-benchmark.json"
+    "reused_from": "bench/results/benchmark.json"
   }
 }
 ```

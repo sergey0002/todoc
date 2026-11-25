@@ -4,5 +4,6 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Исследовательский отчёт/срез.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md"
 }

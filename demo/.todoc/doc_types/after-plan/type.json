@@ -4,5 +4,10 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Пост-MVP план по отдельному направлению (*.after.md).",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## 1. Что это и зачем",
+    "## 2. Почему НЕ сейчас"
+  ]
 }

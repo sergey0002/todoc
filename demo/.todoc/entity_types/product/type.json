@@ -3,5 +3,6 @@
   "type_id": "product",
   "version": "0.1",
   "description": "Entity type product.",
-  "format": "json"
+  "format": "json",
+  "template": "template.json"
 }

@@ -3,5 +3,6 @@
   "type_id": "note",
   "version": "0.1",
   "description": "Document type note.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md"
 }

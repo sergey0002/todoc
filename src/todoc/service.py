@@ -8,7 +8,7 @@ from typing import Any
 from todoc.adapters.filesystem.scanner import scan_dataset
 from todoc.adapters.formats.jsonfmt import parse_json
 from todoc.application.registry import RegistryStore, parse_cache_key, read_parse_cache, write_parse_cache
-from todoc.application.validator import validate_dataset, validate_relations
+from todoc.application.validator import stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
 from todoc.domain.models import Document, Folder
 from todoc.errors import ValidationError
@@ -32,7 +32,8 @@ class DatasetContext:
         follow = bool(self.dataset.get("follow_symlinks", False))
         max_bytes = int((self.dataset.get("limits") or {}).get("max_file_bytes", 10485760))
         scanned_folders, scanned_files = scan_dataset(self.root, follow_symlinks=follow, max_file_bytes=max_bytes)
-        diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules)
+        diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules,
+                                           registry=self.registry_types)
 
         folders: list[dict[str, Any]] = []
         for folder in scanned_folders:
@@ -42,7 +43,7 @@ class DatasetContext:
             )
             for conflict_id in conflicts:
                 diags.append({
-                    "dataset_id": self.dataset_id, "id": f"diag_{abs(hash((folder.rel_path, conflict_id))) % 100000:05d}",
+                    "dataset_id": self.dataset_id, "id": stable_id(folder.rel_path, "config.ambiguous_rule", conflict_id),
                     "code": "config.ambiguous_rule", "severity": "warning", "path": folder.rel_path,
                     "location": {}, "evidence": "", "message": f"Ambiguous rules {conflicts} for {folder.rel_path}.",
                     "suggested_fixes": [],

@@ -3,5 +3,6 @@
   "type_id": "research",
   "version": "0.1",
   "description": "Entity type research.",
-  "format": "json"
+  "format": "json",
+  "template": "template.json"
 }

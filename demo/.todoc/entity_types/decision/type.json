@@ -21,5 +21,6 @@
       "status"
     ],
     "full": null
-  }
+  },
+  "template": "template.json"
 }
