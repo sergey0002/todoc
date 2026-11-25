@@ -84,3 +84,49 @@ def test_read_by_dir_and_file(tmp_path):
     assert bad.exit_code != 0
     assert isinstance(bad.exception, TodocError)
     assert bad.exception.code == "skills.not_found"
+
+
+def test_tree_sections_from_config_order_and_titles(tmp_path):
+    """Задача 4: разделы описываются .config.json — title в table, section_meta в JSON, порядок order."""
+    runner = CliRunner()
+    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
+    _skill(tmp_path, "process/release-flow", "release-flow", "Проводит merge-forward релиза.")
+    (tmp_path / "skills/coding/.config.json").write_text(
+        '{"schema_version": 1, "title": "Скилы кодинга", "description": "git, ревью, окружение.", "order": 3}',
+        encoding="utf-8")
+    (tmp_path / "skills/process/.config.json").write_text(
+        '{"schema_version": 1, "title": "Процессы", "order": 1}', encoding="utf-8")
+    t = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "table"])
+    assert "process/ — Процессы" in t.output and "coding/ — Скилы кодинга" in t.output
+    assert t.output.index("Процессы") < t.output.index("Скилы кодинга")  # order 1 выше 3
+    d = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path)]))["data"]
+    assert d["section_meta"]["coding"]["title"] == "Скилы кодинга"
+    assert d["section_meta"]["process"]["order"] == 1
+
+
+def test_tree_query_matches_section_config(tmp_path):
+    """query по alias/тексту конфига раздела находит скилы внутри даже без совпадения в самом скиле."""
+    runner = CliRunner()
+    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
+    (tmp_path / "skills/coding/.config.json").write_text(
+        '{"schema_version": 1, "title": "Скилы кодинга", "aliases": "кодинг|dev-work"}', encoding="utf-8")
+    (tmp_path / "skills/other/skill-x/SKILL.md").parent.mkdir(parents=True)
+    (tmp_path / "skills/other/skill-x/SKILL.md").write_text(
+        "---\nname: skill-x\ndescription: Что-то постороннее.\n---\n\n# x\n", encoding="utf-8")
+    q = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--query", "кодинг"])
+    assert "commit-message" in q.output and "skill-x" not in q.output
+    q2 = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--query", "dev-work"])
+    assert "commit-message" in q2.output and "skill-x" not in q2.output
+
+
+def test_tree_max_depth_cuts_recursion(tmp_path):
+    """--max-depth отсекает рекурсию рендера: вложенный скил не печатается."""
+    runner = CliRunner()
+    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
+    t = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "table",
+                      "--max-depth", "1"])
+    assert t.exit_code == 0
+    assert "commit-message" not in t.output

@@ -93,7 +93,7 @@ def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int 
             name = entry.name
             if name in HARD_EXCLUDE_DIRS:
                 continue
-            if name.startswith(".") and name in (".todoc.json",):
+            if name.startswith(".") and name in (".todoc.json", ".config.json"):
                 continue
             rel = name if rel_dir == "." else f"{rel_dir}/{name}"
             entry_path = Path(entry.path)

@@ -388,7 +388,32 @@ def validate_dataset(
     records = _validate_records(dataset_id, root, scanned_files, doc_info, dataset, registry)
     diags.extend(records[0])
     diags.extend(_skills_diagnostics(dataset_id, root))
+    diags.extend(_folder_configs_diagnostics(dataset_id, root))
     return diags, doc_info
+
+
+def _folder_configs_diagnostics(dataset_id: str, root: Path) -> list[Diagnostic]:
+    """Merge folder-config diagnostics (codes ``folder.*``) into a dataset run.
+
+    Отсутствие конфигов — ноль диагностик и ноль стоимости сверх одного обхода
+    папок; ошибки конфига не валидируются как JSON-документы (файл исключён из
+    скана), только этими dedicated кодами.
+    """
+    from todoc.application.folder_config import validate_folder_configs
+
+    out: list[Diagnostic] = []
+    for d in validate_folder_configs(root):
+        out.append(Diagnostic(
+            dataset_id=dataset_id,
+            id=stable_id(d["path"], d["code"], d["message"]),
+            code=d["code"], severity=d["severity"], path=d["path"], message=d["message"],
+            location=d["location"], evidence=d["evidence"],
+            suggested_fixes=tuple(
+                SuggestedFix(kind="manual", replacement=fix, basis="folder-config",
+                             autofixable=False, requires_review=True)
+                for fix in d["suggested_fixes"]),
+        ))
+    return out
 
 
 def _skills_diagnostics(dataset_id: str, root: Path) -> list[Diagnostic]:

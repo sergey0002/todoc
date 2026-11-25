@@ -113,10 +113,33 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
 | Команда | Назначение |
 |---|---|
 | `docs new --title T [--dir D\|--path P] [--type T] [--template T\|FILE]` | создать документ из шаблона типа (create-only) |
-| `docs search --query Q [--type T] [--limit N] [--within P] [--budget B]` | лексический поиск с фрагментами |
+| `docs search --query Q [--type T] [--limit N] [--within P] [--budget B]` | лексический поиск с фрагментами; слова из конфига папки-предка дают буст +2 |
 | `docs read --id ID [--section S\|--anchor A\|--line-range N-M\|--pointer P\|--columns C --rows R --where K=V]` | чтение с проекцией |
-| `docs tree [--within P] [--max-depth N]` | дерево папок и документов с типами |
+| `docs tree [--within P] [--match Q] [--max-depth N]` | дерево папок и документов с типами; `--match` фильтрует папки скорингом конфигов |
+| `docs suggest --query Q [--limit N]` | «куда положить / где искать»: скоринг папок по `.config.json` (score ≥ 0.25, reason у каждого кандидата) |
 | `docs edit --id ID --patch-file F [--preview\|--apply] [--if-hash H]` | построчная правка после предпросмотра |
+
+#### Конфиги папок (`.config.json`)
+
+Папка (в т.ч. раздел vault скилов) может описать себя файлом `.config.json`.
+Конфиг — не документ: сканер исключает его из индекса, поиска и счётчиков;
+неизвестные поля игнорируются с диагностикой, битый JSON/тип/порядок даёт
+коды `folder.config.*` в `validate`, но вывод продолжает работать (fail-open).
+
+| Поле | Тип | Смысл |
+|---|---|---|
+| `schema_version` | int (1) | версия схемы конфига |
+| `title` | строка ≤80 | заголовок (русский — по конвенции демо) |
+| `aliases` | строка, разделитель `\|` | точные синонимы: совпадение подстрокой даёт максимальный score в `docs suggest` |
+| `description` | строка ≤500 | описание папки |
+| `order` | int | порядок сортировки разделов (меньше — выше) |
+| `tags` | список строк ≤80 | тематические теги; слово запроса из тега даёт буст в `docs search` |
+| `icon`, `lang` | строки ≤50 / ≤10 | опциональные украшения |
+
+```bash
+todoc docs suggest --root demo --query "идея про релиз"   # → skills/process через alias «релиз»
+todoc explain-path --root demo plan                        # папка: dir_type + мета конфига-предка
+```
 
 ### Записи и отношения
 

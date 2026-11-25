@@ -193,7 +193,7 @@ Fail-open: конфиг с error-диагностикой не участвуе�
   `folder.*` (сам читает файлы), включая cross-папочные (duplicate/
   alias_collision — warning); локация поля — собственный `_key_line`.
 
-- [ ] **Шаг 1: падающие тесты парсера** (tmp_path, без демо)
+- [x] **Шаг 1: падающие тесты парсера** (tmp_path, без демо)
 
 ```python
 # tests/unit/test_folder_config.py — минимум; дополнить по §3
@@ -214,31 +214,31 @@ def test_parse_ok_and_alias_normalization(tmp_path):
     assert cfgs["ideas/repair"].order == 10
     assert diags == []
 
-def test_missing_config_is_ok_and_unknown_field_fails_open(tmp_path):
+def test_missing_config_is_ok_and_unknown_field_ignored(tmp_path):
     (tmp_path / "plain").mkdir()
     _cfg(tmp_path, "broken", '{"schema_version": 1, "title": "X", "color": "red"}')
     cfgs, diags = load_folder_configs(tmp_path)
-    assert cfgs == {}  # fail-open: не участвует
+    assert cfgs["broken"].title == "X"  # unknown-поле игнорируется, конфиг работает (сценарий идеи)
     assert {d["code"] for d in diags} == {"folder.config.unknown_field"}
     assert diags[0]["location"].get("line") == 1
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (`ModuleNotFoundError: todoc.application.folder_config`)
-- [ ] **Шаг 3: реализовать `folder_config.py`** — walk с `HARD_EXCLUDE_DIRS`,
+- [x] **Шаг 2: убедиться, что падает** (`ModuleNotFoundError: todoc.application.folder_config`)
+- [x] **Шаг 3: реализовать `folder_config.py`** — walk с `HARD_EXCLUDE_DIRS`,
   только верхний уровень каждой папки (не рекурсивно внутрь чужих типов —
   rglob запрещён: конфиг ищется как `<dir>/.config.json` при обходе), лимиты
   полей §3, нормализация aliases, диагностики-словари.
-- [ ] **Шаг 4: тесты валидатора** — все 7 кодов `folder.*` с локациями
+- [x] **Шаг 4: тесты валидатора** — все 7 кодов `folder.*` с локациями
   (свой `_key_line` для unknown_field/bad_type; line/column от parse_json для
   invalid_json); `duplicate_alias` и `alias_collision` — severity warning;
   интеграция: `validate_dataset` вызывает `validate_folder_configs(root, raw)`
   (raw-тексты читает там же) и мержит с dataset_id/стабильным id — по образцу
   `_skills_diagnostics`.
-- [ ] **Шаг 5: убедиться, что падает; реализовать**
-- [ ] **Шаг 6: сканер-исключение** — scanner.py:96: `(".todoc.json",)` →
+- [x] **Шаг 5: убедиться, что падает; реализовать**
+- [x] **Шаг 6: сканер-исключение** — scanner.py:96: `(".todoc.json",)` →
   `(".todoc.json", ".config.json")`; тест: датасет с `.config.json` → его нет
   в `scan`/`validate`-счётчиках документов, `docs search` его не находит.
-- [ ] **Шаг 7: полный прогон и коммит**
+- [x] **Шаг 7: полный прогон и коммит**
 
 ```bash
 .venv/bin/python -m pytest tests/unit/test_folder_config.py tests/unit/test_validator_folder_config.py -v
@@ -264,7 +264,7 @@ git commit -m "feat(folder-config): парсер+валидация folder.* и 
   `rule_source` и плоские поля ближайшего предка с конфигом; для документа —
   прежний вывод + те же поля предка.
 
-- [ ] **Шаг 1: падающие CLI-тесты** (house: `init --root` в фикстуре)
+- [x] **Шаг 1: падающие CLI-тесты** (house: `init --root` в фикстуре)
 
 ```python
 # tests/cli/test_cli_folder_meta.py — каркас; дополнить по Produces
@@ -303,14 +303,14 @@ def test_explain_path_for_folder(tmp_path):
     assert bad.exit_code != 0  # прежняя семантика для несуществующих
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (нет плоских полей/--match/папочных путей в explain-path)
-- [ ] **Шаг 3: реализовать** — tree: один `load_folder_configs` на вызов,
+- [x] **Шаг 2: убедиться, что падает** (нет плоских полей/--match/папочных путей в explain-path)
+- [x] **Шаг 3: реализовать** — tree: один `load_folder_configs` на вызов,
   поля мержатся в dicts папок; `--match` через `score_folder_configs`
   (после `--within`); explain-path: ветка папки (`_f` payload) с подъемом по
   предкам до первого конфига; для документа — прежние поля + поля предка.
-- [ ] **Шаг 4: проходят** + существующие tree-тесты не сломались
+- [x] **Шаг 4: проходят** + существующие tree-тесты не сломались
       (без конфигов вывод прежний).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_folder_meta.py
@@ -333,16 +333,16 @@ git commit -m "feat(folder-config): docs tree/explain-path — плоские п
   `words: ремонт, ванный (aliases)`, `title: …`). Ошибка пустого запроса —
   `usage.error`.
 
-- [ ] **Шаг 1: падающие тесты** — fixture из 3 конфигов (aliases у одного);
+- [x] **Шаг 1: падающие тесты** — fixture из 3 конфигов (aliases у одного);
   сценарий идеи: запрос «нужно сохранить идею про ремонт ванной» → ремонт-папка
   сверху с score ≥ 0.8 и reason c alias; папки без совпадений — в `discarded`
   с score < 0.25; запрос-мимо → candidates пуст, discarded все; tie-break:
   равный score → меньший order выше.
-- [ ] **Шаг 2: убедиться, что падает** (команды нет)
-- [ ] **Шаг 3: реализовать** — скоринг в `folder_config.py` чистой функцией;
+- [x] **Шаг 2: убедиться, что падает** (команды нет)
+- [x] **Шаг 3: реализовать** — скоринг в `folder_config.py` чистой функцией;
   команда — `_emit_ok` c `next_actions` (например, `docs new --dir <папка>`).
-- [ ] **Шаг 4: проходят** + детерминизм: два вызова — байт-в-байт вывод.
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 4: проходят** + детерминизм: два вызова — байт-в-байт вывод.
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/folder_config.py src/todoc/cli.py tests/cli/test_cli_docs_suggest.py
@@ -363,15 +363,15 @@ git commit -m "feat(folder-config): docs suggest — Фаза A скоринга
   `--query` дополнительно матчит title/aliases/description/tags конфига раздела
   (substring, как остальной query).
 
-- [ ] **Шаг 1: падающие тесты** — vault с конфигом раздела: table содержит
+- [x] **Шаг 1: падающие тесты** — vault с конфигом раздела: table содержит
   `coding/ — Скилы кодинга:`; без конфига — как раньше; `--query` по alias
   раздела находит скилы внутри; порядок разделов по `order` (process=1 выше
   coding=3).
-- [ ] **Шаг 2: убедиться, что падает**
-- [ ] **Шаг 3: реализовать** — единый `load_folder_configs(vault_root)` на
+- [x] **Шаг 2: убедиться, что падает**
+- [x] **Шаг 3: реализовать** — единый `load_folder_configs(vault_root)` на
   вызов; скилы не трогаются (описание скила — из SKILL.md, §4).
-- [ ] **Шаг 4: проходят все skills-тесты.**
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 4: проходят все skills-тесты.**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_skills_tree.py
@@ -390,15 +390,15 @@ git commit -m "feat(folder-config): skills tree — заголовки/опис�
   этого конфига (низковесный сигнал §3; совпадение с несколькими конфигами
   предков суммируется); существующая метрика не меняется ни для чего другого.
 
-- [ ] **Шаг 1: падающий тест** — два одинаковых по тексту документа под
+- [x] **Шаг 1: падающий тест** — два одинаковых по тексту документа под
   `notes/` (с конфигом tags «созвон») и `misc/` (без); запрос «созвон» ставит
   notes-документ выше; запрос-мимо — порядок прежний (буст = 0).
-- [ ] **Шаг 2: убедиться, что падает**
-- [ ] **Шаг 3: реализовать** — детерминированно: предки пути → конфиги →
+- [x] **Шаг 2: убедиться, что падает**
+- [x] **Шаг 3: реализовать** — детерминированно: предки пути → конфиги →
   совпадения токенов; ничего не читается дважды (один `load_folder_configs`).
-- [ ] **Шаг 4: проходят все поисковые тесты** (в demo до Задачи 6 конфигов нет
+- [x] **Шаг 4: проходят все поисковые тесты** (в demo до Задачи 6 конфигов нет
   — буст нулевой, старые тесты не меняются).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/search.py tests/unit/test_search_folder_boost.py
@@ -415,22 +415,22 @@ git commit -m "feat(folder-config): docs search — низковесный бу�
   (счётчики + упоминание), `README.md` (команда `docs suggest`, формат конфига),
   `demo/plan/folder-config-implementation.md` (§8)
 
-- [ ] **Шаг 1: 5 демо-конфигов** — русские `title` (конвенция): coding →
+- [x] **Шаг 1: 5 демо-конфигов** — русские `title` (конвенция): coding →
   «Скилы кодинга», docs → «Документы и KB», process → «Процессы» (aliases
   `"процессы|workflow|релиз|инцидент"`, order 1), plan → «Планы реализации»
   (tags `[планирование, задачи]` — для буста search), bugs → «Баг-репорты»;
   description у каждого; order: process=1, docs=2, coding=3.
-- [ ] **Шаг 2: сквозная проверка** — `skills tree` печатает разделы с русскими
+- [x] **Шаг 2: сквозная проверка** — `skills tree` печатает разделы с русскими
   заголовками в порядке order; `docs tree` показывает `— Title:`; `docs suggest
   --query "идея про релиз"` → process сверху; `docs search` по тегу даёт буст;
   `validate --root demo --all` — 0 диагностик; `index rebuild` не требуется
   (конфиги вне индекса) — проверить, что счётчики документов не изменились.
-- [ ] **Шаг 3: документация** — agent-contract: строка «дерево малопонятно —
+- [x] **Шаг 3: документация** — agent-contract: строка «дерево малопонятно —
   прочитай конфиг раздела: `docs read` по `.config.json`…» (файл читается как
   обычный JSON, отдельная команда не нужна — по идее); HOME: линия про
   `.config.json`; README: формат конфига (таблица полей) + `docs suggest`.
-- [ ] **Шаг 4: финал** — pytest, validate 0, linkcheck 0; §8 — запись.
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 4: финал** — pytest, validate 0, linkcheck 0; §8 — запись.
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add demo README.md
@@ -439,17 +439,17 @@ git commit -m "docs(folder-config): демо-конфиги 5 папок + до�
 
 ## 6. Definition of Done
 
-- [ ] Все чекбоксы §5 отмечены; §8 — запись об исполнении с датой.
-- [ ] pytest зелёный (1006 + новые); coverage 100% на `folder_config.py` и
+- [x] Все чекбоксы §5 отмечены; §8 — запись об исполнении с датой (выше).
+- [x] pytest зелёный (1060); coverage 100% на `folder_config.py` и
       новых ветках cli.py/search.py/validator.py/scanner.py.
-- [ ] `validate --root demo --all` — 0 диагностик с 5 конфигами; linkcheck 0.
-- [ ] Сценарии идеи воспроизведены: дерево с описаниями (плоские поля в JSON);
+- [x] `validate --root demo --all` — 0 диагностик с 5 конфигами; linkcheck 0 (976 ссылок, битых нет).
+- [x] Сценарии идеи воспроизведены (детали в §8): дерево с описаниями (плоские поля в JSON);
       папка без конфига как раньше; битый конфиг — диагностика + работа;
       «релиз» → process через alias; коллизия alias — предупреждение и обе
       папки; `docs suggest` — байт-в-байт детерминизм двух вызовов;
       `explain-path` для папки и документа.
-- [ ] `.config.json` не в индексе/поиске/счётчиках (тест).
-- [ ] Счётчики README/HOME согласованы с фактом; статусы `done` — только по
+- [x] `.config.json` не в индексе/поиске/счётчиках (тесты З1 + замер индекса §8).
+- [x] Счётчики README/HOME согласованы с фактом; статусы `done` — только по
       явной фразе пользователя.
 
 ## 7. Риски и митигации
@@ -490,6 +490,37 @@ git commit -m "docs(folder-config): демо-конфиги 5 папок + до�
   (поля null, прежние поля целы), папочного explain-path и отрицательного
   кейса; (7) DoD дополнен байт-детерминизмом suggest и explain-path-кейсами.
   Отклонений нет.
+- 2026-11-25 — задача 1, шаг 1/3: сниппет теста unknown_field в плане
+  предполагал исключение конфига из вывода — при реализации уточнено по
+  сценарию идеи («дерево работает, поле игнорируется»): unknown-поле
+  репортуется, конфиг остаётся рабочим; исключение — только для
+  invalid_json/bad_type/bad_order/bad_alias. Сниппет в плане поправлен в этом
+  же коммите.
+
+- 2026-11-25 — задача 4, шаг 3: плоский рендер `_skills_tree_text` печатал
+  только родительские пути скилов — уровень раздела без собственных скилов
+  (например `coding/` в demo) не выводился, и мета конфига не показывалась →
+  рендер перестроен рекурсивным деревом префиксов; узел печатается при наличии
+  скилов ИЛИ конфига, вывод без конфигов байт-в-байт прежний. Там же coverage
+  показал мёртвую ветку `if depth >= max_depth: return` внутри `_render`
+  (пре-фильтр `shown` по глубине уже гарантирует границы) — ветка удалена,
+  поведение идентично.
+- 2026-11-25 — план исполнен полностью (Задачи 1–6). Проверки финала:
+  pytest 1060 зелёных (новые: folder-config 15, cli folder-meta 3, suggest 4,
+  skills-tree разделы 3, search-буст 3); coverage 100% на
+  `folder_config.py`, `search.py`, `scanner.py`, `validator.py`; в `cli.py`
+  99% — остаток (skills read/attach: budget-truncate, vault-not-found,
+  >500 warning) вне новых веток. `validate --root demo --all` — 0 диагностик
+  с 5 конфигами; markdown-ссылки: 976 распознано движковым парсером, битых 0
+  (link-диагностики входят в validate). Индекс: `.config.json` отсутствует
+  в `demo/.todoc/index/` (упоминания в documents.json — только заголовки
+  идеи/плана), счётчики стабильны: 368 документов / 67 папок до и после
+  `index rebuild`. Сценарии идеи: дерево с плоскими полями и `--match`
+  («баг» → bugs), отсутствие конфига (поля null), битый конфиг (диагностика +
+  fail-open), «идея про релиз» → skills/process через alias (score 1.0,
+  reason «exact alias»), коллизия alias — warning и обе папки, `docs suggest`
+  байт-в-байт детерминизм, `explain-path` папка+документ. Отклонения — только
+  задача 4 выше и запись задачи 1 (unknown_field); Фаза B вне скоупа.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->

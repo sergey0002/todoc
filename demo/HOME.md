@@ -32,7 +32,9 @@ lang: ru
 открытый стандарт Agent Skills: 11 каноничных демо-скилов + 15 из пакета
 [obra/superpowers](https://github.com/obra/superpowers) в
 `process/superpowers/` (импорт 25.11.2026 одной командой `todoc skills
-import`, оставлен на постоянку). Оглавление: `todoc skills tree --root demo`;
+import`, оставлен на постоянку). Разделы описаны файлами `.config.json`
+(`Процессы` → `Документы и KB` → `Скилы кодинга` — порядок `order`), заголовки
+видны в дереве. Оглавление: `todoc skills tree --root demo`;
 тело: `todoc skills read --root demo --path <из дерева>`; диспетчер для
 платформ: `todoc skills attach`; импорт чужих: копия папки + validate или
 `todoc skills import`. Канон: [agent-contract → «Скилы»](notes/agent-contract.md).

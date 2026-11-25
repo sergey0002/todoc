@@ -28,6 +28,7 @@ from todoc.application.changes import (apply_change, archive_change, change_id_f
                                        validate_change, verify_change)
 from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
+from todoc.application.folder_config import load_folder_configs, score_folder_configs
 from todoc.application.search import search_documents
 from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
@@ -331,10 +332,17 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
     shown = [s for s in skills_list if show_all or not s.muted]
     if within:
         shown = [s for s in shown if s.section == within or s.section.startswith(within.rstrip("/") + "/")]
+    vault_configs, _fc_diags = load_folder_configs(vault_root)
+    section_meta = {rel: {"title": fc.title, "description": fc.description, "order": fc.order}
+                    for rel, fc in vault_configs.items()}
     if query:
         q = query.lower()
+        matched_sections = {rel for rel, fc in vault_configs.items()
+                            if q in " ".join([fc.title, fc.description, "|".join(fc.aliases),
+                                              " ".join(fc.tags)]).lower()}
         shown = [s for s in shown
-                 if q in s.name.lower() or q in s.description.lower() or q in s.path.lower()]
+                 if q in s.name.lower() or q in s.description.lower() or q in s.path.lower()
+                 or any(s.section == ms or s.section.startswith(ms + "/") for ms in matched_sections)]
 
     def _depth(s: Any) -> int:
         return 0 if s.section == "" else s.section.count("/") + 1
@@ -352,10 +360,11 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
                    "sections": len({s.section.split("/")[0] for s in skills_list if s.section}),
                    "muted": sum(1 for s in skills_list if s.muted)},
         "skills": items,
+        "section_meta": section_meta,
         "truncated": truncated,
     }
     if output == "table":
-        click.echo(_skills_tree_text(items, data["counts"], truncated, max_depth))
+        click.echo(_skills_tree_text(items, data["counts"], truncated, max_depth, section_meta))
         return
     _emit_ok(data, output, None,
              next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", "<путь из дерева>"],
@@ -363,24 +372,43 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
 
 
 def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
-                      truncated: bool, max_depth: int) -> str:
+                      truncated: bool, max_depth: int,
+                      sec_meta: dict[str, dict[str, Any]] | None = None) -> str:
     """ASCII-дерево как в образце идеи: описания в stdout, [!] для мьюта."""
+    sec_meta = sec_meta or {}
     lines = [f"skills/  ({counts['skills']} skills, {counts['sections']} sections, "
              f"{counts['muted']} muted){' [truncated]' if truncated else ''}"]
     sections: dict[str, list[dict[str, Any]]] = {}
     for s in shown:
         sections.setdefault(s["section"], []).append(s)
-    for section in sorted(sections):
-        depth = 0 if section == "" else section.count("/") + 1
-        if depth >= max_depth:
-            continue
-        here = sections[section]
-        own = [s for s in here if s["section"] == section]
-        if section:
-            lines.append("  " * depth + f"{section.split('/')[-1]}/ ({len(own)})")
-        for s in sorted(own, key=lambda x: x["path"].lstrip("!")):
+
+    children: dict[str, set[str]] = {}
+    for section in sections:
+        parts = section.split("/")
+        for i in range(len(parts)):
+            children.setdefault("/".join(parts[:i]), set()).add("/".join(parts[: i + 1]))
+
+    def _sec_key(section: str) -> tuple[int, str]:
+        order = (sec_meta.get(section) or {}).get("order")
+        return (order if isinstance(order, int) else 10**9, section)
+
+    def _render(node: str, depth: int) -> None:
+        # глубина ограничена пре-фильтром shown (_depth < max_depth, P7):
+        # узлы строятся только из префиксов показанных секций — отсечка не нужна
+        own = sorted(sections.get(node, []), key=lambda x: x["path"].lstrip("!"))
+        meta = sec_meta.get(node) or {}
+        if node and (own or meta):  # узел печатаем, если в нём есть скилы или у папки есть конфиг
+            label = f"{node.split('/')[-1]}/"
+            if meta.get("title"):
+                label += f" — {meta['title']}" + (f": {meta['description']}" if meta.get("description") else "")
+            lines.append("  " * depth + f"{label} ({len(own)})")
+        for s in own:
             label = f"[!] {s['name']}" if s["muted"] else s["name"]
             lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
+        for child in sorted(children.get(node, set()), key=_sec_key):
+            _render(child, depth + 1)
+
+    _render("", 0)
     return "\n".join(lines)
 
 
@@ -1093,13 +1121,32 @@ def _write_whole(root: Path, rel_path: str, text: str, expected_hash: str | None
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def explain_path(path: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
-    """Show resolved type/rule for a path."""
+    """Show resolved type/rule for a path — документы И папки (с .config.json-метой предка)."""
     for ctx in _contexts(roots):
-        _f, documents, _r, _rel, _d = ctx.scan_and_validate()
+        folders, documents, _r, _rel, _d = ctx.scan_and_validate()
+        folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+
+        def _ancestor_fields(p: str) -> dict[str, Any]:
+            cur = Path(p)  # папка — с самой себя; документ — с его папки
+            while str(cur) != ".":
+                fc = folder_configs.get(cur.as_posix())
+                if fc:
+                    return {"title": fc.title, "description": fc.description, "order": fc.order}
+                cur = cur.parent
+            return {"title": None, "description": None, "order": None}
+
+        folder_map = {f["path"]: f for f in folders}
+        fm = folder_map.get(path)
+        if fm is not None:
+            _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "folder": True,
+                      "dir_type": fm["dir_type"], "rule_source": fm["rule_source"],
+                      **_ancestor_fields(path)}, output, None)
+            return
         for doc in documents:
             if doc["path"] == path:
                 _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "doc_type": doc["doc_type"],
-                          "format": doc["format"], "rule_source": doc["rule_source"], "document_id": doc["document_id"]},
+                          "format": doc["format"], "rule_source": doc["rule_source"], "document_id": doc["document_id"],
+                          **_ancestor_fields(path)},
                          output, None)
                 return
     raise ValidationError(f"Path not found in dataset: {path}", "explain.path_not_found")
@@ -1305,21 +1352,59 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     _emit_ok(data, output, None)
 
 
+@docs.command("suggest")
+@click.option("--root", "roots", multiple=True)
+@click.option("--query", "q", required=True, help="Запрос: куда положить/где искать (кириллица работает).")
+@click.option("--limit", type=int, default=5, show_default=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def docs_suggest(roots: tuple[str, ...], q: str, limit: int, output: str, no_input: bool) -> None:
+    """Куда положить/где искать: скоринг папок по .config.json (Фаза A, детерминированно)."""
+    ctx = _contexts(roots)[0]
+    if not q.strip():
+        raise TodocError("Пустой запрос: укажите --query.", EXIT_USAGE, "usage.error")
+    folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+    candidates, discarded = score_folder_configs(folder_configs, q)
+    truncated = len(candidates) > limit
+    candidates = candidates[:limit]
+    _emit_ok({"query": q, "threshold": 0.25, "truncated": truncated,
+              "candidates": candidates, "discarded": discarded},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["docs", "new", "--dir", "<путь из кандидатов>"],
+                            "purpose": "Создать документ в выбранной папке"},
+                           {"argv": _root_argv(roots) + ["explain-path", "<путь из кандидатов>"],
+                            "purpose": "Объяснить выбранную папку (dir_type + мета)"}])
+
+
 @docs.command("tree")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--within", default=None)
 @click.option("--max-depth", type=int, default=3)
-def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None, max_depth: int) -> None:
+@click.option("--match", "match_q", default=None,
+              help="Фильтр папок Фазой A скоринга (.config.json): score ≥ 0.25, порядок score → order → путь.")
+def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None,
+              max_depth: int, match_q: str | None) -> None:
     """Compact derived outline (folders + documents)."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
-    folders = payload["folders"]
+    folders = [dict(f) for f in payload["folders"]]
     documents = payload["documents"]
     if within:
         folders = [f for f in folders if f["path"] == within or f["path"].startswith(within.rstrip("/") + "/")]
         documents = [d for d in documents if d["path"] == within or d["path"].startswith(within.rstrip("/") + "/")]
+    folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+    for f in folders:  # плоские поля из .config.json ближайшего СВОЕГО конфига (null без него)
+        fc = folder_configs.get(f["path"])
+        f["title"] = fc.title if fc else None
+        f["description"] = fc.description if fc else None
+        f["order"] = fc.order if fc else None
+    if match_q:
+        candidates, _discarded = score_folder_configs(folder_configs, match_q)
+        rank = {c["path"]: i for i, c in enumerate(candidates)}
+        folders = [f for f in folders if f["path"] in rank]
+        folders.sort(key=lambda f: rank[f["path"]])
     _emit_ok({"dataset_id": ctx.dataset_id, "folders": folders[:50], "documents": documents[:50],
               "total_folders": len(folders), "total_documents": len(documents), "max_depth": max_depth}, output, None)
 
