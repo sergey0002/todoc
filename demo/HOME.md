@@ -34,6 +34,10 @@ matter; репорты не удаляются. Создание: `todoc docs ne
 --title "BUG-NNN: суть" --dir bugs` (промпт: `todoc types prompt bug-report
 --op create`).
 
+Конвенция именования (2026-11-25): русский заголовок — в поле `title`
+(метаданные md/json), имя файла — на английском; канон —
+[Контракт CLI → «Именование документов»](notes/agent-contract.md).
+
 Фильтрация: `todoc records query --root demo --query-file demo/.todoc/queries/bugs-agent-friction.json`
 (фрикция) · `…/bugs-token-overrun.json` (перерасход токенов) ·
 `docs search --type bug-report --query "agent_impact friction"` (ранжирующе).
@@ -43,6 +47,7 @@ matter; репорты не удаляются. Создание: `todoc docs ne
 - [BUG-003: Счётчики демо в README разошлись с фактом](bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md) — `major`, triaged, friction
 - [BUG-004: docs edit не умеет вставку и удаление строк](bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md) — `major`, open, friction + token_overrun
 - [BUG-005: docs read --section игнорирует --budget](bugs/bug-005--docs-read---section-игнорирует---budget.md) — `minor`, open, friction + token_overrun
+- [BUG-006: docs new создаёт кириллические имена файлов](bugs/bug-006--docs-new-создаёт-кириллические-имена-файлов-из-кириллического-заголовка.md) — `minor`, open, friction + token_overrun
 
 ## Пост-MVP направления (`plan/after/`)
 

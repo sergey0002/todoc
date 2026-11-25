@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-006-cyrillic-slug-docs-new",
+  "entity_type": "document",
+  "title": "BUG-006: docs new создаёт кириллические имена файлов из кириллического заголовка",
+  "source_path": "bugs/bug-006--docs-new-создаёт-кириллические-имена-файлов-из-кириллического-заголовка.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "agent_impact": [
+    "friction",
+    "token_overrun"
+  ],
+  "tokens_extra_est": 800,
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:agent-contract"
+      }
+    }
+  ]
+}
