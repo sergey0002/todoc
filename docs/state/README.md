@@ -12,7 +12,7 @@
 |---|---|---|
 | [01-overview.md](01-overview.md) | Что такое `todoc`, границы продукта, статус MVP | человек + агент |
 | [02-architecture.md](02-architecture.md) | Слои, модули, поток данных, порты | человек + агент |
-| [03-cli-reference.md](03-cli-reference.md) | Все 25 команд: флаги, вход, выход, коды выхода | агент (основной) |
+| [03-cli-reference.md](03-cli-reference.md) | Все 26 команд: флаги, вход, выход, коды выхода | агент (основной) |
 | [04-config-and-types.md](04-config-and-types.md) | `dataset.json`, правила, типы, резолвер | человек + агент |
 | [05-formats.md](05-formats.md) | Адаптеры Markdown/JSON/CSV | человек + агент |
 | [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) | Каталог диагностик, фиксы | агент |
