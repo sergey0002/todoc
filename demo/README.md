@@ -35,7 +35,7 @@ lang: ru
 ```bash
 todoc validate --root demo --all          # ожидается 0 диагностик
 todoc check --root demo                    # сводка по датасету
-todoc types list --root demo               # 15 dir_types, 20 doc_types, 12 entity_types, 9 relation_types
+todoc types list --root demo               # 15 dir_types, 21 doc_types, 13 entity_types, 9 relation_types
 todoc docs tree --root demo --max-depth 2  # дерево папок с типами
 todoc docs search --root demo --query "портабельность" --limit 3
 todoc docs read --root demo --id doc:constitution --section "Принципы"
