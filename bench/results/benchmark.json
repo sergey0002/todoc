@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 13:37:00",
+    "date": "2026-11-25 15:08:53",
     "corpus": "/tmp/todoc-bench-corpus",
     "documents": 256,
     "records": 159,
     "relations": 140,
     "latency_ms": {
-      "status": 155,
-      "types list": 153,
-      "docs search": 628,
-      "docs read": 168,
-      "records list": 186,
-      "validate": 1022
+      "status": 156,
+      "types list": 150,
+      "docs search": 646,
+      "docs read": 232,
+      "records list": 256,
+      "validate": 1046
     },
     "seeded_defects": 9
   },
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note-bench-safety-e979eb42.json, файлов изменено: 0"
+      "detail": "target=records/note/note-bench-safety-f2e9c540.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=155мс, types list=153мс, docs search=628мс, docs read=168мс, records list=186мс, validate=1022мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=156мс, types list=150мс, docs search=646мс, docs read=232мс, records list=256мс, validate=1046мс"
     },
     {
       "id": "K28",
@@ -242,7 +242,7 @@
       "name": "Тестовый набор проходит",
       "status": "pass",
       "score": 1.0,
-      "detail": "656 passed"
+      "detail": "883 passed"
     },
     {
       "id": "K29",
@@ -496,37 +496,37 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 155,
+        "median_ms": 156,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "types list",
-        "median_ms": 153,
+        "median_ms": 150,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "docs search",
-        "median_ms": 628,
+        "median_ms": 646,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "docs read",
-        "median_ms": 168,
+        "median_ms": 232,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "records list",
-        "median_ms": 186,
+        "median_ms": 256,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "validate",
-        "median_ms": 1022,
+        "median_ms": 1046,
         "limit_ms": 4000,
         "within": true
       }
@@ -544,7 +544,7 @@
   },
   "competitors": {
     "obsidiantools": {
-      "elapsed_s": 6.975,
+      "elapsed_s": 7.231,
       "notes": 91,
       "local_md_links": 286,
       "broken_links_detected": 1,
@@ -562,21 +562,21 @@
       "commands": {
         "help": {
           "exit_code": 0,
-          "elapsed_s": 0.536,
+          "elapsed_s": 0.553,
           "stdout_bytes": 4967,
           "stderr_bytes": 0,
           "first_line": "Usage: open-knowledge [options] [file | command]"
         },
         "status": {
           "exit_code": 0,
-          "elapsed_s": 0.636,
+          "elapsed_s": 0.611,
           "stdout_bytes": 40,
           "stderr_bytes": 0,
           "first_line": "server  not running"
         },
         "diagnose": {
           "exit_code": 1,
-          "elapsed_s": 0.661,
+          "elapsed_s": 0.543,
           "stdout_bytes": 0,
           "stderr_bytes": 714,
           "first_line": ""
