@@ -82,3 +82,9 @@ $ grep -o "15 dir_types[^|]*" demo/README.md
 
 - После исполнения плана softdoc (волны 1–2) счётчики изменятся ещё раз —
   сверять в задаче 7/10 плана.
+- Уточнение 2026-11-25 (после мержа PR #39 в master): часть счётчиков чинилась
+  в `docs/state/13-demo-dataset.md` (dir_types 15 → 17), но строка 38
+  `demo/README.md` осталась «15 dir_types, 21 doc_types, 13 entity_types,
+  9 relation_types»; фактические значения после добавления dir_type `bugs` —
+  18 dir_types / 22 doc_types / 13 / 9. Расхождение актуально, статус не
+  меняется.
