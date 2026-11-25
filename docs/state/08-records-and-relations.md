@@ -3,7 +3,7 @@
 ## Что считается записью
 
 JSON-файл со статусом `ok`, содержащий поле `record_id`. Из него берутся `entity_type`,
-собственные данные (`data`) и список `relations`. В демо-датасете: 144 записи, 125 отношений.
+собственные данные (`data`) и список `relations`. В демо-датасете: 157 записей, 138 отношений.
 
 ## Создание записи (`records create`)
 
@@ -83,9 +83,12 @@ QuerySpec — JSON-файл:
 Сумма числового поля с обязательной provenance:
 
 ```
-entity_type: metric   metric: value   units: count   formula: sum(value)
-groups: {tests: 3067, cli: 25, docs: 100, types: 54, code: 2973}
-incoming_ids: [12 идентификаторов]   completeness: complete
+entity_type: metric   metric: value   formula: sum(value)
+groups: {benchmark: 4.473, performance: 10706, tests: 3933, cli: 26,
+         docs: 133, types: 209, code: 4032}
+group_units: {benchmark: ratio, performance: ms, tests/cli/docs/types/code: count}
+units: ""            # пустое, когда единицы в группах различаются
+incoming_ids: [24 идентификатора]   completeness: complete
 ```
 
 Правила:

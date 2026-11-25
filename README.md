@@ -11,7 +11,7 @@
 | Тестов | 300 (все проходят) |
 | Покрытие | 100% — 2025 инструкций, 662 ветки |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
-| Демо-датасет | [`demo/`](demo/README.md): 205 документов, 130 записей, 0 диагностик |
+| Демо-датасет | [`demo/`](demo/README.md): 248 документов, 157 записей, 0 диагностик |
 
 ## Установка
 
@@ -147,7 +147,7 @@ todoc records query --root KB --query-file KB/.todoc/queries/decisions-accepted.
 
 [`demo/`](demo/README.md) — готовый DATA_ROOT со всей документацией проекта, разложенной по типам
 папок и документов: 14 `dir_types`, 19 `doc_types`, 12 `entity_types`, 9 `relation_types`,
-130 записей, 125 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
+157 записей, 138 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
 
 ```bash
 todoc validate --root demo --all                       # 0 диагностик
