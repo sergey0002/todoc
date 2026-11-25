@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 18:19:54",
+    "date": "2026-11-25 18:56:48",
     "corpus": "/tmp/todoc-bench-corpus",
-    "documents": 256,
-    "records": 159,
+    "documents": 266,
+    "records": 161,
     "relations": 140,
     "latency_ms": {
-      "status": 154,
-      "types list": 185,
-      "docs search": 576,
-      "docs read": 157,
-      "records list": 157,
-      "validate": 212
+      "status": 128,
+      "types list": 153,
+      "docs search": 642,
+      "docs read": 150,
+      "records list": 150,
+      "validate": 248
     },
     "seeded_defects": 9
   },
@@ -58,7 +58,7 @@
       "name": "Discovery: types guide описывает типовую систему",
       "status": "pass",
       "score": 1.0,
-      "detail": "символов в guide: 2819"
+      "detail": "символов в guide: 3724"
     },
     {
       "id": "K6",
@@ -82,7 +82,7 @@
       "name": "Front matter совместим с внешним YAML-парсером",
       "status": "pass",
       "score": 1.0,
-      "detail": "PyYAML: 90 файлов разобрано, 0 с ошибкой"
+      "detail": "PyYAML: 98 файлов разобрано, 0 с ошибкой"
     },
     {
       "id": "K9",
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note-bench-safety-b97b397c.json, файлов изменено: 0"
+      "detail": "target=records/note/note-bench-safety-fe3639b0.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -210,7 +210,7 @@
       "name": "Пагинация через --cursor продолжает выдачу без повторов",
       "status": "pass",
       "score": 1.0,
-      "detail": "cursor=2, вторая страница вернула 2 из total=35, пересечений с первой: 0"
+      "detail": "cursor=2, вторая страница вернула 2 из total=44, пересечений с первой: 0"
     },
     {
       "id": "K25",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=154мс, types list=185мс, docs search=576мс, docs read=157мс, records list=157мс, validate=212мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=128мс, types list=153мс, docs search=642мс, docs read=150мс, records list=150мс, validate=248мс"
     },
     {
       "id": "K28",
@@ -345,7 +345,7 @@
       "unexpected": []
     },
     "K8": {
-      "ok": 90,
+      "ok": 98,
       "bad": 0,
       "files": []
     },
@@ -383,17 +383,17 @@
         },
         {
           "query": "JSON Pointer",
-          "relevant_total": 52,
+          "relevant_total": 60,
           "top3": [
+            "doc:agent-state-idea",
             "doc:ref-formats",
-            "competitor:openkb",
-            "doc:after-mcp-adapter"
+            "doc:folder-config-idea"
           ],
           "relevant_in_top3": 3
         },
         {
           "query": "конституция",
-          "relevant_total": 25,
+          "relevant_total": 29,
           "top3": [
             "doc:constitution",
             "doc:after-memory-llm-wiki",
@@ -403,7 +403,7 @@
         },
         {
           "query": "MCP",
-          "relevant_total": 29,
+          "relevant_total": 31,
           "top3": [
             "competitor:mem0",
             "doc:after-mcp-adapter",
@@ -433,7 +433,7 @@
         },
         {
           "query": "диагностика",
-          "relevant_total": 18,
+          "relevant_total": 23,
           "top3": [
             "glossary:diagnostic",
             "doc:after-mcp-adapter",
@@ -443,7 +443,7 @@
         },
         {
           "query": "wikilink",
-          "relevant_total": 17,
+          "relevant_total": 18,
           "top3": [
             "competitor:foam",
             "competitor:obsidian",
@@ -453,7 +453,7 @@
         },
         {
           "query": "поколение индекса",
-          "relevant_total": 27,
+          "relevant_total": 29,
           "top3": [
             "glossary:generation",
             "doc:architecture-system",
@@ -463,7 +463,7 @@
         },
         {
           "query": "token economy",
-          "relevant_total": 16,
+          "relevant_total": 17,
           "top3": [
             "doc:note-token-economy",
             "doc:attachments/docs-inventory.csv",
@@ -473,7 +473,7 @@
         },
         {
           "query": "конкурент",
-          "relevant_total": 51,
+          "relevant_total": 52,
           "top3": [
             "doc:competitive-analysis",
             "doc:state-benchmark",
@@ -483,11 +483,11 @@
         },
         {
           "query": "front matter",
-          "relevant_total": 26,
+          "relevant_total": 30,
           "top3": [
+            "doc:plan-doc-tags",
             "competitor:okf",
-            "doc:after-mcp-adapter",
-            "doc:after-plugins-formats"
+            "doc:after-mcp-adapter"
           ],
           "relevant_in_top3": 3
         }
@@ -496,37 +496,37 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 154,
+        "median_ms": 128,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "types list",
-        "median_ms": 185,
+        "median_ms": 153,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "docs search",
-        "median_ms": 576,
+        "median_ms": 642,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "docs read",
-        "median_ms": 157,
+        "median_ms": 150,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "records list",
-        "median_ms": 157,
+        "median_ms": 150,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "validate",
-        "median_ms": 212,
+        "median_ms": 248,
         "limit_ms": 4000,
         "within": true
       }
