@@ -255,11 +255,18 @@ def group_correctness(rep: Report, root: Path, defects: list[dict]) -> None:
             f"{len(with_lines)} из {len(diags)} диагностик имеют номер строки")
 
     yaml_result = check_front_matter_yaml(root)
-    ok = yaml_result["bad"] == 0
-    rep.add("K8", "Корректность", "Front matter совместим с внешним YAML-парсером",
-            "pass" if ok else "fail", 1.0 if ok else 0.0,
-            f"PyYAML: {yaml_result['ok']} файлов разобрано, {yaml_result['bad']} с ошибкой",
-            yaml_result)
+    # Критерий, который ничего не измерил, не может считаться пройденным: иначе
+    # отсутствие PyYAML выглядит как «90 файлов разобраны без ошибок».
+    skipped = yaml_result.get("skipped")
+    if skipped:
+        rep.add("K8", "Корректность", "Front matter совместим с внешним YAML-парсером",
+                "fail", 0.0, f"не измерено: {skipped} (установите extras [dev])", yaml_result)
+    else:
+        ok = yaml_result["bad"] == 0 and yaml_result["ok"] > 0
+        rep.add("K8", "Корректность", "Front matter совместим с внешним YAML-парсером",
+                "pass" if ok else "fail", 1.0 if ok else 0.0,
+                f"PyYAML: {yaml_result['ok']} файлов разобрано, {yaml_result['bad']} с ошибкой",
+                yaml_result)
 
     explain = run_todoc(["explain-path", "guides/cli-for-agents.md", "--root", str(root)], root)
     data = (explain.get("envelope") or {}).get("data") or {}

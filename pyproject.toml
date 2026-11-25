@@ -22,6 +22,8 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "coverage>=7.4",
+    # Бенчмарк: без PyYAML критерий K8 (front matter против внешнего парсера) не измерить.
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
