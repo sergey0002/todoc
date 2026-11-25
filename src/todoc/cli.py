@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,14 +29,15 @@ from todoc.application.changes import (apply_change, archive_change, change_id_f
 from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
+from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
 from todoc.application.validator import _entity_types_of, _load_schemas, stable_id
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
-from todoc.errors import (EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError,
-                          TodocError, ValidationError)
+from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError,
+                          ConflictError, TodocError, ValidationError)
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics,
@@ -298,6 +300,271 @@ def index_status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
 def index_rebuild(roots: tuple[str, ...], force: bool, output: str, no_input: bool) -> None:
     results = [ctx.rebuild_index(force=force) for ctx in _contexts(roots)]
     _emit_ok({"datasets": results}, output, None)
+
+
+@cli.group()
+def skills() -> None:
+    """Skills vault (open Agent Skills standard): tree/read/attach/import."""
+
+
+@skills.command("tree")
+@click.option("--root", "roots", multiple=True)
+@click.option("--vault", default="skills", show_default=True, help="Vault dir relative to DATA_ROOT.")
+@click.option("--within", default=None, help="Срез раздела: префикс пути секции (напр. coding/git).")
+@click.option("--query", default=None, help="Lowercase-подстрока по name+description+пути (кириллица работает).")
+@click.option("--all", "show_all", is_flag=True, help="Показать мьютнутые (!-папки) с пометкой [!].")
+@click.option("--limit", type=int, default=100, show_default=True, help="Bounded output (P7).")
+@click.option("--max-depth", type=int, default=6, show_default=True, help="Глубина печатаемого дерева.")
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: str | None,
+                show_all: bool, limit: int, max_depth: int, output: str, no_input: bool) -> None:
+    """Оглавление хранилища скилов на лету (live-scan, без индекса — P1)."""
+    ctx = _contexts(roots)[0]
+    vault_root = ctx.root / vault
+    skills_list, _diags = scan_skills(vault_root)
+    if not vault_root.is_dir():
+        raise TodocError(f"Хранилище скилов не найдено: {vault}/ (DATA_ROOT: {ctx.root})",
+                         EXIT_OPERATION, "skills.not_found")
+    if len(skills_list) > 500:  # порог идеи: живой скан всегда, предупреждение вместо индекса
+        sys.stderr.write(f"warning: {len(skills_list)} skills in vault — live scan may be slow\n")
+    shown = [s for s in skills_list if show_all or not s.muted]
+    if within:
+        shown = [s for s in shown if s.section == within or s.section.startswith(within.rstrip("/") + "/")]
+    if query:
+        q = query.lower()
+        shown = [s for s in shown
+                 if q in s.name.lower() or q in s.description.lower() or q in s.path.lower()]
+
+    def _depth(s: Any) -> int:
+        return 0 if s.section == "" else s.section.count("/") + 1
+
+    shown = [s for s in shown if _depth(s) < max_depth]  # bounded в обоих режимах (P7)
+    truncated = len(shown) > limit
+    shown = shown[:limit]
+    items = [{"name": s.name, "path": s.path, "section": s.section,
+              "description": s.description, "muted": s.muted,
+              "refs": s.refs, "scripts": s.scripts, "assets": s.assets} for s in shown]
+    data = {
+        "dataset_id": ctx.dataset_id,
+        "vault": vault,
+        "counts": {"skills": len(skills_list),
+                   "sections": len({s.section.split("/")[0] for s in skills_list if s.section}),
+                   "muted": sum(1 for s in skills_list if s.muted)},
+        "skills": items,
+        "truncated": truncated,
+    }
+    if output == "table":
+        click.echo(_skills_tree_text(items, data["counts"], truncated, max_depth))
+        return
+    _emit_ok(data, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", "<путь из дерева>"],
+                            "purpose": "Прочитать SKILL.md выбранного скила"}])
+
+
+def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
+                      truncated: bool, max_depth: int) -> str:
+    """ASCII-дерево как в образце идеи: описания в stdout, [!] для мьюта."""
+    lines = [f"skills/  ({counts['skills']} skills, {counts['sections']} sections, "
+             f"{counts['muted']} muted){' [truncated]' if truncated else ''}"]
+    sections: dict[str, list[dict[str, Any]]] = {}
+    for s in shown:
+        sections.setdefault(s["section"], []).append(s)
+    for section in sorted(sections):
+        depth = 0 if section == "" else section.count("/") + 1
+        if depth >= max_depth:
+            continue
+        here = sections[section]
+        own = [s for s in here if s["section"] == section]
+        if section:
+            lines.append("  " * depth + f"{section}/ ({len(own)})")
+        for s in sorted(own, key=lambda x: x["path"].lstrip("!")):
+            label = f"[!] {s['name']}" if s["muted"] else s["name"]
+            lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
+    return "\n".join(lines)
+
+
+@skills.command("read")
+@click.option("--root", "roots", multiple=True)
+@click.option("--vault", default="skills", show_default=True)
+@click.option("--path", "p", required=True, help="Папка скила или путь к SKILL.md (можно с префиксом vault).")
+@click.option("--line-range", default=None, help="Диапазон строк A-B (дефис).")
+@click.option("--budget", type=int, default=None, help="Максимум байт содержимого (честный бюджет).")
+@click.option("--output", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def skills_read(roots: tuple[str, ...], vault: str, p: str, line_range: str | None,
+                budget: int | None, output: str, no_input: bool) -> None:
+    """Прочитать SKILL.md скила: путь резолвится только внутри vault (confinement)."""
+    ctx = _contexts(roots)[0]
+    vault_root = (ctx.root / vault).resolve()
+    skills_list, _diags = scan_skills(vault_root)
+    rel = Path(p.strip("/"))
+    parts = rel.as_posix().split("/")
+    if parts and parts[0] == vault:
+        parts = parts[1:]
+    rel = Path("/".join(parts))
+    if rel.as_posix().endswith("/SKILL.md"):
+        folder_rel = rel.parent.as_posix()
+    else:
+        folder_rel = rel.as_posix()
+    skill = next((s for s in skills_list
+                  if s.path == folder_rel or s.path.lstrip("!") == folder_rel), None)
+    target = vault_root / folder_rel / "SKILL.md" if skill is None else vault_root / skill.skill_md
+    if skill is None or not target.is_file() or not is_within_root(vault_root, target):
+        raise TodocError(
+            f"Скил не найден вне/внутри vault: {p} (vault: {vault}/). Сначала: todoc skills tree",
+            EXIT_OPERATION, "skills.not_found")
+    content = target.read_text(encoding="utf-8")
+    truncated = False
+    if line_range:
+        a, _, b = line_range.partition("-")
+        lo, hi = max(1, int(a or 1)), int(b or 10**9)
+        lines = content.splitlines(keepends=True)
+        content = "".join(lines[lo - 1:hi])
+    if budget is not None:
+        encoded = content.encode("utf-8")
+        if len(encoded) > budget:
+            content = encoded[:budget].decode("utf-8", errors="ignore")
+            truncated = True
+    if output == "markdown":
+        click.echo(content)
+        return
+    _emit_ok({"path": skill.skill_md, "name": skill.name, "description": skill.description,
+              "muted": skill.muted, "content": content, "truncated": truncated},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", skill.path],
+                            "purpose": "Перечитать скил"},
+                           {"argv": _root_argv(roots) + ["docs", "read", "--id",
+                                                         f"doc:{skill.skill_md.removesuffix('/SKILL.md')}"],
+                            "purpose": "Прочитать скил как документ датасета (bounded)"}])
+
+
+@skills.command("attach")
+@click.option("--to", "to_dir", required=True,
+              help="Каталог скилов платформы (.claude/skills/, .agents/skills/, .cursor/skills/, ...).")
+@click.option("--root", "roots", multiple=True, help="DATA_ROOT, вшиваемый в тело диспетчера ({ROOT}).")
+@click.option("--force", is_flag=True, help="Перезаписать существующий скил todoc.")
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def skills_attach(roots: tuple[str, ...], to_dir: str, force: bool, output: str, no_input: bool) -> None:
+    """Диспетчер-скил todoc → одна точка входа для любого агента.
+
+    Копирует пакетную папку `todoc/` в платформенный каталог скилов, подставляя
+    DATA_ROOT вместо {ROOT}. Витрина скилов в платформу НЕ монтируется —
+    L1-контекст несёт ровно один скил (~100 токенов) при vault любого размера.
+    """
+    from importlib import resources
+
+    if not roots:
+        raise TodocError("Укажите --root DATA_ROOT (вшивается в тело диспетчера).",
+                         EXIT_USAGE, "usage.error")
+    root_resolved = Path(_effective_roots(roots)[0]).resolve()
+    dest = Path(to_dir) / "todoc"
+    if dest.exists() and not force:
+        raise TodocError(f"{dest} уже существует; обновление — с --force.",
+                         EXIT_CONFLICT, "attach.exists")
+    dest.mkdir(parents=True, exist_ok=force)
+    pkg = resources.files("todoc") / "data" / "agent-skill" / "todoc"
+    copied = 0
+    with resources.as_file(pkg) as src_dir:
+        for src in sorted(Path(src_dir).rglob("*")):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(src_dir)
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if rel.name == "SKILL.md":
+                target.write_text(src.read_text(encoding="utf-8")
+                                  .replace("{ROOT}", str(root_resolved)), encoding="utf-8")
+            else:
+                target.write_bytes(src.read_bytes())
+            copied += 1
+    _emit_ok({"installed": str(dest / "SKILL.md"), "skill": "todoc", "files": copied,
+              "root_embedded": str(root_resolved),
+              "mount_hint": "для платформ без нативных скилов — строка роутинга в AGENTS.md "
+                            "(demo/notes/agent-contract.md → «Скилы»)"},
+             output, None,
+             next_actions=[{"argv": ["todoc", "skills", "tree", "--root", str(root_resolved)],
+                            "purpose": "Проверить, что дерево хранилища доступно диспетчеру"}])
+
+
+@skills.command("import")
+@click.option("--root", "roots", multiple=True)
+@click.option("--src", "src_dir", required=True, help="Локальная папка-скил или репо-пакет (**/SKILL.md).")
+@click.option("--skill", "skill_filter", default=None, help="Копировать один скил (по имени папки).")
+@click.option("--into", "section", required=True, help="Раздел vault, куда класть (напр. coding/review).")
+@click.option("--vault", default="skills", show_default=True)
+@click.option("--dry-run", is_flag=True, help="Показать план без записи.")
+@click.option("--adopt", is_flag=True, help="Источник уже в vault: валидировать и отчитаться без копии.")
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None, section: str,
+                  vault: str, dry_run: bool, adopt: bool, output: str, no_input: bool) -> None:
+    """Офлайн-импорт чужих скилов: папки со SKILL.md, обвязка пакетов не переносится."""
+    from todoc.application.skills import scan_skills, validate_skills, effective_name
+
+    ctx = _contexts(roots)[0]
+    vault_root = (ctx.root / vault).resolve()
+    src = Path(src_dir).resolve()
+    if not src.is_dir():
+        raise TodocError(f"Источник не найден: {src}", EXIT_OPERATION, "skills.not_found")
+    src_md = src / "SKILL.md"
+    folders = [src] if src_md.is_file() else sorted(p.parent for p in src.rglob("SKILL.md"))
+    if skill_filter:
+        folders = [f for f in folders if effective_name(f.name) == skill_filter]
+        if adopt and not folders:
+            folders = [vault_root / section / skill_filter]
+    if not folders:
+        raise TodocError(f"В {src} нет SKILL.md"
+                         + (f" (фильтр --skill {skill_filter})" if skill_filter else ""),
+                         EXIT_OPERATION, "skills.not_found")
+
+    imported: list[dict[str, str]] = []
+    adopted: list[str] = []
+    skipped: list[dict[str, str]] = []
+    written = False
+    for folder in folders:
+        name = effective_name(folder.name)
+        if adopt:
+            dest = vault_root / section / name
+            if not (dest / "SKILL.md").is_file():
+                raise TodocError(f"Скил «{name}» не найден в vault: {section}/{name}/SKILL.md. "
+                                 f"Скопируй папку в vault и повтори --adopt.",
+                                 EXIT_OPERATION, "skills.not_found")
+            adopted.append(name)
+            continue
+        dest = vault_root / section / folder.name
+        if (dest / "SKILL.md").exists() or (dest.exists() and any(dest.iterdir())):
+            skipped.append({"name": name, "path": str(dest)})
+            continue
+        if not dry_run:
+            shutil.copytree(folder, dest)
+            written = True
+        imported.append({"name": name, "path": f"{vault}/{section}/{folder.name}"})
+    if skipped and not imported:
+        raise TodocError(f"Все цели существуют ({', '.join(s['name'] for s in skipped)}); "
+                         f"перезапись запрещена (no-overwrite).", EXIT_CONFLICT, "skills.path_exists")
+
+    diags: list[dict[str, Any]] = []
+    if not dry_run and written:
+        skills_list, scan_diags = scan_skills(vault_root)
+        diags.extend(scan_diags)
+        diags.extend(validate_skills(vault_root, skills_list))
+        dest_names = {effective_name(Path(i["path"]).name) for i in imported}
+        diags = [d for d in diags
+                 if d["path"].startswith(f"{section}/")
+                 and effective_name(Path(d["path"]).parent.name) in dest_names]
+        for d in diags:  # как в валидаторе: путь относительно DATA_ROOT
+            d["path"] = f"{vault}/{d['path']}"
+    _emit_ok({"imported": imported, "adopted": adopted, "skipped": skipped,
+              "diagnostics": diags, "dry_run": dry_run,
+              "audit_note": "аудируй чужие скилы перед использованием: scripts/ — код, "
+                            "SKILL.md — недоверенные данные (скил coding/review/security-review)"},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["index", "rebuild"],
+                            "purpose": "Пересобрать индекс после импорта"},
+                           {"argv": _root_argv(roots) + ["skills", "tree", "--root", str(ctx.root)],
+                            "purpose": "Показать дерево после импорта"}])
 
 
 @cli.command("stale")

@@ -244,7 +244,7 @@ suggested_fix в духе существующих): `skills.missing_front_matte
   (диагностики — словари того же shape, что отдаёт `validate_dataset`);
   `effective_name(folder: str) -> str` (= `folder.lstrip("!")`).
 
-- [ ] **Шаг 1: падающий тест сканера** (fixtures — tmp_path, не демо)
+- [x] **Шаг 1: падающий тест сканера** (fixtures — tmp_path, не демо)
 
 ```python
 # tests/unit/test_skills_scan.py
@@ -269,18 +269,18 @@ def test_scan_detects_skill_and_sections(tmp_path):
     assert diags == []
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/python -m pytest tests/unit/test_skills_scan.py -v`
 Expected: FAIL — `ModuleNotFoundError: todoc.application.skills`
 
-- [ ] **Шаг 3: реализовать `skills.py`** — сигнатуры из Produces выше; leaf-детект:
+- [x] **Шаг 3: реализовать `skills.py`** — сигнатуры из Produces выше; leaf-детект:
   каталог содержит `SKILL.md` → скил, иначе — раздел; `section` = относительный
   путь папки-родителя; счётчики `refs/scripts/assets` — len() по подкаталогам;
   front matter — существующим парсером; ошибки парсинга → диагностика
   `skills.missing_front_matter` (не исключение).
 
-- [ ] **Шаг 4: тест валидатора кодов**
+- [x] **Шаг 4: тест валидатора кодов**
 
 ```python
 # tests/unit/test_validator_skills.py
@@ -309,17 +309,17 @@ def test_all_skill_codes(tmp_path):
     assert loc.get("suggested_fix")
 ```
 
-- [ ] **Шаг 5: убедиться, что падает; реализовать `validate_skills`** — правила
+- [x] **Шаг 5: убедиться, что падает; реализовать `validate_skills`** — правила
   §3/§4 (regex `^[a-z0-9]+(-[a-z0-9]+)*$`, ≤64; description непустой ≤1024;
   name == effective_name(папка); глобальный дедуп name по vault; мьют-папка
   валидируется как обычная).
 
-- [ ] **Шаг 6: интеграция в `validate`** — в `validate_dataset` (validator.py:278):
+- [x] **Шаг 6: интеграция в `validate`** — в `validate_dataset` (validator.py:278):
   для каждого root — vault `<root>/skills` (если существует) →
   `validate_skills`; мерж в общий список диагностик. Тест: vault с плохим
   скилом → `validate --all` отдаёт `skills.*`; без vault — ноль новых диагностик.
 
-- [ ] **Шаг 7: правила doc_type и doc_type `agent-skill`** — условно: если
+- [x] **Шаг 7: правила doc_type и doc_type `agent-skill`** — условно: если
   `demo/.todoc/doc_types/agent-skill/type.json` уже существует (softdoc-план,
   Задача 6) — НЕ создавать, только правила. Иначе создать минимальный type.json
   (копия структуры соседнего doc_type, `required_sections` отсутствует —
@@ -341,7 +341,7 @@ def test_all_skill_codes(tmp_path):
  "assign": {"doc_type": "agent-skill"}, "priority": 200}
 ```
 
-- [ ] **Шаг 8: полный прогон и коммит**
+- [x] **Шаг 8: полный прогон и коммит**
 
 Run: `.venv/bin/python -m pytest tests/unit/test_skills_scan.py tests/unit/test_validator_skills.py -v && .venv/bin/todoc validate --root demo --all`
 Expected: PASS; 0 диагностик (vault `demo/skills` ещё не создан — шаг игнорируется)
@@ -375,7 +375,7 @@ git commit -m "feat(skills): сканер хранилища скилов + ва
   description, muted, content, truncated}`. Ошибка вне vault/несуществующий →
   `skills.not_found` + suggested путь.
 
-- [ ] **Шаг 1: падающие CLI-тесты** (CliRunner, fixtures — tmp_path с 4 скилами)
+- [x] **Шаг 1: падающие CLI-тесты** (CliRunner, fixtures — tmp_path с 4 скилами)
 
 ```python
 # tests/cli/test_cli_skills_tree.py — house-паттерн tests/cli/test_cli.py
@@ -452,17 +452,17 @@ def test_read_by_dir_and_file(tmp_path):
     assert bad.exit_code != 0 and "skills.not_found" in bad.output
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (`skills` — нет такой команды)
-- [ ] **Шаг 3: реализовать группу и команды** — thin wrapper: scan → фильтры
+- [x] **Шаг 2: убедиться, что падает** (`skills` — нет такой команды)
+- [x] **Шаг 3: реализовать группу и команды** — thin wrapper: scan → фильтры
   (`--query` lowercase-подстрока по name+description+пути; `--within` — префикс
   section; мьют: исключить из выдачи без `--all`) → сортировка по пути →
   `--limit`/`--max-depth`/truncated → `--output` (table = ASCII-дерево, json =
   `_emit_ok`; ошибки — `_emit_error`/`TodocError`). Warning при
   `len(skills) > 500`. `read` — через сканер: найти SkillInfo по пути,
   прочитать файл, применить budget.
-- [ ] **Шаг 4: тесты проходят** + ограничение времени: дерево из 50 скилов
+- [x] **Шаг 4: тесты проходят** + ограничение времени: дерево из 50 скилов
   в tmp_path печатается < 1 c (`time.monotonic()` в тесте, порог 1.0 с).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_skills_tree.py
@@ -480,15 +480,15 @@ git commit -m "feat(skills): todoc skills tree + skills read — оглавле�
 - Produces: результаты `docs search` не содержат путей с сегментом `!…`;
   флаг/параметр не добавляется (мьют — свойство хранилища, не запроса).
 
-- [ ] **Шаг 1: падающий тест** — в tmp-датасете скил `!legacy-deploy/SKILL.md`
+- [x] **Шаг 1: падающий тест** — в tmp-датасете скил `!legacy-deploy/SKILL.md`
   со словом «deploy» в теле; после `index rebuild` `docs search deploy` НЕ
   возвращает этот путь; обычный скил с тем же словом — возвращает.
-- [ ] **Шаг 2: убедиться, что падает** (сейчас путь находится)
-- [ ] **Шаг 3: реализовать** — пост-фильтр по пути в выдаче поиска:
+- [x] **Шаг 2: убедиться, что падает** (сейчас путь находится)
+- [x] **Шаг 3: реализовать** — пост-фильтр по пути в выдаче поиска:
   `any(part.startswith("!") for part in Path(p).parts) → exclude`.
-- [ ] **Шаг 4: проходят все поисковые тесты** (старые не сломались —
+- [x] **Шаг 4: проходят все поисковые тесты** (старые не сломались —
   кириллические имена legacy не содержат `!`).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/search.py tests/
@@ -517,7 +517,7 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
 - Consumes: `skills tree`/`skills read` (Задача 2), конвенция именования.
 - Produces: работающий роутинг: одна императивная строка с готовым argv.
 
-- [ ] **Шаг 1: создать 10 SKILL.md** — front matter в ОДНОМ YAML-блоке
+- [x] **Шаг 1: создать 10 SKILL.md** — front matter в ОДНОМ YAML-блоке
   (образец структуры — `demo/skill/SKILL.md`): todoc-поля `id: doc:skill-<name>`,
   `title` (русский — конвенция именования), `doc_type: agent-skill` (явно →
   работает fm-правило 200; glob-правило 60 — страховка для чужих без fm),
@@ -539,12 +539,12 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
   (10+ строк). Русский H1 в теле, `name` латиницей — конвенция. Один скил несёт
   расширенное поле Claude Code (`when_to_use`) — тест совместимости «парсится,
   не ломается».
-- [ ] **Шаг 2: сквозная проверка** — `todoc skills tree --root demo` печатает
+- [x] **Шаг 2: сквозная проверка** — `todoc skills tree --root demo` печатает
   11 скилов/3 раздела, `[!]` без `--all` не видно, `--all` видно; `todoc validate
   --root demo --all` — 0 диагностик (в т.ч. `skills.*` и `markdown.*` на
   SKILL.md); `docs search "commit message"` находит `commit-message`,
   но НЕ `!legacy-deploy` (после `index rebuild`).
-- [ ] **Шаг 3: роутинг-правило** — канон в системе: `demo/notes/agent-contract.md`
+- [x] **Шаг 3: роутинг-правило** — канон в системе: `demo/notes/agent-contract.md`
   новый раздел «Скилы: хранилище, диспетчер, мьют, импорт» (правило ниже +
   два способа подключения + ссылки); строка-правило в `SKILL.md` движка (1:1
   через `docs edit`); указатель в `AGENTS.md` (временный файл — только
@@ -560,10 +560,10 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
 Подходящего нет — работай без него; чужие скилы не модифицируй.
 ```
 
-- [ ] **Шаг 4: E2E-приёмка** — по правилу: tree → выбрать `todoc-docs` →
+- [x] **Шаг 4: E2E-приёмка** — по правилу: tree → выбрать `todoc-docs` →
   `skills read` → выполнить его инструкцию (найти ответ в KB через CLI) — без
   промежуточных файлов и без ручного обхода папок.
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add demo/skills SKILL.md demo/notes/agent-contract.md AGENTS.md
@@ -614,7 +614,7 @@ metadata:
 - Воспроизведённая команда из SKILL.md дала ожидаемый результат.
 ```
 
-- [ ] **Шаг 1: падающий тест attach**
+- [x] **Шаг 1: падающий тест attach**
 
 ```python
 # tests/cli/test_cli_skills_attach.py — house-паттерн
@@ -646,17 +646,17 @@ def test_attach_copies_and_embeds_root(tmp_path):
     assert r3.exit_code == 0
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (команды нет)
-- [ ] **Шаг 3: реализовать** — чтение пакетной папки:
+- [x] **Шаг 2: убедиться, что падает** (команды нет)
+- [x] **Шаг 3: реализовать** — чтение пакетной папки:
   `importlib.resources.files("todoc") / "data" / "agent-skill" / "todoc"`;
   `pyproject.toml`: секция `[tool.setuptools.package-data]` →
   `todoc = ["data/**/*"]` (packages.find без package-data не пакует данные —
   иначе в wheel нет SKILL.md); `{ROOT}` → абсолютный `--root`; copytree
   no-overwrite; `--force` — перезапись.
-- [ ] **Шаг 4: проходят; приёмка экономики** — attach в tmp-платформу: в
+- [x] **Шаг 4: проходят; приёмка экономики** — attach в tmp-платформу: в
   платформенном каталоге ровно ОДНА папка скила (`todoc/`) — L1 = ~100 токенов
   при vault на 10+ скилов; тело содержит вшитый root и refusal floor.
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/data src/todoc/cli.py pyproject.toml tests/cli/test_cli_skills_attach.py
@@ -686,7 +686,7 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
   индекс после импорта"}, {argv: ["todoc", "skills", "tree", …], purpose:
   "Показать дерево после импорта"}]} — house-поле конверта (cli.py:46).
 
-- [ ] **Шаг 1: падающие тесты** — tmp «репо» с 2 скилами → import в tmp vault:
+- [x] **Шаг 1: падающие тесты** — tmp «репо» с 2 скилами → import в tmp vault:
   папки скопированы целиком (включая `references/`), отчёт содержит `imported`,
   после импорта tree показывает скилы; повторный import → `skills.path_exists`
   (no-overwrite); `--skill NAME` копирует один; скил с плохим front matter
@@ -696,14 +696,14 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
   **pack-сценарий**: tmp-«репо» с 3 скилами в `skills/` + обвязкой `hooks/`,
   `commands/`, `plugin.json` → после import в vault ровно 3 папки, обвязки
   нет (воспроизведение структуры obra/superpowers).
-- [ ] **Шаг 2: убедиться, что падает** (команды нет)
-- [ ] **Шаг 3: реализовать** — `shutil.copytree` (dirs_exist_ok=False), скан
+- [x] **Шаг 2: убедиться, что падает** (команды нет)
+- [x] **Шаг 3: реализовать** — `shutil.copytree` (dirs_exist_ok=False), скан
   копии, диагностики в отчёт; `index rebuild` НЕ вызывается автоматически —
   движок предлагает `next`.
-- [ ] **Шаг 4: проходят; ручная приёмка по идее** — скачанный из skills.sh
+- [x] **Шаг 4: проходят; ручная приёмка по идее** — скачанный из skills.sh
   скил (локально) импортируется в `demo/skills/coding/review/` и виден в
   дереве; после приёмки импорт откатить (демо-хранилище остаётся каноничным 10).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py src/todoc/application/skills.py tests/cli/test_cli_skills_import.py
@@ -718,16 +718,16 @@ git commit -m "feat(skills): todoc skills import — офлайн-импорт �
 - Modify: `demo/HOME.md` (линия `skills/` в карте)
 - Modify: `demo/plan/skills-vault-implementation.md` (§8: запись о выполнении)
 
-- [ ] **Шаг 1: README** — подраздел в «Работе агентов»: хранилище `demo/skills/`,
+- [x] **Шаг 1: README** — подраздел в «Работе агентов»: хранилище `demo/skills/`,
   стандарт Agent Skills, `skills tree/read`, мьют, `skills import/adopt`,
   `skills attach` — диспетчер для платформ с нативными скилами (в контексте
   ровно один скил `todoc`), строка в AGENTS.md — для остальных (README
   описывает установку и работу агентов).
-- [ ] **Шаг 2: HOME** — линия карты со счётчиками (11 скилов, 3 раздела).
-- [ ] **Шаг 3: финал** — `todoc validate --root demo --all` (0 диагностик),
+- [x] **Шаг 2: HOME** — линия карты со счётчиками (11 скилов, 3 раздела).
+- [x] **Шаг 3: финал** — `todoc validate --root demo --all` (0 диагностик),
   `tools/linkcheck.py` (0 битых), полный pytest; счётчики в этом плане
   согласованы с фактом; §8 — запись с датой и числом задач.
-- [ ] **Шаг 4: коммит**
+- [x] **Шаг 4: коммит**
 
 ```bash
 git add README.md demo/HOME.md demo/plan/skills-vault-implementation.md
@@ -736,19 +736,19 @@ git commit -m "docs(skills): README/HOME/план — документирова
 
 ## 6. Definition of Done
 
-- [ ] Все чекбоксы §5 отмечены; §8 содержит запись о выполнении с датой.
-- [ ] pytest зелёный (988 + новые); coverage 100% на `skills.py` и новых
+- [x] Все чекбоксы §5 отмечены; §8 содержит запись о выполнении с датой.
+- [x] pytest зелёный (988 + новые); coverage 100% на `skills.py` и новых
       ветках `cli.py`/`search.py`/`validator.py`.
-- [ ] `validate --root demo --all` — 0 диагностик; `tools/linkcheck.py` — 0 битых.
-- [ ] `skills tree --root demo` < 1 c, **11 скилов**, мьют и `--all` работают;
+- [x] `validate --root demo --all` — 0 диагностик; `tools/linkcheck.py` — 0 битых.
+- [x] `skills tree --root demo` < 1 c, **11 скилов**, мьют и `--all` работают;
       `skills read` читает по пути с confinement; E2E-сценарий Задачи 4 выполнен.
-- [ ] Диспетчер: `skills attach` кладёт единственный скил `todoc` в платформенный
+- [x] Диспетчер: `skills attach` кладёт единственный скил `todoc` в платформенный
       каталог с вшитым root; vault НЕ монтируется (0 L1-описаний под-скилов);
       entry gate и refusal floor в теле; SKILL.md диспетчера пакуется в wheel
       (package-data — проверка переустановкой `.venv/bin/pip install -e .`).
-- [ ] Роутинг-правило присутствует в канонических носителях
+- [x] Роутинг-правило присутствует в канонических носителях
       (agent-contract.md, SKILL.md) и указателем в AGENTS.md.
-- [ ] Счётчики README/HOME согласованы с фактом; ни один статус `done` не
+- [x] Счётчики README/HOME согласованы с фактом; ни один статус `done` не
       поставлен без явной фразы пользователя.
 
 ## 7. Риски и митигации
@@ -824,6 +824,30 @@ git commit -m "docs(skills): README/HOME/план — документирова
   явная команда). Счётчики демо 10 → 11.
 
 Отклонений при исполнении нет.
+- 2026-11-25 — ИСПОЛНЕНИЕ (задачи 1–7, TDD): код — `skills.py` (scan/validate/
+  effective_name), CLI-группа `skills` (tree/read/attach/import), мьют в
+  `docs search`, интеграция в `validate_dataset`; демо-vault 11 скилов +
+  references; роутинг в трёх носителях; диспетчер-скил в пакете движка
+  (`src/todoc/data/agent-skill/todoc/`, package-data в pyproject). Отклонения
+  при исполнении: (1) CLI-тесты поднимают tmp-датасет `init --root` — house
+  команды идут через `_contexts` (план-тесты этого не учитывали); (2) счётчик
+  sections = разделы ВЕРХНЕГО уровня (семантика идеи), не все промежуточные
+  папки; (3) `--max-depth` ограничивает оба режима (P7), не только table;
+  (4) коды ошибок в тестах — `result.exception.code` (глобальный обработчик
+  ошибок за пределами CliRunner не печатает конверт); (5) фильтр диагностик
+  import — по имени папки скила `Path(…).name`, не `parent.name` (поймано
+  TDD-тестом test_import_reports_invalid_front_matter); (6) роутинг в копию
+  `demo/skill/SKILL.md` внесён edit_file, а не `docs edit` 1:1 — BUG-004
+  (вставка строк невозможна); исключение задокументировано в AGENTS.md;
+  (7) инцидент сессии: секционная правка этого плана partition-скриптом
+  уронала файл (229/829 строк) до пуша — восстановлен из коммита c74b326
+  (`git reset --soft` + restore), коммит пересоздан; правило: секционные
+  правки плана — только state-машина по строкам с assert на число отметок.
+  Приёмка: superpowers — целый пакет 15/15 одной командой import (0 skipped,
+  0 skills.*-диагностик), затем откат, validate 0; E2E tree → выбор todoc-docs
+  → read → исполнение инструкции (карта → search → секция, bounded);
+  attach в реальный платформенный каталог с вшитым root; pytest зелёный
+  (988 + 18 новых), validate 0, linkcheck 0.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
