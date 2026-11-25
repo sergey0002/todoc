@@ -38,7 +38,9 @@ def test_validate_broken_link_with_candidate_fix(root):
     path.write_text("# Broken\n\nSee [runbook](../ops/runbok.md).\n", encoding="utf-8")
     diags, _info = _validate(root)
     broken = [d for d in diags if d.code == "markdown.link.target_missing"]
-    assert broken[0].suggested_fixes[0].replacement == "ops/runbook.md"
+    # Relative to notes/, not to the dataset root: the parser resolves the link
+    # against the file that contains it.
+    assert broken[0].suggested_fixes[0].replacement == "../ops/runbook.md"
 
 
 def test_validate_csv_errors(root):

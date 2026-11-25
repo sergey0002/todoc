@@ -865,7 +865,13 @@ def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, pr
         return
     rel_path = str(target.get("path", ""))
     evidence = str(target.get("evidence", ""))
-    old_target = evidence.split("](")[-1].rstrip(")") if "](" in evidence else ""
+    # Evidence is rendered by the validator as either ``[text](target)`` for an
+    # inline link or ``[[target]]`` for an Obsidian wikilink; both have to yield
+    # the target, otherwise a wikilink fix can never be applied.
+    if evidence.startswith("[[") and evidence.endswith("]]"):
+        old_target = evidence[2:-2]
+    else:
+        old_target = evidence.split("](")[-1].rstrip(")") if "](" in evidence else ""
     new_target = str(fix0.get("replacement", ""))
     if not old_target or not new_target:
         raise ValidationError("Cannot derive link targets from diagnostic", "fix.cannot_apply")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,43 @@ from todoc.errors import ConflictError, ValidationError
 
 def _sha(text: str) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+#: Characters a Windows file name cannot contain, plus the two path separators:
+#: a ``/`` coming from an identifier would silently create a directory (or
+#: escape the dataset), and separators belong to the template, not to the value.
+_UNSAFE_NAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+#: Device names Windows reserves regardless of extension.
+_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+
+
+def portable_name(value: str) -> str:
+    """Make a value substituted into a path template safe to create everywhere.
+
+    ``record_id`` is an identifier, not a file name: ``workout:2026-11-25`` is a
+    valid id, but ``:`` is illegal in a Windows file name, so the record could
+    not be checked out there. Trailing dots and spaces are stripped for the same
+    reason, and a reserved device name is prefixed rather than written as is.
+    """
+    cleaned = _UNSAFE_NAME_CHARS.sub("-", value).strip(" .")
+    if cleaned.split(".")[0].upper() in _RESERVED_NAMES:
+        cleaned = f"_{cleaned}"
+    return cleaned or "_"
+
+
+def _fill_path_template(template: str, record_id: str, slug: str) -> str:
+    """Substitute ``{record_id}``/``{slug}`` in a single pass.
+
+    One pass matters: substituting ``{record_id}`` first and ``{slug}`` second
+    would expand a literal ``{slug}`` that happened to appear inside a record id.
+    """
+    values = {"record_id": portable_name(record_id), "slug": portable_name(slug)}
+    return re.sub(r"\{(record_id|slug)\}", lambda m: values[m.group(1)], template)
 
 
 def create_record_plan(dataset: dict[str, Any], entity_types: dict[str, Any], record: dict[str, Any],
@@ -46,8 +84,10 @@ def create_record_plan(dataset: dict[str, Any], entity_types: dict[str, Any], re
         if field_name not in record:
             raise ValidationError(f"Missing required field: {field_name}", "record.missing_field")
     path_template = str(descriptor.get("path_template") or f"records/{entity_type}/{{record_id}}.json")
-    slug = record_id.split(":")[-1]
-    target = path_template.replace("{record_id}", record_id).replace("{slug}", slug)
+    # "type:local-part" — split on the first colon only, so an id whose local
+    # part itself contains one (``note:2026:11:25``) keeps all of it.
+    slug = record_id.split(":", 1)[-1]
+    target = _fill_path_template(path_template, record_id, slug)
     if target in existing_paths:
         raise ConflictError(f"Target already exists: {target}", "record.target_exists")
     if target.startswith("../") or "/../" in target or target.startswith("/"):

@@ -194,6 +194,73 @@ def test_fix_preview_apply(root):
     assert result.exit_code == 0, result.output
     result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--apply", "--output", "json"])
     assert result.exit_code == 0, result.output
+    # The point of the fix is a file that validates afterwards. Asserting only
+    # the exit code let a root-relative replacement through: it wrote
+    # ``ops/runbook.md`` into ``notes/broken.md``, which the parser then looked
+    # for at ``notes/ops/runbook.md`` and reported as missing again.
+    written = (root / "notes" / "broken.md").read_text(encoding="utf-8")
+    assert "../ops/runbook.md" in written
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    remaining = [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+                 if d["code"] == "markdown.link.target_missing"]
+    assert remaining == []
+
+
+def test_fix_apply_at_dataset_root_keeps_root_relative_target(root):
+    """The same fix for a file in the root must not gain a leading ``../``."""
+    (root / "ops").mkdir(parents=True, exist_ok=True)
+    (root / "ops" / "runbook.md").write_text("# Runbook\n", encoding="utf-8")
+    (root / "broken.md").write_text("# Broken\n\nSee [runbook](ops/runbok.md).\n", encoding="utf-8")
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
+    assert target["suggested_fixes"][0]["replacement"] == "ops/runbook.md"
+    result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--apply", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    assert [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+            if d["code"] == "markdown.link.target_missing"] == []
+
+
+def test_fix_apply_on_exact_basename_match(root):
+    """Exact basename match (not fuzzy) must also be re-based onto the file."""
+    (root / "ops").mkdir(parents=True, exist_ok=True)
+    (root / "ops" / "runbook.md").write_text("# Runbook\n", encoding="utf-8")
+    (root / "notes").mkdir(parents=True, exist_ok=True)
+    # The name is right but the directory is not: it resolves to notes/runbook.md.
+    (root / "notes" / "a.md").write_text("# A\n\nSee [runbook](runbook.md).\n", encoding="utf-8")
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
+    assert target["suggested_fixes"][0]["replacement"] == "../ops/runbook.md"
+    assert "единственный кандидат" in target["suggested_fixes"][0]["basis"]
+    result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--apply", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    assert [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+            if d["code"] == "markdown.link.target_missing"] == []
+
+
+def test_fix_apply_on_wikilink(root):
+    """A wikilink fix must apply: its evidence is ``[[target]]``, not ``[t](target)``."""
+    (root / "notes").mkdir(parents=True, exist_ok=True)
+    (root / "notes" / "target.md").write_text("# Target\n", encoding="utf-8")
+    (root / "notes" / "page.md").write_text("# Page\n\nSee [[targt.md]].\n", encoding="utf-8")
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
+    # Wikilinks resolve by stem anywhere in the root, so no path is written.
+    assert target["suggested_fixes"][0]["replacement"] == "target"
+    result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--apply", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    assert _json(result)["ok"] is True
+    assert "[[target]]" in (root / "notes" / "page.md").read_text(encoding="utf-8")
+    result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
+    assert [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+            if d["code"] == "markdown.link.target_missing"] == []
 
 
 def test_fix_missing_diagnostic(root):

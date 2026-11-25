@@ -196,7 +196,9 @@ def test_broken_inline_link_typo_suggests_fix(root):
     diags = _check_markdown_links("ds", scanned, root, {"notes/a.md", "notes/runbook.md"})
     assert len(diags) == 1
     assert diags[0].location["end_column"] == 24
-    assert diags[0].suggested_fixes[0].replacement == "notes/runbook.md"
+    # The candidate is indexed from the dataset root, but the replacement has to
+    # be written relative to notes/ — the directory the link resolves against.
+    assert diags[0].suggested_fixes[0].replacement == "runbook.md"
 
 
 # --- json: strictness -------------------------------------------------------
@@ -420,7 +422,7 @@ def test_typo_target_is_suggested_by_basename(root):
     page.write_text("See [runbook](runbok.md).\n", encoding="utf-8")
     scanned = ScannedFile("notes/a.md", page, "markdown", page.stat().st_size, "sha256:")
     diags = _check_markdown_links("ds", scanned, root, {"notes/a.md", "ops/runbook.md"})
-    assert diags[0].suggested_fixes[0].replacement == "ops/runbook.md"
+    assert diags[0].suggested_fixes[0].replacement == "../ops/runbook.md"
 
 
 def test_ambiguous_basename_gets_no_suggestion(root):

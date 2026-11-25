@@ -24,8 +24,8 @@ copied: true
 | Версия пакета | `0.1.0` | `todoc --version` |
 | Листовых команд CLI | 26 | обход дерева Click |
 | Строк в `src/todoc` | 4100 | `wc -l` по модулям |
-| Тестов | 420 (все проходят) | `pytest tests` |
-| Покрытие | 100% — 2491 инструкция, 868 веток, 0 пропусков | `coverage run -m pytest` + `coverage report` |
+| Тестов | 437 (все проходят) | `pytest tests` |
+| Покрытие | 100% — 2510 инструкций, 874 ветки, 0 пропусков | `coverage run -m pytest` + `coverage report` |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` | `pyproject.toml` |
 | Python | 3.11.2 | `todoc doctor` |
 | Демо-датасет | 248 документов, 157 записей, 0 диагностик | `todoc validate --root demo --all` |
