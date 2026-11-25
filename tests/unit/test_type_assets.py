@@ -16,6 +16,8 @@ from todoc.typing_system.descriptors import (
     KIND_FIELDS,
     PROMPT_OPERATIONS,
     descriptor_diagnostics,
+    resolve_template,
+    schema_file,
     parse_heading_selector,
     prompt_files,
     render_template,
@@ -399,3 +401,137 @@ def test_write_type_assets_is_idempotent(tmp_path):
         _write_type_assets(base, "doc_type", "spec", "Спецификация.", SPEC)
     files = sorted(p.name for p in base.rglob("*") if p.is_file())
     assert files == ["create.md", "delete.md", "edit.md", "read.md", "template.md", "type.json"]
+
+
+# ---------------------------------------------------------------------------
+# Раскладка: всё, что относится к типу, лежит в его папке
+# ---------------------------------------------------------------------------
+
+def test_schema_of_a_type_lives_beside_its_descriptor(tmp_path):
+    """`entity_types/<id>/schema.json` is the primary home of a record schema."""
+    root = tmp_path
+    (root / ".todoc" / "entity_types" / "metric").mkdir(parents=True)
+    descriptor = {"schema_version": 1, "type_id": "metric", "version": "0.1", "kind": "entity_type"}
+    assert schema_file(root, DATASET, "entity_type", descriptor) is None
+    (root / ".todoc" / "entity_types" / "metric" / "schema.json").write_text("{}", encoding="utf-8")
+    resolved = schema_file(root, DATASET, "entity_type", descriptor)
+    assert resolved == root / ".todoc" / "entity_types" / "metric" / "schema.json"
+    # Only entity types have a record schema.
+    assert schema_file(root, DATASET, "doc_type", descriptor) is None
+
+
+def test_schema_declaration_may_point_elsewhere_inside_data_root(tmp_path):
+    descriptor = {"type_id": "metric", "kind": "entity_type", "schema": "schemas/metric.v2.json"}
+    resolved = schema_file(tmp_path, DATASET, "entity_type", descriptor)
+    assert resolved == tmp_path / ".todoc" / "entity_types" / "metric" / "schemas" / "metric.v2.json"
+
+
+def test_a_legacy_record_schema_is_still_found(tmp_path):
+    """Datasets built before per-type schemas keep working."""
+    legacy = tmp_path / ".todoc" / "schemas" / "records"
+    legacy.mkdir(parents=True)
+    (legacy / "metric.json").write_text("{}", encoding="utf-8")
+    descriptor = {"type_id": "metric", "kind": "entity_type"}
+    assert schema_file(tmp_path, DATASET, "entity_type", descriptor) == legacy / "metric.json"
+    # The type folder wins when both exist.
+    (tmp_path / ".todoc" / "entity_types" / "metric").mkdir(parents=True)
+    (tmp_path / ".todoc" / "entity_types" / "metric" / "schema.json").write_text("{}", encoding="utf-8")
+    assert schema_file(tmp_path, DATASET, "entity_type", descriptor).name == "schema.json"
+
+
+def test_resolve_template_reports_where_the_template_came_from(tmp_path):
+    descriptor = {"type_id": "metric", "kind": "entity_type", "template": "template.json"}
+    assert resolve_template(tmp_path, DATASET, "entity_type", descriptor) == (
+        tmp_path / ".todoc" / "entity_types" / "metric" / "template.json", "type")
+    legacy = tmp_path / ".todoc" / "templates" / "records"
+    legacy.mkdir(parents=True)
+    (legacy / "metric.json").write_text("{}", encoding="utf-8")
+    (tmp_path / ".todoc" / "entity_types" / "metric").mkdir(parents=True)
+    (tmp_path / ".todoc" / "entity_types" / "metric" / "template.json").write_text("{}", encoding="utf-8")
+    assert resolve_template(tmp_path, DATASET, "entity_type", descriptor)[1] == "type"
+    (tmp_path / ".todoc" / "entity_types" / "metric" / "template.json").unlink()
+    path, origin = resolve_template(tmp_path, DATASET, "entity_type", descriptor)
+    assert (path, origin) == (legacy / "metric.json", "legacy")
+    assert resolve_template(tmp_path, DATASET, "entity_type", {"type_id": "x", "kind": "entity_type"}) == (None, "none")
+
+
+def test_config_rejects_a_malformed_schema_field(tmp_path):
+    descriptor = {"type_id": "metric", "kind": "entity_type", "schema": ""}
+    codes = [item["code"] for item in descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "x")]
+    assert "config.invalid_schema" in codes
+
+
+def test_config_reports_a_duplicated_asset_and_a_legacy_one(tmp_path):
+    """Two copies are an error; a single legacy copy is a warning to move it."""
+    descriptor = {"type_id": "metric", "kind": "entity_type"}
+    legacy_schema = tmp_path / ".todoc" / "schemas" / "records"
+    legacy_schema.mkdir(parents=True)
+    (legacy_schema / "metric.json").write_text("{}", encoding="utf-8")
+    items = descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "x")
+    assert [item["code"] for item in items] == ["config.legacy_asset"]
+    assert items[0]["severity"] == "warning"
+
+    (tmp_path / ".todoc" / "entity_types" / "metric").mkdir(parents=True)
+    (tmp_path / ".todoc" / "entity_types" / "metric" / "schema.json").write_text("{}", encoding="utf-8")
+    items = descriptor_diagnostics(tmp_path, DATASET, "entity_type", descriptor, "x")
+    assert [item["code"] for item in items] == ["config.duplicate_asset"]
+    assert "severity" not in items[0]
+
+
+def test_init_keeps_type_assets_in_one_place(tmp_path):
+    """A fresh dataset has no parallel templates/ or schemas/ catalog to drift from."""
+    root = tmp_path / "kb"
+    init_dataset(root)
+    todoc = root / ".todoc"
+    assert not (todoc / "templates").exists()
+    assert not (todoc / "schemas").exists()
+    assert "templates" not in json.loads((todoc / "dataset.json").read_text(encoding="utf-8"))
+    for type_id in DEFAULT_ENTITY_TYPES:
+        base = todoc / "entity_types" / type_id
+        assert (base / "type.json").is_file()
+        assert (base / "template.json").is_file()
+        assert sorted(p.name for p in (base / "prompts").iterdir()) == sorted(f"{op}.md" for op in PROMPT_OPERATIONS)
+
+
+def test_record_schemas_come_from_the_type_folder_and_skip_broken_ones(tmp_path):
+    """The loader reads each type's own schema; an unreadable one is skipped, not fatal."""
+    from todoc.application.validator import _load_record_schemas
+
+    for type_id, body in (("good", '{"type": "object"}'), ("broken", "{not json")):
+        base = tmp_path / ".todoc" / "entity_types" / type_id
+        base.mkdir(parents=True)
+        (base / "schema.json").write_text(body, encoding="utf-8")
+    # Valid JSON that is not an object is not a schema either.
+    listed = tmp_path / ".todoc" / "entity_types" / "listed"
+    listed.mkdir(parents=True)
+    (listed / "schema.json").write_text("[]", encoding="utf-8")
+    registry = {"entity_types": {"good": {"type_id": "good"}, "broken": {"type_id": "broken"},
+                                 "plain": {"type_id": "plain"}, "listed": {"type_id": "listed"}}}
+    assert list(_load_record_schemas(tmp_path, registry, {})) == ["good"]
+
+
+def test_a_schema_violation_names_the_schema_that_was_applied(tmp_path):
+    """The diagnostic points at the schema inside the type folder, not a guessed path."""
+    from todoc.application.validator import _schema_evidence
+
+    base = tmp_path / ".todoc" / "entity_types" / "metric"
+    base.mkdir(parents=True)
+    (base / "schema.json").write_text("{}", encoding="utf-8")
+    registry = {"entity_types": {"metric": {"type_id": "metric"}}}
+    assert _schema_evidence(tmp_path, {}, registry, "metric") == "schema: .todoc/entity_types/metric/schema.json"
+    # No registry loaded: the legacy catalog path is all the evidence can say.
+    assert _schema_evidence(tmp_path, {}, None, "metric") == "schema: .todoc/schemas/records/metric.json"
+    # A type with no schema at all: the evidence falls back to the conventional path.
+    (base / "schema.json").unlink()
+    assert _schema_evidence(tmp_path, {}, registry, "metric") == "schema: .todoc/schemas/records/metric.json"
+    # A schema declared outside DATA_ROOT is reported as-is rather than crashing.
+    outside = {"entity_types": {"metric": {"type_id": "metric", "schema": "/etc/metric.json"}}}
+    assert _schema_evidence(tmp_path, {}, outside, "metric") == "schema: /etc/metric.json"
+
+
+def test_type_assets_outside_data_root_are_shown_as_absolute_paths(tmp_path):
+    from todoc.cli import _rel_todoc
+
+    assert _rel_todoc(tmp_path, tmp_path / ".todoc" / "entity_types" / "a" / "schema.json") == (
+        ".todoc/entity_types/a/schema.json")
+    assert _rel_todoc(tmp_path, Path("/etc/metric.json")) == "/etc/metric.json"

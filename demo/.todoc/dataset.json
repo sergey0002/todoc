@@ -13,7 +13,6 @@
   "entity_types": "entity_types",
   "relation_types": "relation_types",
   "queries": "queries",
-  "templates": "templates",
   "trusted_workflows": {
     "record-capture-v1": {
       "kind": "external-skill",

@@ -84,7 +84,7 @@ todoc validate --root ./knowledge --all
 | Команда | Назначение |
 |---|---|
 | `types list` | все типы датасета |
-| `types show TYPE_ID` | описатель типа + пути шаблона и CRUD-промптов |
+| `types show TYPE_ID` | описатель типа + пути шаблона, CRUD-промптов и схемы записи |
 | `types prompt TYPE_ID [--op read\|create\|edit\|delete]` | стартовый промпт типа под операцию |
 | `types guide [--format markdown\|json] [--out PATH]` | сгенерированное описание типовой системы |
 | `fix --diagnostic ID [--preview\|--apply] [--if-hash H]` | применить один предложенный фикс |
@@ -161,7 +161,7 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 
 ```
 src/todoc/            код: cli, application, domain, adapters, typing_system, output
-tests/                403 теста: unit, cli, integration (покрытие 100%)
+tests/                419 теста: unit, cli, integration (покрытие 100%)
 bench/                бенчмарк качества: 30 критериев, скрипт, результаты
 demo/                 демо-датасет (DATA_ROOT) — живой пример всех возможностей
 .doc/
@@ -210,7 +210,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **29.5 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-403 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+419 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`.doc/state/15-benchmark.md`](.doc/state/15-benchmark.md).
 

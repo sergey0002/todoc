@@ -15,7 +15,7 @@ from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.adapters.formats.markdown import parse_markdown, resolve_link_target
 from todoc.domain.models import Diagnostic, SuggestedFix
 from todoc.errors import ValidationError
-from todoc.typing_system.descriptors import load_json_file, parse_heading_selector
+from todoc.typing_system.descriptors import load_json_file, parse_heading_selector, schema_file
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 
 
@@ -305,25 +305,64 @@ def validate_dataset(
         }
 
     # Record validation: JSON files with record_id/entity_type.
-    records = _validate_records(dataset_id, root, scanned_files, doc_info)
+    records = _validate_records(dataset_id, root, scanned_files, doc_info, dataset, registry)
     diags.extend(records[0])
     return diags, doc_info
 
 
-def _load_record_schemas(root: Path) -> dict[str, dict[str, Any]]:
-    """Load `.todoc/schemas/records/<entity_type>.json` (JSON Schema 2020-12)."""
+def _load_record_schemas(root: Path, registry: Any = None,
+                         dataset: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    """Load the JSON Schema of every entity type (2020-12).
+
+    Primary location is the type's own folder (``entity_types/<type>/schema.json``),
+    so everything that belongs to a type lives with it. The legacy top-level catalog
+    ``.todoc/schemas/records/<type>.json`` is still read for datasets created earlier,
+    and loses to the type folder when both exist (``check-config`` reports the duplicate).
+    """
     schemas: dict[str, dict[str, Any]] = {}
-    schema_dir = root / ".todoc" / "schemas" / "records"
-    if not schema_dir.is_dir():
-        return schemas
-    for schema_file in sorted(schema_dir.glob("*.json")):
-        try:
-            data = load_json_file(schema_file)
-        except ValidationError:
-            continue
-        if isinstance(data, dict):
-            schemas[schema_file.stem] = data
+    legacy_dir = root / ".todoc" / "schemas" / "records"
+    if legacy_dir.is_dir():
+        for path in sorted(legacy_dir.glob("*.json")):
+            try:
+                data = load_json_file(path)
+            except ValidationError:
+                continue
+            if isinstance(data, dict):
+                schemas[path.stem] = data
+    entity_types = _entity_types_of(registry)
+    if entity_types:
+        for type_id, descriptor in sorted(entity_types.items()):
+            path = schema_file(root, dataset or {}, "entity_type", descriptor)
+            if path is None or not path.is_file():
+                continue
+            try:
+                data = load_json_file(path)
+            except ValidationError:
+                continue
+            if isinstance(data, dict):
+                schemas[type_id] = data
     return schemas
+
+
+def _entity_types_of(registry: Any) -> dict[str, Any]:
+    """Entity types from a TypeRegistry or a plain mapping, else empty."""
+    if registry is None:
+        return {}
+    return getattr(registry, "entity_types", None) or (
+        registry.get("entity_types", {}) if isinstance(registry, dict) else {})
+
+
+def _schema_evidence(root: Path, dataset: dict[str, Any], registry: Any, entity_type: str) -> str:
+    """Where the applied schema actually came from, for the diagnostic's evidence."""
+    descriptor = _entity_types_of(registry).get(entity_type)
+    if descriptor is not None:
+        path = schema_file(root, dataset, "entity_type", descriptor)
+        if path is not None:
+            try:
+                return f"schema: {path.relative_to(root).as_posix()}"
+            except ValueError:
+                return f"schema: {path}"
+    return f"schema: .todoc/schemas/records/{entity_type}.json"
 
 
 def _key_location(text: str, key: str) -> dict[str, Any]:
@@ -343,12 +382,13 @@ def _key_location(text: str, key: str) -> dict[str, Any]:
 
 
 def _validate_records(
-    dataset_id: str, root: Path, scanned_files: list[ScannedFile], doc_info: dict[str, dict[str, Any]]
+    dataset_id: str, root: Path, scanned_files: list[ScannedFile], doc_info: dict[str, dict[str, Any]],
+    dataset: dict[str, Any] | None = None, registry: Any = None,
 ) -> tuple[list[Diagnostic], list[dict[str, Any]]]:
     diags: list[Diagnostic] = []
     records: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
-    schemas = _load_record_schemas(root)
+    schemas = _load_record_schemas(root, registry, dataset)
     for scanned in scanned_files:
         if scanned.format != "json" or scanned.status != "ok":
             continue
@@ -376,7 +416,7 @@ def _validate_records(
                 diags.append(_diag(
                     dataset_id, scanned.rel_path, "record.schema_violation", rest or message,
                     location=location,
-                    evidence=f"schema: .todoc/schemas/records/{entity_type}.json",
+                    evidence=_schema_evidence(root, dataset, registry, entity_type),
                 ))
         records.append({
             "record_id": record_id, "entity_type": entity_type, "dataset_id": dataset_id,

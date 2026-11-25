@@ -44,12 +44,15 @@ copied: true
 ## Команды
 
 ### `init --root PATH`
-Создаёт `.todoc/` (датасет, правила, каталоги типов, шаблоны, пустые `schemas/records/`, `queries/`,
-`generated/`). Данные пользователя не трогает. Повторный вызов — `config.already_initialized` (exit 3).
+Создаёт `.todoc/` (датасет, правила, каталоги типов; у каждого типа — `type.json`, `template.<ext>`,
+`prompts/{read,create,edit,delete}.md`) и `queries/`. Данные пользователя не трогает. Повторный вызов — `config.already_initialized` (exit 3).
 `data`: `{dataset_id, root, created}`.
 
 ### `check-config`
-Загружает конфигурацию и реестр типов. `data.datasets[]`: `{dataset_id, ok, dir_types, doc_types, entity_types, relation_types}`.
+Загружает конфигурацию и реестр типов. `data.datasets[]`: `{dataset_id, ok, warnings, dir_types, doc_types, entity_types, relation_types, issues}`.
+Ошибки (`config.unknown_field`, `config.invalid_schema`, `config.template_missing`, `config.prompt_missing`,
+`config.duplicate_asset`) дают exit 3; предупреждения (`config.legacy_asset` — актив типа лежит вне его папки)
+выводятся, но команду не роняют.
 
 ### `check [--strict]`
 Сводка по датасету. `data.datasets[]`: `{dataset_id, documents, errors, warnings, status}`.

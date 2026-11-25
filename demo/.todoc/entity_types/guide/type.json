@@ -20,5 +20,6 @@
       "audience"
     ]
   },
-  "template": "template.json"
+  "template": "template.json",
+  "schema": "schema.json"
 }

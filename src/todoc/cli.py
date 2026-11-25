@@ -25,7 +25,7 @@ from todoc.errors import EXIT_USAGE, AccessError, ConflictError, TodocError, Val
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics, prompt_files,
-                                             template_file, type_kind_dir)
+                                             resolve_template, schema_file, type_kind_dir)
 
 
 def _emit_ok(data: dict[str, Any], output: str, out: str | None, diagnostics: list[dict[str, Any]] | None = None,
@@ -69,9 +69,9 @@ def _root_argv(roots: tuple[str, ...]) -> list[str]:
     return argv
 
 
-def _record_schema(root: Path, entity_type: str) -> dict[str, Any] | None:
-    """The entity type's JSON Schema, when the dataset declares one."""
-    return _load_record_schemas(root).get(entity_type)
+def _record_schema(ctx: "DatasetContext", entity_type: str) -> dict[str, Any] | None:
+    """The entity type's JSON Schema, when it has one (type folder, then legacy catalog)."""
+    return _load_record_schemas(ctx.root, ctx.registry_types, ctx.dataset).get(entity_type)
 
 
 def _contained_out(root: Path, out: str) -> Path:
@@ -176,13 +176,16 @@ def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
                 for item in descriptor_diagnostics(ctx.root, ctx.dataset, kind, store[type_id], rel):
                     findings.append({
                         "dataset_id": ctx.dataset_id, "id": stable_id(rel, item["code"], item["message"]),
-                        "code": item["code"], "severity": "error", "path": item["path"], "location": {},
+                        "code": item["code"], "severity": item.get("severity", "error"),
+                        "path": item["path"], "location": {},
                         "evidence": f"type_id: {type_id}", "message": item["message"], "suggested_fixes": [],
                     })
         collected.extend(findings)
-        if findings:
+        errors = [item for item in findings if item["severity"] == "error"]
+        if errors:
             failed = True
-        results.append({"dataset_id": ctx.dataset_id, "ok": not findings,
+        results.append({"dataset_id": ctx.dataset_id, "ok": not errors,
+                        "warnings": len(findings) - len(errors),
                         "dir_types": len(ctx.registry_types.dir_types),
                         "doc_types": len(ctx.registry_types.doc_types),
                         "entity_types": len(ctx.registry_types.entity_types),
@@ -331,14 +334,14 @@ def _resolve_document_template(ctx: DatasetContext, doc_type: str | None,
     if type_id is None:
         return None, None, "none"
     descriptor = ctx.registry_types.doc_types[type_id]
-    declared = template_file(ctx.root, ctx.dataset, "doc_type", descriptor)
+    declared, _origin = resolve_template(ctx.root, ctx.dataset, "doc_type", descriptor)
     if declared is None:
         return type_id, None, "type-without-template"
     if not declared.is_file():
         raise ValidationError(
             f"doc_type {type_id!r} declares template {declared.name}, which is missing",
             "types.template_missing")
-    return type_id, declared.read_text(encoding="utf-8"), f".todoc/{type_kind_dir(ctx.dataset, 'doc_type')}/{type_id}/{declared.name}"
+    return type_id, declared.read_text(encoding="utf-8"), _rel_todoc(ctx.root, declared)
 
 
 @docs.command("new")
@@ -571,7 +574,7 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
         record["entity_type"] = entity_type
     existing_ids = {r["record_id"] for r in payload["records"]}
     existing_paths = {d["path"] for d in payload["documents"]}
-    schema = _record_schema(ctx.root, entity_type)
+    schema = _record_schema(ctx, entity_type)
     plan = create_record_plan(ctx.dataset, ctx.registry_types.entity_types, record, existing_ids, existing_paths,
                               schema)
     if not apply_:
@@ -724,19 +727,30 @@ def _type_bundle(ctx: DatasetContext, kind: str, descriptor: dict[str, Any]) -> 
     omitted, so a caller can tell "type has no prompts" from "prompts are missing".
     """
     if kind not in ("doc_type", "entity_type"):
-        return {"template": None, "prompts": {}}
+        return {"template": None, "prompts": {}, "schema": None}
     kind_dir = type_kind_dir(ctx.dataset, kind)
     type_id = str(descriptor.get("type_id", ""))
-    declared = template_file(ctx.root, ctx.dataset, kind, descriptor)
+    path, origin = resolve_template(ctx.root, ctx.dataset, kind, descriptor)
     template = None
-    if declared is not None:
-        template = {"path": f".todoc/{kind_dir}/{type_id}/{declared.name}", "exists": declared.is_file()}
+    if path is not None:
+        template = {"path": _rel_todoc(ctx.root, path), "exists": path.is_file(), "origin": origin}
     prompts = {
         operation: {"path": f".todoc/{kind_dir}/{type_id}/{path.relative_to(_type_base(ctx, kind, type_id)).as_posix()}",
                             "exists": path.is_file()}
         for operation, path in prompt_files(ctx.root, ctx.dataset, kind, descriptor).items()
     }
-    return {"template": template, "prompts": prompts}
+    schema = schema_file(ctx.root, ctx.dataset, kind, descriptor)
+    return {"template": template, "prompts": prompts,
+            "schema": ({"path": _rel_todoc(ctx.root, schema), "exists": schema.is_file()}
+                       if schema is not None else None)}
+
+
+def _rel_todoc(root: Path, path: Path) -> str:
+    """Path as the user sees it: ``.todoc/...`` when inside DATA_ROOT, else absolute."""
+    try:
+        return f".todoc/{path.relative_to(root / '.todoc').as_posix()}"
+    except ValueError:
+        return str(path)
 
 
 def _type_base(ctx: DatasetContext, kind: str, type_id: str) -> Path:
@@ -756,7 +770,8 @@ def types_show(type_id: str, roots: tuple[str, ...], output: str, no_input: bool
         if type_id in store:
             bundle = _type_bundle(ctx, kind, store[type_id])
             _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "type": store[type_id],
-                      "template": bundle["template"], "prompts": bundle["prompts"]}, output, None,
+                      "template": bundle["template"], "prompts": bundle["prompts"],
+                      "schema": bundle["schema"]}, output, None,
                      next_actions=[{"argv": _root_argv(roots) + ["types", "prompt", type_id, "--op", "create"],
                                     "purpose": "Взять стартовый промпт создания документа этого типа"}]
                      if bundle["prompts"] else [])
