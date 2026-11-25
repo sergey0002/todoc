@@ -1,6 +1,6 @@
 ---
 id: doc:audit-implementation
-title: Audit: аудит реализации MVP
+title: "Audit: аудит реализации MVP"
 doc_type: audit-report
 lang: ru
 source: .doc/plan/audit-implementation.md

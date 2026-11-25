@@ -1,6 +1,6 @@
 ---
 id: doc:constitution
-title: Constitution: нормативная конституция todoc
+title: "Constitution: нормативная конституция todoc"
 doc_type: constitution
 lang: ru
 source: .doc/plan/constitution.md

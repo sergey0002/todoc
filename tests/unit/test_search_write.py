@@ -69,6 +69,22 @@ def test_create_record_plan(root):
     assert plan.expected_hash is None
 
 
+def test_create_record_plan_rejects_schema_violation():
+    schema = {"type": "object", "properties": {"mood": {"enum": ["calm", "focused"]}}}
+    record = {"record_id": "note:1", "entity_type": "note", "mood": "angry"}
+    with pytest.raises(ValidationError) as exc:
+        create_record_plan({"dataset_id": "ds"}, {"note": {}}, record, set(), set(), schema)
+    assert exc.value.code == "record.schema_violation"
+    assert "/mood" in exc.value.message
+
+
+def test_create_record_plan_accepts_schema_conformant_record():
+    schema = {"type": "object", "properties": {"mood": {"enum": ["calm", "focused"]}}}
+    record = {"record_id": "note:2", "entity_type": "note", "mood": "calm"}
+    plan = create_record_plan({"dataset_id": "ds"}, {"note": {}}, record, set(), set(), schema)
+    assert plan.target_path == "records/note/note:2.json"
+
+
 def test_create_record_plan_unknown_type():
     with pytest.raises(ValidationError):
         create_record_plan({"dataset_id": "ds"}, {}, {"record_id": "x:1", "entity_type": "ghost"}, set(), set())

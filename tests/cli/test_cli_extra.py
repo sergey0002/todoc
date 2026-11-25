@@ -141,12 +141,132 @@ def test_records_read_view(root, sample_record):
     assert set(_json(result)["data"]["data"].keys()) == {"date", "volume"}
 
 
-def test_types_guide_absolute_out(root, tmp_path):
-    out = tmp_path / "guide.md"
+def test_types_guide_absolute_out(root):
+    """--out inside DATA_ROOT is allowed."""
+    out = root / ".todoc" / "guide.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "types", "guide", "--out", str(out), "--output", "json"])
     assert result.exit_code == 0, result.output
     assert out.is_file()
+
+
+def _run_cli(root, args):
+    """Run the real CLI in a subprocess so main()'s error envelope is exercised."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2] / "src")
+    return subprocess.run([sys.executable, "-m", "todoc", "--root", str(root), *args],
+                          capture_output=True, text=True, env=env, timeout=120)
+
+
+def test_types_guide_out_outside_root_refused(root, tmp_path):
+    """--out may not escape DATA_ROOT (containment, access denied = exit 4)."""
+    out = tmp_path / "escaped.md"
+    proc = _run_cli(root, ["types", "guide", "--out", str(out), "--output", "json"])
+    assert proc.returncode == 4, proc.stderr
+    assert not out.exists()
+    assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
+
+
+def test_types_guide_out_relative_escape_refused(root):
+    """A relative --out with .. is resolved before the containment check."""
+    proc = _run_cli(root, ["types", "guide", "--out", "../../escaped-guide.md", "--output", "json"])
+    assert proc.returncode == 4, proc.stderr
+    assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
+
+
+def test_error_is_a_json_envelope(root):
+    """A failure still emits exactly one JSON envelope with ok=false (contract §8)."""
+    proc = _run_cli(root, ["docs", "read", "--id", "doc:does-not-exist", "--output", "json"])
+    assert proc.returncode == 3, proc.stderr
+    envelope = json.loads(proc.stdout)
+    assert envelope["ok"] is False
+    assert envelope["diagnostics"][0]["code"] == "docs.not_found"
+    assert envelope["next_actions"], "a failed call must still suggest the next step"
+
+
+def test_docs_edit_rejects_malformed_patch(root, sample_md):
+    """A patch that is not {"ops": [...]} is a diagnostic, not a traceback."""
+    for payload in ("[1, 2]", '{"ops": "nope"}', '{"ops": [1, 2]}'):
+        patch = root.parent / f"patch-{abs(hash(payload))}.json"
+        patch.write_text(payload, encoding="utf-8")
+        proc = _run_cli(root, ["docs", "edit", "--id", "doc:notes/design.md",
+                               "--patch-file", str(patch), "--preview", "--output", "json"])
+        assert proc.returncode == 3, proc.stderr
+        assert "Traceback" not in proc.stderr
+        assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "edit.invalid_patch"
+
+
+def test_docs_edit_patch_shape_is_validated_in_process(root, sample_md):
+    """Same contract, exercised in-process so the branches are covered."""
+    runner = CliRunner()
+    for name, payload in (("not-object", "[1, 2]"), ("ops-not-list", '{"ops": "nope"}'),
+                          ("ops-not-objects", '{"ops": [1, 2]}')):
+        patch = root / f"{name}.json"
+        patch.write_text(payload, encoding="utf-8")
+        result = _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/design.md",
+                               "--patch-file", str(patch), "--preview"])
+        assert result.exit_code == 3, result.output
+        assert result.exception.code == "edit.invalid_patch"
+
+
+def test_docs_edit_accepts_ops_patch(root, sample_md):
+    patch = root.parent / "patch-ok.json"
+    patch.write_text(json.dumps({"ops": [{"line": 1, "text": "---"}]}), encoding="utf-8")
+    proc = _run_cli(root, ["docs", "edit", "--id", "doc:notes/design.md",
+                           "--patch-file", str(patch), "--preview", "--output", "json"])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["data"]["ops"] == [{"line": 1, "text": "---"}]
+
+
+def test_docs_new_dir_cannot_escape_root(root):
+    """`docs new --dir ../..` is refused as access denied, not a PermissionError."""
+    proc = _run_cli(root, ["docs", "new", "--title", "Escape", "--dir", "../../outside", "--output", "json"])
+    assert proc.returncode == 4, proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
+    assert not (root.parent / "outside").exists()
+
+
+def test_records_create_enforces_the_entity_schema(root):
+    """A value outside the schema's enum is refused before the file is written."""
+    schema_dir = root / ".todoc" / "schemas" / "records"
+    schema_dir.mkdir(parents=True, exist_ok=True)
+    (schema_dir / "note.json").write_text(json.dumps({
+        "type": "object",
+        "required": ["record_id", "entity_type", "mood"],
+        "properties": {"mood": {"enum": ["calm", "focused"]}},
+    }), encoding="utf-8")
+    bad = root.parent / "bad-note.json"
+    bad.write_text(json.dumps({"record_id": "note:bad-mood", "entity_type": "note", "mood": "angry"}),
+                   encoding="utf-8")
+    proc = _run_cli(root, ["records", "create", "--type", "note", "--input-file", str(bad), "--apply",
+                           "--output", "json"])
+    assert proc.returncode == 3, proc.stderr
+    assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "record.schema_violation"
+    assert not list((root / "records").rglob("note:bad-mood.json"))
+
+    good = root.parent / "good-note.json"
+    good.write_text(json.dumps({"record_id": "note:good-mood", "entity_type": "note", "mood": "calm"}),
+                    encoding="utf-8")
+    proc = _run_cli(root, ["records", "create", "--type", "note", "--input-file", str(good), "--apply",
+                           "--output", "json"])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["ok"] is True
+
+
+def test_invalid_cursor_is_an_envelope_not_a_traceback(root, sample_md):
+    """Bad --cursor/--line-range values are validation errors, not Python tracebacks."""
+    for args, code in ((["docs", "search", "--query", "x", "--cursor", "abc"], "usage.invalid_cursor"),
+                       (["docs", "search", "--query", "x", "--cursor", "-1"], "usage.invalid_cursor"),
+                       (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "abc"],
+                        "usage.invalid_line_range"),
+                       (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "5-2"],
+                        "usage.invalid_line_range")):
+        proc = _run_cli(root, args)
+        assert proc.returncode == 3, proc.stderr
+        assert "Traceback" not in proc.stderr
+        assert json.loads(proc.stdout)["diagnostics"][0]["code"] == code
 
 
 def test_types_guide_markdown_stdout(root):

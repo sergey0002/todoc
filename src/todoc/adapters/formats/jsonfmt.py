@@ -53,7 +53,29 @@ def _depth(value: Any) -> int:
     return max_depth
 
 
-def parse_json(text: str, max_depth: int = 128) -> tuple[Any, list[str]]:
+class JsonError(str):
+    """Parse error that also carries a source position.
+
+    Subclasses ``str`` so every existing consumer (``"code" in err``,
+    ``err.partition(": ")``, equality against literals) keeps working, while
+    callers that can report locations get ``line``/``column`` for free.
+    """
+
+    code: str
+    message: str
+    line: int | None
+    column: int | None
+
+    def __new__(cls, code: str, message: str, line: int | None = None, column: int | None = None) -> "JsonError":
+        self = super().__new__(cls, f"{code}: {message}")
+        self.code = code
+        self.message = message
+        self.line = line
+        self.column = column
+        return self
+
+
+def parse_json(text: str, max_depth: int = 128) -> tuple[Any, list[JsonError]]:
     """Return (value, errors). Duplicate keys, invalid constants and depth
     overflow are errors; the value is None whenever errors is non-empty."""
     if text.startswith("\ufeff"):
@@ -61,16 +83,18 @@ def parse_json(text: str, max_depth: int = 128) -> tuple[Any, list[str]]:
     try:
         value = json.loads(text, object_pairs_hook=_no_duplicates, parse_constant=_reject_constant)
     except DuplicateKeyError as exc:
-        return None, [f"json.duplicate_key: {exc}"]
+        return None, [JsonError("json.duplicate_key", str(exc))]
     except _InvalidConstant as exc:
-        return None, [f"json.invalid_constant: {exc}"]
+        return None, [JsonError("json.invalid_constant", str(exc))]
     except json.JSONDecodeError as exc:
-        return None, [f"json.syntax_error: {exc}"]
+        # exc.msg alone: the full str(exc) repeats "line N column M (char K)",
+        # which would duplicate the structured location.
+        return None, [JsonError("json.syntax_error", exc.msg, exc.lineno, exc.colno)]
     except RecursionError:
-        return None, ["json.too_deep: parser recursion limit exceeded"]
+        return None, [JsonError("json.too_deep", "parser recursion limit exceeded")]
     depth = _depth(value)  # iterative: cannot RecursionError on hostile nesting
     if depth > max_depth:
-        return None, [f"json.too_deep: nesting depth {depth} exceeds limit {max_depth}"]
+        return None, [JsonError("json.too_deep", f"nesting depth {depth} exceeds limit {max_depth}")]
     return value, []
 
 

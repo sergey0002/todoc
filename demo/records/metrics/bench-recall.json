@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-recall",
+  "entity_type": "metric",
+  "name": "Recall@3 поиска",
+  "aspect": "benchmark",
+  "value": {
+    "value": 0.94,
+    "unit": "ratio"
+  },
+  "source": "K22",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

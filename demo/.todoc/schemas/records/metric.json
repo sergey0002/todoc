@@ -29,7 +29,9 @@
         "tests",
         "docs",
         "cli",
-        "types"
+        "types",
+        "benchmark",
+        "performance"
       ]
     },
     "value": {

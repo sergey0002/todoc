@@ -1,6 +1,6 @@
 ---
 id: doc:after-sync-collab
-title: AFTER: синхронизация, совместная работа, экспорт
+title: "AFTER: синхронизация, совместная работа, экспорт"
 doc_type: after-plan
 lang: ru
 source: .doc/plan/sync-collab-export.after.md

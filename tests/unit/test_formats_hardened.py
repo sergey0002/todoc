@@ -279,7 +279,10 @@ def test_record_schema_violation_is_reported(root):
     scanned = ScannedFile("records/w1.json", path, "json", path.stat().st_size, "sha256:")
     diags, records = _validate_records("ds", root, [scanned], {})
     assert [d.code for d in diags] == ["record.schema_violation"]
-    assert diags[0].location == {"pointer": "/volume", "entity_type": "workout"}
+    # pointer = exact address, line/column = where the key sits in the file
+    assert diags[0].location["pointer"] == "/volume"
+    assert diags[0].location["entity_type"] == "workout"
+    assert diags[0].location["line"] == 1 and diags[0].location["column"] > 1
     assert records[0]["record_id"] == "workout:w1"
 
 
@@ -468,3 +471,30 @@ def test_service_record_read_oserror_is_skipped(root, monkeypatch):
     _folders, _documents, records, _relations, diagnostics = ctx.scan_and_validate()
     assert records == []
     assert any(d.get("code") == "file.unreadable" for d in diagnostics)
+
+
+def test_unquoted_colon_in_front_matter_is_flagged():
+    doc = parse_markdown('---\ntitle: Constitution: product spec\n---\n\n# H\n')
+    assert doc.front_matter["title"] == "Constitution: product spec"
+    assert len(doc.warnings) == 1
+    assert doc.warnings[0][0] == 2
+    assert "кавычки" in doc.warnings[0][1]
+
+
+def test_quoted_front_matter_value_is_not_flagged():
+    doc = parse_markdown('---\ntitle: "Constitution: product spec"\nprivate: false\ntags: [a, b]\n---\n\n# H\n')
+    assert doc.warnings == []
+    assert doc.front_matter["title"] == "Constitution: product spec"
+
+
+def test_validator_reports_yaml_unsafe_front_matter(root):
+    from todoc.application.validator import validate_dataset
+
+    path = root / "notes" / "unsafe.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('---\ntitle: A: B\n---\n\n# H\n', encoding="utf-8")
+    scanned = ScannedFile("notes/unsafe.md", path, "markdown", path.stat().st_size, "sha256:")
+    diags, _info = validate_dataset(root, {"dataset_id": "ds"}, [scanned], [], [])
+    assert [d.code for d in diags] == ["markdown.front_matter.yaml_unsafe"]
+    assert diags[0].severity == "warning"
+    assert diags[0].location == {"line": 2, "column": 1}

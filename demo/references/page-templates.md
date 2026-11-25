@@ -1,6 +1,6 @@
 ---
 id: doc:ref-page-templates
-title: Reference: page templates
+title: "Reference: page templates"
 doc_type: reference
 lang: en
 source: references/page-templates.md

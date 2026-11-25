@@ -1,6 +1,6 @@
 ---
 id: doc:after-memory-llm-wiki
-title: AFTER: память LLM и wiki-профиль
+title: "AFTER: память LLM и wiki-профиль"
 doc_type: after-plan
 lang: ru
 source: .doc/plan/memory-llm-wiki.after.md

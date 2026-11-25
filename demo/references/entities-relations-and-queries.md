@@ -1,6 +1,6 @@
 ---
 id: doc:ref-entities-relations
-title: Reference: entities, relations and queries
+title: "Reference: entities, relations and queries"
 doc_type: reference
 lang: en
 source: references/entities-relations-and-queries.md

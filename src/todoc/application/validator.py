@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -17,11 +18,22 @@ from todoc.typing_system.descriptors import load_json_file
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 
 
+def stable_id(*parts: Any) -> str:
+    """Deterministic id for a finding.
+
+    ``hash()`` is salted per process (PYTHONHASHSEED), so ids built from it
+    change between two runs of the same command and cannot be stored, diffed
+    or passed back to ``fix --diagnostic``.
+    """
+    payload = "\x1f".join(str(p) for p in parts).encode("utf-8")
+    return "diag_" + hashlib.sha256(payload).hexdigest()[:12]
+
+
 def _diag(dataset_id: str, path: str, code: str, message: str, severity: str = "error",
           location: dict[str, Any] | None = None, evidence: str = "", fixes: tuple[SuggestedFix, ...] = ()) -> Diagnostic:
     return Diagnostic(
         dataset_id=dataset_id,
-        id=f"diag_{abs(hash((path, code, message))) % 100000:05d}",
+        id=stable_id(path, code, message),
         code=code,
         severity=severity,
         path=path,
@@ -88,7 +100,7 @@ def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any, candidate
     evidence = f"[[{link.target}]]" if link.is_wikilink else f"[{link.text}]({link.target})"
     return Diagnostic(
         dataset_id,
-        f"diag_{abs(hash((scanned.rel_path, link.line, link.target))) % 100000:05d}",
+        stable_id(scanned.rel_path, link.line, link.target),
         "markdown.link.target_missing",
         "error",
         scanned.rel_path,
@@ -111,7 +123,7 @@ def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all
     try:
         text = scanned.abs_path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
-        return [Diagnostic(dataset_id, f"diag_{abs(hash(scanned.rel_path)) % 100000:05d}", "markdown.unreadable", "error", scanned.rel_path, "Cannot read Markdown file.")]
+        return [Diagnostic(dataset_id, stable_id(scanned.rel_path, "markdown.unreadable"), "markdown.unreadable", "error", scanned.rel_path, "Cannot read Markdown file.")]
     doc = parse_markdown(text)
     by_basename, basenames = basename_index if basename_index is not None else _basename_index(all_paths)
     for link in doc.links:
@@ -178,6 +190,9 @@ def validate_dataset(
             doc = parse_markdown(text)
             front_matter = doc.front_matter
             title = doc.title
+            for lineno, message in doc.warnings:
+                diags.append(_diag(dataset_id, scanned.rel_path, "markdown.front_matter.yaml_unsafe",
+                                   message, severity="warning", location={"line": lineno, "column": 1}))
             diags.extend(_check_markdown_links(dataset_id, scanned, root, all_paths, by_basename))
         elif fmt == "csv":
             csv_doc = parse_csv(text, max_rows=max_rows)
@@ -188,7 +203,10 @@ def validate_dataset(
             value, errors = parse_json(text, max_depth=max_depth)
             for err in errors:
                 code, _, rest = err.partition(": ")
-                diags.append(_diag(dataset_id, scanned.rel_path, code, rest or err))
+                location: dict[str, Any] = {}
+                if getattr(err, "line", None):
+                    location = {"line": err.line, "column": err.column or 1}
+                diags.append(_diag(dataset_id, scanned.rel_path, code, rest or err, location=location))
             if isinstance(value, dict):
                 front_matter = value
 
@@ -225,6 +243,22 @@ def _load_record_schemas(root: Path) -> dict[str, dict[str, Any]]:
     return schemas
 
 
+def _key_location(text: str, key: str) -> dict[str, Any]:
+    """Line of the first occurrence of a JSON key, for record diagnostics.
+
+    A key position, not the value's exact offset: it opens the file at the right
+    place while the ``pointer`` in the same location stays the precise address.
+    Returns ``{}`` when the key is absent (e.g. a missing required field).
+    """
+    if not key:
+        return {}
+    needle = f'"{key}"'
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if needle in line:
+            return {"line": lineno, "column": line.index(needle) + 1}
+    return {}
+
+
 def _validate_records(
     dataset_id: str, root: Path, scanned_files: list[ScannedFile], doc_info: dict[str, dict[str, Any]]
 ) -> tuple[list[Diagnostic], list[dict[str, Any]]]:
@@ -245,7 +279,8 @@ def _validate_records(
         record_id = str(value.get("record_id"))
         entity_type = str(value.get("entity_type", ""))
         if record_id in seen_ids:
-            diags.append(_diag(dataset_id, scanned.rel_path, "record.duplicate_id", f"Duplicate record_id: {record_id}"))
+            diags.append(_diag(dataset_id, scanned.rel_path, "record.duplicate_id",
+                               f"Duplicate record_id: {record_id}", location=_key_location(text, "record_id")))
         seen_ids.add(record_id)
         if not entity_type:
             diags.append(_diag(dataset_id, scanned.rel_path, "record.missing_entity_type", "Record has no entity_type."))
@@ -253,9 +288,11 @@ def _validate_records(
         if schema:
             for message in validate_against_schema(value, schema):
                 pointer, _, rest = message.partition(": ")
+                location = {"pointer": pointer, "entity_type": entity_type}
+                location.update(_key_location(text, pointer.rsplit("/", 1)[-1]))
                 diags.append(_diag(
                     dataset_id, scanned.rel_path, "record.schema_violation", rest or message,
-                    location={"pointer": pointer, "entity_type": entity_type},
+                    location=location,
                     evidence=f"schema: .todoc/schemas/records/{entity_type}.json",
                 ))
         records.append({
@@ -284,20 +321,25 @@ def validate_relations(
                 diags.append(_diag(dataset_id, record["path"], "relation.malformed",
                                    "Field 'relations' must be a list of objects."))
             continue
-        for rel in relations:
+        for index, rel in enumerate(relations):
+            # Exact structural address: relations live in a JSON record, so an
+            # RFC 6901 pointer locates the offending entry without guessing a line.
+            where = {"pointer": f"/relations/{index}"}
             if not isinstance(rel, dict):
                 diags.append(_diag(dataset_id, record["path"], "relation.malformed",
-                                   "Relation entry must be an object."))
+                                   "Relation entry must be an object.", location=dict(where)))
                 continue
             type_id = str(rel.get("type_id", ""))
             if known_relation_types is not None and type_id not in known_relation_types:
                 diags.append(_diag(dataset_id, record["path"], "relation.unknown_type",
-                                   f"Unknown relation type_id: {type_id or '<empty>'}"))
+                                   f"Unknown relation type_id: {type_id or '<empty>'}", location=dict(where)))
             target = (rel.get("target") or {}).get("id", "") if isinstance(rel.get("target"), dict) else ""
             if target and target not in known:
                 diags.append(_diag(dataset_id, record["path"], "relation.dangling_target",
-                                   f"Relation target not found: {target}"))
+                                   f"Relation target not found: {target}",
+                                   location={**where, "pointer": f"/relations/{index}/target/id"}))
             elif not target:
                 diags.append(_diag(dataset_id, record["path"], "relation.missing_target",
-                                   f"Relation {type_id or '<empty>'} has no target.id."))
+                                   f"Relation {type_id or '<empty>'} has no target.id.",
+                                   location={**where, "pointer": f"/relations/{index}/target/id"}))
     return diags

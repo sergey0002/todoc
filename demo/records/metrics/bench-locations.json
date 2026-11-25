@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-locations",
+  "entity_type": "metric",
+  "name": "Доля диагностик с номером строки",
+  "aspect": "benchmark",
+  "value": {
+    "value": 0.55,
+    "unit": "ratio"
+  },
+  "source": "K7 — единственный partial",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

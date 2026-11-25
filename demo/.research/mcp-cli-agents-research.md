@@ -1,6 +1,6 @@
 ---
 id: doc:mcp-cli-agents-research
-title: Research: MCP и CLI для агентов
+title: "Research: MCP и CLI для агентов"
 doc_type: research-report
 lang: ru
 source: research_mcp_cli_agents_ru.md

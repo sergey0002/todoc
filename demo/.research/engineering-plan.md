@@ -1,6 +1,6 @@
 ---
 id: doc:engineering-plan
-title: Engineering plan: исходный инженерный набросок
+title: "Engineering plan: исходный инженерный набросок"
 doc_type: research-report
 lang: ru
 source: plan.md

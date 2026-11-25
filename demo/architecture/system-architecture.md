@@ -1,6 +1,6 @@
 ---
 id: doc:architecture-system
-title: Архитектура todoc: слои и адаптеры
+title: "Архитектура todoc: слои и адаптеры"
 doc_type: architecture-doc
 lang: ru
 ---

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-mrr",
+  "entity_type": "metric",
+  "name": "MRR поиска на размеченных запросах",
+  "aspect": "benchmark",
+  "value": {
+    "value": 1.0,
+    "unit": "ratio"
+  },
+  "source": "K22",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

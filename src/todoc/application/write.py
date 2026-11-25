@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
-from todoc.adapters.formats.jsonfmt import parse_json
+from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.domain.models import WritePlan
 from todoc.errors import ConflictError, ValidationError
 
@@ -18,8 +18,14 @@ def _sha(text: str) -> str:
 
 
 def create_record_plan(dataset: dict[str, Any], entity_types: dict[str, Any], record: dict[str, Any],
-                       existing_ids: set[str], existing_paths: set[str]) -> WritePlan:
-    """Build a WritePlan for a new JSON record (create-only, no-overwrite)."""
+                       existing_ids: set[str], existing_paths: set[str],
+                       schema: dict[str, Any] | None = None) -> WritePlan:
+    """Build a WritePlan for a new JSON record (create-only, no-overwrite).
+
+    ``schema`` is the entity type's JSON Schema, when the dataset has one: it is
+    enforced here so an invalid record cannot be written and only surface on the
+    next ``validate``.
+    """
     dataset_id = dataset["dataset_id"]
     entity_type = str(record.get("entity_type", ""))
     record_id = str(record.get("record_id", ""))
@@ -34,6 +40,10 @@ def create_record_plan(dataset: dict[str, Any], entity_types: dict[str, Any], re
     for field_name in required:
         if field_name not in record:
             raise ValidationError(f"Missing required field: {field_name}", "record.missing_field")
+    if schema:
+        violations = validate_against_schema(record, schema)
+        if violations:
+            raise ValidationError("; ".join(violations), "record.schema_violation")
     path_template = str(descriptor.get("path_template") or f"records/{entity_type}/{{record_id}}.json")
     slug = record_id.split(":")[-1]
     target = path_template.replace("{record_id}", record_id).replace("{slug}", slug)

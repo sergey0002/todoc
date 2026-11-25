@@ -1,6 +1,6 @@
 ---
 id: doc:state-formats
-title: Состояние: адаптеры форматов
+title: "Состояние: адаптеры форматов"
 doc_type: reference
 lang: ru
 source: .doc/state/05-formats.md

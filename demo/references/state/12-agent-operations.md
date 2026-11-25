@@ -1,6 +1,6 @@
 ---
 id: doc:state-agent-ops
-title: Состояние: как агенту работать с todoc
+title: "Состояние: как агенту работать с todoc"
 doc_type: reference
 lang: ru
 source: .doc/state/12-agent-operations.md

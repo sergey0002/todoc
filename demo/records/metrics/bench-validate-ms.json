@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-validate-ms",
+  "entity_type": "metric",
+  "name": "Медиана validate, 254 документа",
+  "aspect": "performance",
+  "value": {
+    "value": 1049,
+    "unit": "ms"
+  },
+  "source": "K27",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-obsidiantools-ms",
+  "entity_type": "metric",
+  "name": "Время obsidiantools на том же корпусе",
+  "aspect": "performance",
+  "value": {
+    "value": 7111,
+    "unit": "ms"
+  },
+  "source": "конкурент, 90 заметок",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

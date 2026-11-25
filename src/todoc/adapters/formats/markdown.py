@@ -55,6 +55,7 @@ class MarkdownDoc:
     links: list[Link]
     text: str
     errors: list[str] = field(default_factory=list)
+    warnings: list[tuple[int, str]] = field(default_factory=list)
 
 
 def _slugify(title: str) -> str:
@@ -62,32 +63,50 @@ def _slugify(title: str) -> str:
     return slug or "section"
 
 
-def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int]:
-    """Return (front_matter, body, body_start_line_1based).
+def _yaml_unsafe(value: str) -> bool:
+    """True when a bare scalar would break a real YAML parser.
+
+    ``title: Constitution: product`` is rejected by PyYAML/Obsidian with
+    "mapping values are not allowed in this context", while our YAML-lite
+    reader accepts it. Portability requires quoting such values.
+    """
+    if not value or value[0] in ("\"", "'", "[", "{", "|", ">"):
+        return False
+    return ": " in value or value.endswith(":")
+
+
+def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int, list[tuple[int, str]]]:
+    """Return (front_matter, body, body_start_line_1based, warnings).
 
     YAML-lite subset: ``key: value`` pairs, ``true``/``false`` booleans and
     inline ``[a, b]`` lists. Numbers stay strings; nested maps and multiline
     blocks are not supported (minimal front matter schema, MD-KB guide).
-    Duplicate keys: last wins.
+    Duplicate keys: last wins. Warnings carry (1-based line, message) for
+    values a real YAML parser would reject.
     """
     lines = text.splitlines()
+    warnings: list[tuple[int, str]] = []
     if not lines or lines[0].strip() != "---":
-        return {}, text, 1
+        return {}, text, 1, warnings
     end = None
     for i in range(1, len(lines)):
         if lines[i].strip() == "---":
             end = i
             break
     if end is None:
-        return {}, text, 1
+        return {}, text, 1, warnings
     fm: dict[str, Any] = {}
-    for raw in lines[1:end]:
+    for lineno, raw in enumerate(lines[1:end], start=2):
         if ":" not in raw:
             continue
         key, _, value = raw.partition(":")
         key = key.strip()
         value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
+        quoted = len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'")
+        if _yaml_unsafe(value):
+            warnings.append((lineno, f"Значение ключа {key!r} нужно взять в кавычки: "
+                                     f"YAML-парсер отклонит незакавыченное {value!r}."))
+        if quoted:
             value = value[1:-1]
         if value in ("true", "false"):
             fm[key] = value == "true"
@@ -97,7 +116,7 @@ def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int]:
         else:
             fm[key] = value
     body = "\n".join(lines[end + 1 :])
-    return fm, body, end + 2
+    return fm, body, end + 2, warnings
 
 
 def _inline_text(children: list[Any]) -> str:
@@ -241,7 +260,7 @@ def _wikilinks(body_lines: list[str], body_start: int, regions: list[tuple[int, 
 def parse_markdown(text: str) -> MarkdownDoc:
     if text.startswith("\ufeff"):
         text = text[1:]
-    front_matter, body, body_start = _parse_front_matter(text)
+    front_matter, body, body_start, fm_warnings = _parse_front_matter(text)
     tokens = _MD.parse(body)
     headings: list[Heading] = []
     stack: list[tuple[int, int]] = []  # (level, index)
@@ -282,7 +301,8 @@ def parse_markdown(text: str) -> MarkdownDoc:
         title = str(front_matter["title"])
     elif headings:
         title = headings[0].title
-    return MarkdownDoc(title=title, front_matter=front_matter, headings=headings, links=links, text=text)
+    return MarkdownDoc(title=title, front_matter=front_matter, headings=headings, links=links,
+                       text=text, warnings=fm_warnings)
 
 
 def resolve_link_target(source_path: str, target: str) -> str | None:

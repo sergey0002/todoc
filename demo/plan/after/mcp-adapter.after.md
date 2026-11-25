@@ -1,6 +1,6 @@
 ---
 id: doc:after-mcp-adapter
-title: AFTER: MCP-адаптер
+title: "AFTER: MCP-адаптер"
 doc_type: after-plan
 lang: ru
 source: .doc/plan/mcp-adapter.after.md

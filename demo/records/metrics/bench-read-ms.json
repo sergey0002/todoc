@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-read-ms",
+  "entity_type": "metric",
+  "name": "Медиана docs read, 254 документа",
+  "aspect": "performance",
+  "value": {
+    "value": 1064,
+    "unit": "ms"
+  },
+  "source": "K27",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

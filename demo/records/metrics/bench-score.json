@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-score",
+  "entity_type": "metric",
+  "name": "Доля набранных баллов бенчмарка",
+  "aspect": "benchmark",
+  "value": {
+    "value": 0.983,
+    "unit": "ratio"
+  },
+  "source": "29.5 из 30, bench/run_benchmark.py",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}

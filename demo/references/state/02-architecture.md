@@ -1,6 +1,6 @@
 ---
 id: doc:state-architecture
-title: Состояние: архитектура, слои и модули
+title: "Состояние: архитектура, слои и модули"
 doc_type: reference
 lang: ru
 source: .doc/state/02-architecture.md

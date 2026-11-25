@@ -1,6 +1,6 @@
 ---
 id: doc:competitive-analysis
-title: Competitive analysis: конкурентный анализ
+title: "Competitive analysis: конкурентный анализ"
 doc_type: competitive-analysis
 lang: ru
 source: .doc/plan/competitive-analysis.md

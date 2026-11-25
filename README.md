@@ -155,11 +155,12 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 
 ```
 src/todoc/            код: cli, application, domain, adapters, typing_system, output
-tests/                300 тестов: unit, cli, integration
+tests/                332 теста: unit, cli, integration (покрытие 100%)
+bench/                бенчмарк качества: 30 критериев, скрипт, результаты
 demo/                 демо-датасет (DATA_ROOT) — живой пример всех возможностей
 .doc/
 ├── plan/             конституция, план реализации, конкурентный анализ, аудит, AFTER-планы
-└── state/            документация текущего состояния системы (14 разделов)
+└── state/            документация текущего состояния системы (15 разделов)
 references/           справка по подсистемам (входит в Skill)
 SKILL.md              точка входа Agent Skill
 guides (корень)       гайды для агентов: CLI, MCP, Markdown KB
@@ -174,6 +175,7 @@ assets/               шаблон DATA_ROOT для Skill
 | Справочник CLI для агента | [`.doc/state/03-cli-reference.md`](.doc/state/03-cli-reference.md) |
 | Как агенту работать безопасно | [`.doc/state/12-agent-operations.md`](.doc/state/12-agent-operations.md) |
 | Известные проблемы | [`.doc/state/11-known-issues.md`](.doc/state/11-known-issues.md) |
+| Бенчмарк качества и сравнение с конкурентами | [`.doc/state/15-benchmark.md`](.doc/state/15-benchmark.md) |
 | Норматив (что строить) | [`.doc/plan/constitution.md`](.doc/plan/constitution.md) |
 | План реализации (как строить) | [`.doc/plan/implementation-plan.md`](.doc/plan/implementation-plan.md) |
 | Конкурентный анализ | [`.doc/plan/competitive-analysis.md`](.doc/plan/competitive-analysis.md) |
@@ -189,6 +191,22 @@ PYTHONPATH=src python3 -m pytest tests
 PYTHONPATH=src python3 -m coverage run -m pytest tests
 PYTHONPATH=src python3 -m coverage report -m
 ```
+
+## Бенчмарк качества
+
+Качество измеримо: 30 критериев (контракт, корректность, детерминизм, безопасность записи,
+ограниченное чтение, поиск, устойчивость, производительность, покрытие, портабельность)
+проверяются скриптом на копии демо-датасета с 9 намеренно внесёнными дефектами как ground truth.
+
+```bash
+python3 bench/run_benchmark.py                     # только todoc
+python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obsidiantools, open-knowledge)
+```
+
+Текущий результат: **29.5 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
+332 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
+разбор и план улучшений — [`.doc/state/15-benchmark.md`](.doc/state/15-benchmark.md).
 
 ## Ограничения MVP
 

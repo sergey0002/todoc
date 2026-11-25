@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:bench-defect-f1",
+  "entity_type": "metric",
+  "name": "F1 детекции внесённых дефектов",
+  "aspect": "benchmark",
+  "value": {
+    "value": 1.0,
+    "unit": "ratio"
+  },
+  "source": "K6",
+  "relations": [
+    {
+      "type_id": "documents",
+      "target": {
+        "kind": "record",
+        "id": "document:15-benchmark"
+      }
+    }
+  ]
+}
