@@ -54,7 +54,10 @@ python3 -m venv .venv                 # PEP 668: глобальный pip в с�
    todoc types prompt bug-report --op create --root demo   # инструкция по заполнению
    ```
 
-   Один документ = один баг. Заполни все секции шаблона: шаги воспроизведения
+   Один документ = один баг, **перед созданием — поиск дубликата**
+   (`docs search --type bug-report` по симптому и компоненту; нашёл — сослайся
+   на `BUG-NNN`, не создавай; канон: `demo/notes/agent-contract.md` → «Баг-репорты»).
+   Заполни все секции шаблона: шаги воспроизведения
    с точными командами, ожидание против факта, доказательства — выводы CLI и
    `файл:строка`. Статус (`open|triaged|in_progress|fixed|wontfix|duplicate`),
    `severity` и **`agent_impact`** (`none | friction | token_overrun`, можно

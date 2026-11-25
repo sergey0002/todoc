@@ -39,9 +39,11 @@ lang: ru
 агента**: всё, что потребовало повторных вызовов, обходных путей или перерасхода
 токенов против прямого взаимодействия с файлами без CLI. Один файл = один баг;
 `status`, `severity` и `agent_impact` (`none|friction|token_overrun`) во front
-matter; репорты не удаляются. Создание: `todoc docs new --type bug-report
---title "BUG-NNN: суть" --dir bugs` (промпт: `todoc types prompt bug-report
---op create`).
+matter; репорты не удаляются. **Перед созданием — поиск дубликата** (`--type
+bug-report` по симптому и компоненту); нашли — сослайтесь на `BUG-NNN`, не
+плодите дубль (канон: `notes/agent-contract.md` → «Баг-репорты», промпт:
+`todoc types prompt bug-report --op create`). Создание: `todoc docs new --type
+bug-report --title "BUG-NNN: суть" --dir bugs`.
 
 Конвенция именования (2026-11-25): русский заголовок — в поле `title`
 (метаданные md/json), имя файла — на английском; канон —
