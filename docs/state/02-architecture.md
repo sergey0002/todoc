@@ -19,7 +19,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `cli.py` | 1494 | 46 листовых команд, флаги, конвертация `TodocError` в код выхода |
 | `application/changes.py` | 706 | Жизненный цикл изменения, дельты, `validate`/`verify`/`apply`/`archive`/`revert` |
 | `application/history.py` | 565 | Журнал событий: `log`/`show`/`diff`/`blame`/`revert`/`tag`, `gc`, внешние правки |
-| `application/validator.py` | 522 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
+| `application/validator.py` | 543 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
 | `adapters/formats/markdown.py` | 378 | Токены markdown-it-py: заголовки, ссылки, front matter, границы секций |
 | `typing_system/prompts.py` | 309 | Генерация стартовых шаблонов и CRUD-промптов типа |
 | `typing_system/descriptors.py` | 282 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
@@ -33,7 +33,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `application/context.py` | 164 | `context`: запись → дельты → события → файлы → диффы, в пределах бюджета |
 | `application/search.py` | 146 | Лексический поиск, ранжирование, фрагменты, бюджет |
 | `typing_system/resolver.py` | 143 | Маски, приоритеты, резолв `dir_type`/`doc_type`, конфликты |
-| `adapters/formats/jsonfmt.py` | 142 | Строгий JSON, глубина, JSON Pointer, JSON Schema |
+| `adapters/formats/jsonfmt.py` | 286 | Строгий JSON, глубина, позиции токенов, JSON Pointer, JSON Schema |
 | `adapters/filesystem/scanner.py` | 135 | Обход, hard-excludes, containment, `atomic_write`, хеши |
 | `application/query.py` | 130 | Фильтры, агрегация с единицами, BFS по графу |
 | `adapters/history/journal.py` | 117 | Append-only JSONL, `rev`, чтение, атомарная перезапись |
@@ -45,7 +45,7 @@ CLI (click)  →  application  →  domain / typing_system
 | `ports/history.py` | 39 | Порт бэкенда истории: ядро от git не зависит |
 | `__main__.py` | 6 | Точка входа `python -m todoc` |
 
-Итого `src/todoc`: 7329 строк.
+Итого `src/todoc`: 7530 строк.
 
 Слои: `ports/` объявляет интерфейс бэкенда истории, `adapters/history/backends.py` его
 реализует. Единственный `subprocess` во всём `src/todoc` — в `backends.py`, поэтому ядро

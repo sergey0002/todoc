@@ -396,7 +396,7 @@ todoc --root ./knowledge index rebuild
 todoc --root ./knowledge explain-path projects/service-a/plan/migration-plan.md
 todoc --root ./knowledge docs new --title "Release decision" --dir inbox --template note
 todoc --root ./knowledge records create --type workout --input-file ./draft-workout.json --preview
-todoc --root ./knowledge records create --type workout --input-file ./draft-workout.json --if-hash-new --apply
+todoc --root ./knowledge records create --type workout --input-file ./draft-workout.json --apply
 todoc --root ./knowledge types list --output json
 todoc --root ./knowledge types show research-note --output json
 todoc --root ./knowledge types guide --format markdown

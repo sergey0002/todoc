@@ -98,6 +98,7 @@ class DatasetContext:
         # Records + relations from JSON files.
         records: list[dict[str, Any]] = []
         relations: list[dict[str, Any]] = []
+        record_texts: dict[str, str] = {}
         for doc in documents:
             if doc["format"] != "json" or doc["status"] != "ok":
                 continue
@@ -114,6 +115,7 @@ class DatasetContext:
                 continue
             records.append({"record_id": str(value["record_id"]), "entity_type": str(value.get("entity_type", "")),
                             "dataset_id": self.dataset_id, "path": doc["path"], "hash": doc["hash"], "data": value})
+            record_texts[doc["path"]] = text
             for rel in (value.get("relations") or []):
                 if isinstance(rel, dict) and (rel.get("target") or {}).get("id"):
                     edge = {"type_id": str(rel.get("type_id", "")), "source_id": str(value["record_id"]),
@@ -122,7 +124,8 @@ class DatasetContext:
                     # не смог бы решить, было ли ребро правдой на момент T.
                     edge.update(temporal.temporal_of(rel))
                     relations.append(edge)
-        rel_diags = validate_relations(self.dataset_id, records, set(self.registry_types.relation_types))
+        rel_diags = validate_relations(self.dataset_id, records, set(self.registry_types.relation_types),
+                                       texts=record_texts)
         diags.extend(d.to_dict() for d in rel_diags)
         diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]
         return folders, documents, records, relations, diag_dicts

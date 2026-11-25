@@ -255,7 +255,9 @@ files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок з�
 - Markdown с `--section`/`--anchor`: `{section, heading_path, lines[], text}` — окно до 40 строк от заголовка;
 - Markdown с `--line-range`: `{lines[], text}`;
 - JSON: `{value}` (с `--pointer` — значение по RFC 6901);
-- CSV: `{columns, rows[], total}`.
+- CSV: `{columns, rows[], total, matched, truncated}`. `--where` применяется **до** `--rows`:
+  `--rows 3 --where k=v` возвращает три подходящие строки, а не три первые с последующей
+  фильтрацией (P1-5). `matched` — сколько строк подошло под условие, `total` — сколько их в файле.
 Общие поля: `{dataset_id, id, path, format, doc_type, hash}`.
 
 ### `docs tree [--within PATH] [--max-depth N]`
@@ -266,9 +268,14 @@ files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок з�
 Без `--apply` возвращается `{preview: true, ops}`. С `--apply` — `{applied: true, new_hash}`.
 Несовпадение `--if-hash` — exit 5.
 
-### `records create --type T --input-file F [--preview] [--apply] [--if-hash-new]`
+### `records create --type T --input-file F [--preview] [--apply]`
 Create-only. `--preview`: `{preview: true, plan{target_path, new_content, expected_hash, new_hash, basis, validations}}`.
-`--apply`: `{created, new_hash}`. Повторный `record_id` — exit 5; неизвестный тип — exit 3.
+`--apply`: `{created, new_hash}`. Повторный `record_id` — `record.duplicate_id`, занятый путь —
+`record.target_exists`, оба с exit 5; неизвестный тип — exit 3.
+
+Флага `--if-hash-new` больше нет (P1-4): он принимался и ничего не делал, а гарантию
+«только создание» команда даёт безусловно — ещё в preview. Флаг, намекающий, что guarantee
+включается по желанию, вводил в заблуждение; вызов с ним теперь `usage.error` (exit 2).
 
 ### `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N]`
 `data`: `{dataset_id, total, returned, truncated, items[]}`.
@@ -315,11 +322,21 @@ ID диагностики — SHA-256 от `path + code + message`, поэтом
 
 ### `doctor [--check IDS] [--scope S] [--fix]`
 Только чтение: проверки `config`, `index`, `python`. `data.datasets[]`:
-`{dataset_id, checks_total, passed, checks[{id,status,message}], fix_mode}`.
+`{dataset_id, scope, checks_total, passed, checks[{id,status,message}], fix_mode}`.
+
+`--scope` отбирает группу проверок: `dataset` (`config`, `index`), `environment` (`python`)
+или `all`. Неизвестное значение — `usage.error` (exit 2), а не молчаливый полный прогон:
+раньше флаг принимался и игнорировался (P1-4). `--scope` и `--check` сочетаются: сначала
+группа, затем конкретные id.
 
 ### `status`
-Быстрый снимок: `data.datasets[]`: `{dataset_id, generation_id, documents, records}`.
+Быстрый снимок: `data.datasets[]`:
+`{dataset_id, index_built, generation_id, documents, records}`.
 Читает опубликованное поколение, не пересобирая индекс.
+
+До первой пересборки `index_built: false`, а `documents`/`records` — `null`, не `0`: нули
+читались как «в датасете ничего нет» (P1-6). В этом случае конверт несёт `next_actions`
+с `todoc index rebuild`.
 
 ## Типовые последовательности
 

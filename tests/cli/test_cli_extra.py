@@ -363,3 +363,116 @@ def test_cli_module_as_main(root):
     )
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["ok"] is True
+
+
+# --- P1-4a: doctor --scope отбирает группу проверок --------------------------
+
+
+def test_doctor_scope_selects_check_group(root):
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "doctor", "--scope", "environment", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    data = _json(result)["data"]["datasets"][0]
+    assert data["scope"] == "environment"
+    assert [c["id"] for c in data["checks"]] == ["python"]
+
+    dataset = _json(_run(runner, ["--root", str(root), "doctor", "--scope", "dataset",
+                                  "--output", "json"]))["data"]["datasets"][0]
+    assert [c["id"] for c in dataset["checks"]] == ["config", "index"]
+
+    everything = _json(_run(runner, ["--root", str(root), "doctor", "--scope", "all",
+                                     "--output", "json"]))["data"]["datasets"][0]
+    assert everything["checks_total"] == 3
+
+
+def test_doctor_unknown_scope_is_usage_error(root):
+    """Раньше `--scope nonsense` молча выполнял все проверки."""
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "doctor", "--scope", "nonsense", "--output", "json"])
+    assert result.exit_code == 2
+    assert result.exception.code == "usage.error"
+
+
+def test_doctor_scope_and_check_combine(root):
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "doctor", "--scope", "dataset",
+                           "--check", "index", "--output", "json"])
+    assert result.exit_code == 0
+    assert [c["id"] for c in _json(result)["data"]["datasets"][0]["checks"]] == ["index"]
+
+
+# --- P1-4b: мёртвый флаг --if-hash-new убран --------------------------------
+
+
+def _record_file(root, name="note.json", record_id="note:extra"):
+    """Входной файл — вне DATA_ROOT: любой `.json` внутри корня считается записью (P1-9)."""
+    path = root.parent / name
+    path.write_text(json.dumps({"schema_version": 1, "record_id": record_id,
+                                "entity_type": "note", "title": "T"}), encoding="utf-8")
+    return str(path)
+
+
+def test_records_create_no_longer_advertises_a_dead_flag(root):
+    """Флаг обещал проверку, которую команда выполняет безусловно, —surface честнее без него."""
+    runner = CliRunner()
+    result = _run(runner, ["--root", str(root), "records", "create", "--type", "note",
+                           "--input-file", _record_file(root), "--if-hash-new", "--preview"])
+    assert result.exit_code == 2
+
+
+def test_records_create_refuses_occupied_target_unconditionally(root):
+    """Гарантия create-only не зависит от флагов: занятый путь — отказ уже в preview."""
+    runner = CliRunner()
+    assert _run(runner, ["--root", str(root), "index", "rebuild"]).exit_code == 0
+    input_file = _record_file(root)
+    preview = _json(_run(runner, ["--root", str(root), "records", "create", "--type", "note",
+                                  "--input-file", input_file, "--preview", "--output", "json"]))["data"]
+    assert "target_new" not in preview
+    target = root / preview["plan"]["target_path"]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{\"hello\": 1}", encoding="utf-8")
+
+    refused = _run(runner, ["--root", str(root), "records", "create", "--type", "note",
+                            "--input-file", input_file, "--preview", "--output", "json"])
+    assert refused.exit_code == 5
+    assert refused.exception.code == "record.target_exists"
+    assert target.read_text(encoding="utf-8") == "{\"hello\": 1}", "содержимое не должно быть тронуто"
+
+
+# --- P1-5: --where применяется до --rows ------------------------------------
+
+
+def test_docs_read_where_applies_before_rows(root):
+    (root / "data").mkdir(parents=True, exist_ok=True)
+    lines = ["run_id,status"] + [f"r{i},{'fail' if i % 2 else 'ok'}" for i in range(1, 9)]
+    (root / "data" / "runs.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    runner = CliRunner()
+    assert _run(runner, ["--root", str(root), "index", "rebuild"]).exit_code == 0
+
+    result = _json(_run(runner, ["--root", str(root), "docs", "read", "--id", "doc:data/runs.csv",
+                                 "--where", "status=fail", "--rows", "3", "--output", "json"]))["data"]
+    assert len(result["rows"]) == 3
+    assert all(r["status"] == "fail" for r in result["rows"])
+    assert result["matched"] == 4 and result["truncated"] is True and result["total"] == 8
+
+    everything = _json(_run(runner, ["--root", str(root), "docs", "read", "--id", "doc:data/runs.csv",
+                                     "--where", "status=fail", "--output", "json"]))["data"]
+    assert len(everything["rows"]) == 4 and everything["truncated"] is False
+
+
+# --- P1-6: status не выдаёт нули вместо «ещё не измерено» --------------------
+
+
+def test_status_before_first_rebuild_reports_nulls(root):
+    runner = CliRunner()
+    data = _json(_run(runner, ["--root", str(root), "status", "--output", "json"]))
+    entry = data["data"]["datasets"][0]
+    assert entry["index_built"] is False
+    assert entry["documents"] is None and entry["records"] is None
+    assert data["next_actions"], "без индекса должно быть сказано, что делать"
+    assert data["next_actions"][0]["action"] == "todoc index rebuild"
+
+    assert _run(runner, ["--root", str(root), "index", "rebuild"]).exit_code == 0
+    after = _json(_run(runner, ["--root", str(root), "status", "--output", "json"]))["data"]["datasets"][0]
+    assert after["index_built"] is True
+    assert isinstance(after["documents"], int) and isinstance(after["records"], int)
