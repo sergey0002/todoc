@@ -364,6 +364,19 @@
         "doc_type": "idea"
       },
       "priority": 200
+    },
+    {
+      "id": "tasks-by-front-matter",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "entity_type": "task"
+        }
+      },
+      "assign": {
+        "doc_type": "record"
+      },
+      "priority": 150
     }
   ]
 }

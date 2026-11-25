@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "record_id": "task:<project>-<key>",
+  "entity_type": "task",
+  "jira_key": "<PROJECT>-123",
+  "title": "<заголовок задачи>",
+  "status_at_fetch": "<статус Jira на момент захвата>",
+  "issue_type": "<task|bug|story|epic|subtask>",
+  "priority": "<priority Jira>",
+  "assignee": "<логин или null>",
+  "reporter": "<логин>",
+  "project_key": "<PROJECT>",
+  "project_name": "<имя проекта Jira>",
+  "created": "<YYYY-MM-DD>",
+  "updated": "<YYYY-MM-DD>",
+  "due": null,
+  "story_points": null,
+  "labels": [],
+  "components": [],
+  "description": "<поле description Jira как есть>",
+  "url": "https://jira.example.com/browse/<PROJECT>-123",
+  "fetched_at": "<YYYY-MM-DDTHH:MM:SSZ>",
+  "comments": [
+    {
+      "author": "<логин>",
+      "created": "<YYYY-MM-DDTHH:MM:SSZ>",
+      "body": "<текст комментария как есть>"
+    }
+  ],
+  "attachments": [
+    {
+      "name": "<имя файла в Jira>",
+      "path": "attachments/tasks/<PROJECT>-123/<имя>",
+      "mime": "<тип>",
+      "url": "<оригинальный URL вложения>"
+    }
+  ],
+  "origin": {
+    "source": "jira",
+    "project": "<папка проекта в хранилище>",
+    "fetched_by": "<кто собирал: агент/человек>"
+  },
+  "relations": []
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "type_id": "task",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Снимок задачи трекера (Jira): все поля, комментарии с авторами и датами, вложения — ссылками на сохранённые файлы.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "jira_key",
+    "title",
+    "status_at_fetch",
+    "issue_type",
+    "url",
+    "fetched_at",
+    "origin"
+  ],
+  "path_template": "tasks/{project}/{slug}.json",
+  "views": {
+    "summary": ["record_id", "jira_key", "title", "status_at_fetch", "assignee", "url"],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

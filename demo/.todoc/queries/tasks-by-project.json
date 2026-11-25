@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "name": "tasks-by-project",
+  "entity_type": "task",
+  "filters": {},
+  "sort_hint": "record_id",
+  "limit": 100
+}

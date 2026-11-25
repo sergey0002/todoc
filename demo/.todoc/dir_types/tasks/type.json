@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "tasks",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Задачи из трекера: снимки task-записей в JSON, сгруппированные по проектам."
+}
