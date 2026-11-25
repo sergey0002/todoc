@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # Порт P11: ни одна команда не должна требовать TTY, поэтому stdin закрыт.
+      - name: Tests
+        run: python -m pytest
+
+      # 100% покрытия — гейт проекта, а не отчёт: падение ниже останавливает сборку.
+      - name: Coverage (100% gate)
+        run: |
+          python -m coverage run --branch --source=src/todoc -m pytest -q
+          python -m coverage report --fail-under=100
+
+      - name: Linkcheck
+        run: python tools/linkcheck.py
+
+      - name: Docs are valid documents
+        run: python -m todoc --root demo --output json validate --all

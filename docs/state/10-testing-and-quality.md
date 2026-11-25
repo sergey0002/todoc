@@ -35,6 +35,10 @@ pip install -e .
 todoc --version
 ```
 
+Те же гейты выполняет CI (`.github/workflows/tests.yml`, Python 3.11 и 3.12): `pytest`,
+`coverage report --fail-under=100`, `tools/linkcheck.py` и `validate --all` на демо-датасете.
+Покрытие здесь — порог сборки, а не отчёт: падение ниже 100 % останавливает прогон.
+
 Конфигурация в `pyproject.toml`: `testpaths = ["tests"]`, `addopts = "-q"`,
 `[tool.coverage.run] branch = true`, `source = ["src/todoc"]`.
 
