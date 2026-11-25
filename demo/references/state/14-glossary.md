@@ -3,7 +3,7 @@ id: doc:state-glossary
 title: "Состояние: глоссарий"
 doc_type: reference
 lang: ru
-source: .doc/state/14-glossary.md
+source: docs/state/14-glossary.md
 copied: true
 ---
 # 14. Глоссарий

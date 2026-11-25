@@ -591,14 +591,20 @@ todoc/
 ├── tests/
 │   ├── unit/  cli/  integration/  conftest.py
 ├── bench/                           # критерии качества + run_benchmark.py + results/
+├── tools/                           # служебные скрипты репозитория (не часть пакета)
 └── demo/                            # демонстрационный DATA_ROOT (живой пример)
 ```
 
 Правило: в корне репозитория живут только `SKILL.md`, `README.md`, `pyproject.toml`,
 `.gitignore` и каталоги верхнего уровня (`docs/`, `references/`, `assets/`, `src/`,
-`tests/`, `bench/`, `demo/`). Отдельные документы в корне не появляются: план — в
+`tests/`, `bench/`, `tools/`, `demo/`). Отдельные документы в корне не появляются: план — в
 `docs/plan/`, состояние — в `docs/state/`, гайды — в `docs/guides/`, исследования — в
 `docs/research/`. Временные рабочие каталоги (`tmp_*`) в git не коммитятся.
+
+В `tools/` лежат скрипты, которые обслуживают сам репозиторий, а не набор данных:
+`refresh_demo_state.py` пересобирает `demo/references/state/` из `docs/state/` (копия
+производная и руками не правится), `linkcheck.py` проверяет относительные ссылки во всех
+Markdown-файлах. Они не входят в устанавливаемый пакет.
 
 ### 11.2. Набор данных: `<DATA_ROOT>/`
 

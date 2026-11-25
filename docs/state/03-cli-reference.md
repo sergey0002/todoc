@@ -42,9 +42,10 @@
 
 ### `check-config`
 Загружает конфигурацию и реестр типов. `data.datasets[]`: `{dataset_id, ok, warnings, dir_types, doc_types, entity_types, relation_types, issues}`.
-Ошибки (`config.unknown_field`, `config.invalid_schema`, `config.template_missing`, `config.prompt_missing`,
-`config.duplicate_asset`) дают exit 3; предупреждения (`config.legacy_asset` — актив типа лежит вне его папки)
-выводятся, но команду не роняют.
+Все находки — ошибки (`config.unknown_field`, `config.invalid_schema`, `config.template_missing`,
+`config.prompt_missing`, `config.schema_missing`, `config.duplicate_asset`) и дают exit 3.
+Поле `warnings` считает находки с `severity: warning`; сейчас таких кодов нет, поэтому оно равно 0 —
+контракт оставлен, чтобы предупреждение можно было добавить, не меняя форму ответа.
 
 ### `check [--strict]`
 Сводка по датасету. `data.datasets[]`: `{dataset_id, documents, errors, warnings, status}`.
@@ -124,10 +125,11 @@ BFS по типизированным рёбрам (обход ненаправ�
 
 ### `types list` / `types show TYPE_ID` / `types prompt TYPE_ID [--op OP]` / `types guide [--format markdown|json] [--out PATH]`
 `list`: `{dataset_id, dir_types[], doc_types[], entity_types[], relation_types[]}`.
-`show`: `{dataset_id, kind, type{...}, template, prompts}` — `template` и `prompts` дают путь
-и признак `exists` для каждого из четырёх CRUD-промптов (`read`, `create`, `edit`, `delete`);
-у типов папок и отношений keduanya пустые. Отсутствующий файл виден как `exists: false`,
-а не исчезает из ответа.
+`show`: `{dataset_id, kind, type{...}, template, prompts, schema}` — `template`, каждый из четырёх
+CRUD-промптов (`read`, `create`, `edit`, `delete`) и `schema` дают путь и признак `exists`;
+у типов папок и отношений все три пустые. Отсутствующий файл виден как `exists: false`,
+а не исчезает из ответа. `schema` равен `null` у любого типа, кроме типа записи, и указывает
+на `.todoc/entity_types/<type_id>/schema.json`.
 `prompt`: `{dataset_id, type_id, kind, operation, path, prompt, chars}` — текст стартового
 промпта одной операции. Отказы: `types.prompt_missing`, `types.unknown` (exit 3);
 неизвестная операция — ошибка использования (exit 2).

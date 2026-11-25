@@ -76,7 +76,7 @@ def test_validate_missing_entity_type(root):
 
 def test_validate_relations_dangling():
     records = [{"record_id": "w:1", "path": "w.json", "data": {"relations": [{"type_id": "performed_by", "target": {"id": "person:ghost"}}]}}]
-    diags = validate_relations("ds", records)
+    diags = validate_relations("ds", records, {"performed_by"})
     assert len(diags) == 1
     assert diags[0].code == "relation.dangling_target"
 
@@ -86,7 +86,7 @@ def test_validate_relations_ok():
         {"record_id": "w:1", "path": "w.json", "data": {"relations": [{"type_id": "performed_by", "target": {"id": "p:1"}}]}},
         {"record_id": "p:1", "path": "p.json", "data": {}},
     ]
-    assert validate_relations("ds", records) == []
+    assert validate_relations("ds", records, {"performed_by"}) == []
 
 
 def test_validate_glossary_front_matter(root):

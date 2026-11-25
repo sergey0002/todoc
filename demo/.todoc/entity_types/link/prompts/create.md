@@ -12,7 +12,7 @@ Entity type link.
 
 ## Обязательные поля
 
-Обязательные поля не заданы — сверьтесь с JSON Schema в `.todoc/schemas/records/`.
+Обязательные поля не заданы — сверьтесь со схемой `.todoc/entity_types/link/schema.json`.
 
 ## После создания
 

@@ -3,7 +3,7 @@ id: doc:state-validation
 title: "Состояние: валидация и каталог диагностик"
 doc_type: reference
 lang: ru
-source: .doc/state/06-validation-and-diagnostics.md
+source: docs/state/06-validation-and-diagnostics.md
 copied: true
 ---
 # 06. Валидация и каталог диагностик
@@ -51,6 +51,8 @@ copied: true
 | `config.unknown_field` | поле описателя не входит в список допустимых для вида типа |
 | `config.template_missing` | объявлен `template`, файла в папке типа нет |
 | `config.prompt_missing` | объявлен CRUD-промпт, файла нет |
+| `config.schema_missing` | объявлена `schema` у типа записи, файла в папке типа нет |
+| `config.duplicate_asset` | на роль схемы претендуют два файла: объявленная `schema` и `schema.json` |
 | `types.unknown` | `types show`/`docs new --type` для несуществующего типа |
 | `types.template_missing` | `docs new` не нашёл шаблон (файл или объявленный шаблоном) |
 | `types.template_invalid` | шаблон нарушает структуру своего типа — файл не создаётся |
@@ -168,6 +170,7 @@ copied: true
 | `access.denied` | отказ в доступе (exit 4) |
 | `generation.incomplete` | поколение индекса не опубликовано целиком (exit 6) |
 | `usage.missing_root` | не указан `--root` и `TODOC_ROOT` (exit 2) |
+| `usage.error` | Click отклонил вызов: неизвестная команда или опция, неверный аргумент (exit 2) |
 
 ## Предложенные фиксы
 

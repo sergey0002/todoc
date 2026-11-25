@@ -12,7 +12,7 @@ Entity type person.
 
 ## Обязательные поля
 
-Обязательные поля не заданы — сверьтесь с JSON Schema в `.todoc/schemas/records/`.
+Обязательные поля не заданы — сверьтесь со схемой `.todoc/entity_types/person/schema.json`.
 
 ## После создания
 

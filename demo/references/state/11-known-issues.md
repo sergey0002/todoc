@@ -3,7 +3,7 @@ id: doc:state-known-issues
 title: "Состояние: известные проблемы"
 doc_type: reference
 lang: ru
-source: .doc/state/11-known-issues.md
+source: docs/state/11-known-issues.md
 copied: true
 ---
 # 11. Известные проблемы

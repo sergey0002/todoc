@@ -164,7 +164,7 @@ SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, adapters, typing_system, output
-tests/                419 теста: unit, cli, integration (покрытие 100%)
+tests/                420 тестов: unit, cli, integration (покрытие 100%)
 docs/
 ├── plan/             конституция, план реализации, конкурентный анализ, аудит, AFTER-планы,
 │                     engineering-draft.md — инженерный набросок §1–§18
@@ -174,6 +174,7 @@ docs/
 references/           справка по подсистемам (входит в Skill)
 assets/               шаблон DATA_ROOT для Skill
 bench/                бенчмарк качества: 30 критериев, скрипт, результаты
+tools/                служебные скрипты репозитория: пересборка demo-копий state, линкчекер
 demo/                 демо-датасет (DATA_ROOT) — живой пример всех возможностей
 ```
 
@@ -217,7 +218,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **29.5 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-419 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+420 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 

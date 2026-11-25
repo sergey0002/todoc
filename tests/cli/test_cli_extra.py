@@ -230,9 +230,9 @@ def test_docs_new_dir_cannot_escape_root(root):
 
 def test_records_create_enforces_the_entity_schema(root):
     """A value outside the schema's enum is refused before the file is written."""
-    schema_dir = root / ".todoc" / "schemas" / "records"
+    schema_dir = root / ".todoc" / "entity_types" / "note"
     schema_dir.mkdir(parents=True, exist_ok=True)
-    (schema_dir / "note.json").write_text(json.dumps({
+    (schema_dir / "schema.json").write_text(json.dumps({
         "type": "object",
         "required": ["record_id", "entity_type", "mood"],
         "properties": {"mood": {"enum": ["calm", "focused"]}},

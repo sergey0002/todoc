@@ -158,7 +158,7 @@ def seed_defects(root: Path) -> list[dict]:
     (root / "bench-records" / "bad-syntax.json").write_text('{"a": ,}\n', encoding="utf-8")
     defects.append({"path": "bench-records/bad-syntax.json", "code": "json.syntax_error"})
 
-    # decision has a JSON Schema in .todoc/schemas/records/, so an out-of-enum
+    # decision has a JSON Schema in .todoc/entity_types/decision/, so an out-of-enum
     # status is a real record.schema_violation (workout has no schema at all).
     (root / "bench-records" / "schema-violation.json").write_text(json.dumps({
         "schema_version": 1, "record_id": "decision:bench-1", "entity_type": "decision",

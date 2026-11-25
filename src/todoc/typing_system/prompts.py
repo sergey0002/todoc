@@ -149,7 +149,7 @@ def create_prompt(type_id: str, kind: str, description: str, descriptor: dict[st
 
 ## Обязательные поля
 
-{fields or "Обязательные поля не заданы — сверьтесь с JSON Schema в `.todoc/schemas/records/`."}
+{fields or f"Обязательные поля не заданы — сверьтесь со схемой `.todoc/entity_types/{type_id}/schema.json`."}
 
 ## После создания
 
