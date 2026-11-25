@@ -28,6 +28,7 @@ from todoc.application.changes import (apply_change, archive_change, change_id_f
                                        validate_change, verify_change)
 from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
+from todoc.application.folder_config import load_folder_configs, score_folder_configs
 from todoc.application.search import search_documents
 from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
@@ -1093,13 +1094,32 @@ def _write_whole(root: Path, rel_path: str, text: str, expected_hash: str | None
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def explain_path(path: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
-    """Show resolved type/rule for a path."""
+    """Show resolved type/rule for a path — документы И папки (с .config.json-метой предка)."""
     for ctx in _contexts(roots):
-        _f, documents, _r, _rel, _d = ctx.scan_and_validate()
+        folders, documents, _r, _rel, _d = ctx.scan_and_validate()
+        folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+
+        def _ancestor_fields(p: str) -> dict[str, Any]:
+            cur = Path(p)  # папка — с самой себя; документ — с его папки
+            while str(cur) != ".":
+                fc = folder_configs.get(cur.as_posix())
+                if fc:
+                    return {"title": fc.title, "description": fc.description, "order": fc.order}
+                cur = cur.parent
+            return {"title": None, "description": None, "order": None}
+
+        folder_map = {f["path"]: f for f in folders}
+        fm = folder_map.get(path)
+        if fm is not None:
+            _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "folder": True,
+                      "dir_type": fm["dir_type"], "rule_source": fm["rule_source"],
+                      **_ancestor_fields(path)}, output, None)
+            return
         for doc in documents:
             if doc["path"] == path:
                 _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "doc_type": doc["doc_type"],
-                          "format": doc["format"], "rule_source": doc["rule_source"], "document_id": doc["document_id"]},
+                          "format": doc["format"], "rule_source": doc["rule_source"], "document_id": doc["document_id"],
+                          **_ancestor_fields(path)},
                          output, None)
                 return
     raise ValidationError(f"Path not found in dataset: {path}", "explain.path_not_found")
@@ -1311,15 +1331,29 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
 @click.option("--no-input", is_flag=True)
 @click.option("--within", default=None)
 @click.option("--max-depth", type=int, default=3)
-def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None, max_depth: int) -> None:
+@click.option("--match", "match_q", default=None,
+              help="Фильтр папок Фазой A скоринга (.config.json): score ≥ 0.25, порядок score → order → путь.")
+def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None,
+              max_depth: int, match_q: str | None) -> None:
     """Compact derived outline (folders + documents)."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
-    folders = payload["folders"]
+    folders = [dict(f) for f in payload["folders"]]
     documents = payload["documents"]
     if within:
         folders = [f for f in folders if f["path"] == within or f["path"].startswith(within.rstrip("/") + "/")]
         documents = [d for d in documents if d["path"] == within or d["path"].startswith(within.rstrip("/") + "/")]
+    folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+    for f in folders:  # плоские поля из .config.json ближайшего СВОЕГО конфига (null без него)
+        fc = folder_configs.get(f["path"])
+        f["title"] = fc.title if fc else None
+        f["description"] = fc.description if fc else None
+        f["order"] = fc.order if fc else None
+    if match_q:
+        candidates, _discarded = score_folder_configs(folder_configs, match_q)
+        rank = {c["path"]: i for i, c in enumerate(candidates)}
+        folders = [f for f in folders if f["path"] in rank]
+        folders.sort(key=lambda f: rank[f["path"]])
     _emit_ok({"dataset_id": ctx.dataset_id, "folders": folders[:50], "documents": documents[:50],
               "total_folders": len(folders), "total_documents": len(documents), "max_depth": max_depth}, output, None)
 
