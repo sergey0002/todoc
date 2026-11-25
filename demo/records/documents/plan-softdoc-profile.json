@@ -7,13 +7,21 @@
   "doc_type": "plan",
   "lang": "ru",
   "origin": "authored",
-  "lines": 525,
+  "lines": 781,
   "tags": [
+    "api-contract",
+    "asyncapi",
+    "ddd",
     "documentation",
-    "types",
+    "domain-event",
+    "openapi",
+    "openspec",
+    "postmortem",
     "prompts",
+    "runbook",
     "skills",
-    "openspec"
+    "types",
+    "wave-2"
   ],
   "relations": [
     {
