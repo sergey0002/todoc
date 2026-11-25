@@ -24,9 +24,12 @@
 | [12-agent-operations.md](12-agent-operations.md) | Как агенту работать с системой безопасно | агент (основной) |
 | [13-demo-dataset.md](13-demo-dataset.md) | Устройство демо-датасета `demo/` | человек + агент |
 | [14-glossary.md](14-glossary.md) | Термины | человек + агент |
+| [15-benchmark.md](15-benchmark.md) | Бенчмарк качества: 30 критериев, сравнение с конкурентами | человек |
 
 ## Связанные документы
 
+- Установка и первый запуск: [docs/installation.md](../installation.md).
+- Индекс всей документации: [docs/README.md](../README.md).
 - Норматив: [конституция](../plan/constitution.md), [план реализации](../plan/implementation-plan.md).
 - Аудит с полным списком находок: [аудит реализации](../plan/audit-implementation.md).
 - Живой пример: [`demo/`](../../demo/README.md) — полноценный DATA_ROOT, проверяемый тем же CLI.

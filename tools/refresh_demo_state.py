@@ -41,6 +41,9 @@ DELINK = {
     "../../bench/criteria.md",
     "../../bench/results/benchmark.json",
     "../../bench/results/benchmark.md",
+    # Repo-level docs index and installation guide: not copied into the demo.
+    "../README.md",
+    "../installation.md",
 }
 
 LINK = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)(?P<rest>[^)]*)\)")
