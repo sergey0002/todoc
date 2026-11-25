@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 09:14:08",
+    "date": "2026-11-25 10:42:29",
     "corpus": "/tmp/todoc-bench-corpus",
     "documents": 256,
     "records": 159,
     "relations": 140,
     "latency_ms": {
-      "status": 158,
-      "types list": 150,
-      "docs search": 1627,
-      "docs read": 1085,
+      "status": 150,
+      "types list": 149,
+      "docs search": 1511,
+      "docs read": 1059,
       "records list": 1060,
-      "validate": 1002
+      "validate": 997
     },
     "seeded_defects": 9
   },
@@ -82,7 +82,7 @@
       "name": "Front matter совместим с внешним YAML-парсером",
       "status": "pass",
       "score": 1.0,
-      "detail": "PyYAML: 0 файлов разобрано, 0 с ошибкой"
+      "detail": "PyYAML: 90 файлов разобрано, 0 с ошибкой"
     },
     {
       "id": "K9",
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note:bench-safety-e5b19eed.json, файлов изменено: 0"
+      "detail": "target=records/note/note:bench-safety-c6ab68a4.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -210,7 +210,7 @@
       "name": "Пагинация через --cursor продолжает выдачу без повторов",
       "status": "pass",
       "score": 1.0,
-      "detail": "cursor=2, вторая страница вернула 2 из total=31, пересечений с первой: 0"
+      "detail": "cursor=2, вторая страница вернула 2 из total=32, пересечений с первой: 0"
     },
     {
       "id": "K25",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=158мс, types list=150мс, docs search=1627мс, docs read=1085мс, records list=1060мс, validate=1002мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=150мс, types list=149мс, docs search=1511мс, docs read=1059мс, records list=1060мс, validate=997мс"
     },
     {
       "id": "K28",
@@ -345,9 +345,9 @@
       "unexpected": []
     },
     "K8": {
-      "ok": 0,
+      "ok": 90,
       "bad": 0,
-      "skipped": "PyYAML недоступен"
+      "files": []
     },
     "K12": {
       "changed": [],
@@ -473,7 +473,7 @@
         },
         {
           "query": "конкурент",
-          "relevant_total": 50,
+          "relevant_total": 51,
           "top3": [
             "doc:competitive-analysis",
             "doc:state-benchmark",
@@ -496,25 +496,25 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 158,
-        "limit_ms": 1500,
-        "within": true
-      },
-      {
-        "command": "types list",
         "median_ms": 150,
         "limit_ms": 1500,
         "within": true
       },
       {
+        "command": "types list",
+        "median_ms": 149,
+        "limit_ms": 1500,
+        "within": true
+      },
+      {
         "command": "docs search",
-        "median_ms": 1627,
+        "median_ms": 1511,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "docs read",
-        "median_ms": 1085,
+        "median_ms": 1059,
         "limit_ms": 2500,
         "within": true
       },
@@ -526,7 +526,7 @@
       },
       {
         "command": "validate",
-        "median_ms": 1002,
+        "median_ms": 997,
         "limit_ms": 4000,
         "within": true
       }
@@ -544,40 +544,39 @@
   },
   "competitors": {
     "obsidiantools": {
-      "elapsed_s": 7.111,
-      "notes": 90,
-      "local_md_links": 275,
+      "elapsed_s": 6.806,
+      "notes": 91,
+      "local_md_links": 287,
       "broken_links_detected": 1,
       "broken_samples": [
         "broken-link -> does-not-exist.md"
       ],
-      "backlinks": 88,
-      "isolated_notes": 86,
-      "front_matter_index": 88,
+      "backlinks": 89,
+      "isolated_notes": 87,
+      "front_matter_index": 89,
       "available": true,
-      "front_matter_warnings": 3,
-      "reused_from": "bench/results/benchmark.json"
+      "front_matter_warnings": 3
     },
     "open-knowledge": {
       "available": true,
       "commands": {
         "help": {
           "exit_code": 0,
-          "elapsed_s": 0.538,
+          "elapsed_s": 0.534,
           "stdout_bytes": 4967,
           "stderr_bytes": 0,
           "first_line": "Usage: open-knowledge [options] [file | command]"
         },
         "status": {
           "exit_code": 0,
-          "elapsed_s": 0.614,
+          "elapsed_s": 0.63,
           "stdout_bytes": 40,
           "stderr_bytes": 0,
           "first_line": "server  not running"
         },
         "diagnose": {
           "exit_code": 1,
-          "elapsed_s": 0.515,
+          "elapsed_s": 0.527,
           "stdout_bytes": 0,
           "stderr_bytes": 714,
           "first_line": ""
@@ -585,8 +584,7 @@
       },
       "version": "0.28.2",
       "subcommands": 12,
-      "writes_into_corpus": [],
-      "reused_from": "bench/results/benchmark.json"
+      "writes_into_corpus": []
     },
     "open-knowledge-capabilities": {
       "validate": false,
@@ -598,8 +596,7 @@
       "ui": true,
       "graph": false,
       "types": false,
-      "records": false,
-      "reused_from": "bench/results/benchmark.json"
+      "records": false
     }
   }
 }
