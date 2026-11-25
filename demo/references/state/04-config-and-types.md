@@ -20,7 +20,7 @@ copied: true
 | `directory_rules` | `rules/directory-rules.json` | путь к правилам папок |
 | `document_rules` | `rules/document-rules.json` | путь к правилам документов |
 | `directory_types` / `document_types` / `entity_types` / `relation_types` | `dir_types` и т.д. | каталоги описателей |
-| `queries` / `templates` | `queries`, `templates` | сохранённые запросы и шаблоны |
+| `queries` | `queries` | каталог сохранённых запросов |
 | `trusted_workflows` | `record-capture-v1` | объявление доверенного внешнего навыка |
 | `follow_symlinks` | `false` | не следовать по symlink |
 | `limits.max_file_bytes` | `10485760` | больше — статус `unsupported` |

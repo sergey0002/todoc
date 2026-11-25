@@ -16,25 +16,28 @@ CLI (click)  →  application  →  domain / typing_system
 
 | Модуль | Строк | Ответственность |
 |---|---|---|
-| `cli.py` | 688 | 25 листовых команд, флаги, конвертация `TodocError` в код выхода |
-| `adapters/formats/markdown.py` | 331 | Токены markdown-it-py: заголовки, ссылки, front matter, backlinks |
-| `application/validator.py` | 303 | Диагностика: синтаксис, типы, ссылки, схемы записей, отношения |
+| `cli.py` | 945 | 26 листовых команд, флаги, конвертация `TodocError` в код выхода |
+| `application/validator.py` | 452 | Диагностика: синтаксис, типы, ссылки, схемы записей, отношения |
+| `adapters/formats/markdown.py` | 351 | Токены markdown-it-py: заголовки, ссылки, front matter, backlinks |
+| `typing_system/prompts.py` | 309 | Генерация стартовых шаблонов и CRUD-промптов типа |
+| `typing_system/descriptors.py` | 279 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
 | `domain/models.py` | 205 | Document, Folder, Diagnostic, SuggestedFix, SearchHit, WritePlan |
-| `config.py` | 164 | `dataset.json`, правила по умолчанию, `init` |
+| `config.py` | 197 | `dataset.json`, правила и типы по умолчанию, `init`, ассеты типов |
+| `application/write.py` | 188 | WritePlan, create record, фикс ссылки, line-операции правки |
+| `application/search.py` | 146 | Лексический поиск, ранжирование, фрагменты, бюджет |
 | `typing_system/resolver.py` | 143 | Маски, приоритеты, резолв `dir_type`/`doc_type`, конфликты |
-| `service.py` | 123 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация |
+| `adapters/formats/jsonfmt.py` | 142 | Строгий JSON, глубина, JSON Pointer, JSON Schema |
+| `service.py` | 124 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация |
 | `application/registry.py` | 123 | Поколения индекса, `CURRENT.json`, кэш парсинга |
+| `application/query.py` | 123 | Фильтры, агрегация с единицами, BFS по графу |
 | `adapters/filesystem/scanner.py` | 123 | Обход, hard-excludes, containment, `atomic_write`, хеши |
-| `application/write.py` | 120 | WritePlan, create record, фикс ссылки, line-операции правки |
-| `application/search.py` | 118 | Лексический поиск, ранжирование, фрагменты, бюджет |
-| `adapters/formats/jsonfmt.py` | 118 | Строгий JSON, глубина, JSON Pointer, JSON Schema |
-| `application/query.py` | 111 | Фильтры, агрегация с единицами, BFS по графу |
-| `typing_system/descriptors.py` | 83 | Загрузка и проверка описателей типов |
 | `adapters/formats/csvfmt.py` | 63 | Заголовки, строки, лимиты CSV |
 | `output/envelope.py` | 60 | Конверт и рендер json/table/markdown |
 | `errors.py` | 51 | Коды выхода 0–6, иерархия ошибок |
+| `__main__.py` | 6 | Точка входа `python -m todoc` |
 
-Итого `src/todoc`: 3003 строки. Пустые порты-заглушки: `ports/`, `adapters/indexes/`,
+Итого `src/todoc`: 4100 строк (4030 в 19 модулях из таблицы + 70 в `__init__.py`).
+Пустые порты-заглушки: `ports/`, `adapters/indexes/`,
 `adapters/cache/`, `adapters/search/` — зарезервированы под пост-MVP (см. план E1–E10).
 
 ## Поток данных команды чтения
