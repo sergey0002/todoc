@@ -1325,6 +1325,30 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     _emit_ok(data, output, None)
 
 
+@docs.command("suggest")
+@click.option("--root", "roots", multiple=True)
+@click.option("--query", "q", required=True, help="Запрос: куда положить/где искать (кириллица работает).")
+@click.option("--limit", type=int, default=5, show_default=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def docs_suggest(roots: tuple[str, ...], q: str, limit: int, output: str, no_input: bool) -> None:
+    """Куда положить/где искать: скоринг папок по .config.json (Фаза A, детерминированно)."""
+    ctx = _contexts(roots)[0]
+    if not q.strip():
+        raise TodocError("Пустой запрос: укажите --query.", EXIT_USAGE, "usage.error")
+    folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+    candidates, discarded = score_folder_configs(folder_configs, q)
+    truncated = len(candidates) > limit
+    candidates = candidates[:limit]
+    _emit_ok({"query": q, "threshold": 0.25, "truncated": truncated,
+              "candidates": candidates, "discarded": discarded},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["docs", "new", "--dir", "<путь из кандидатов>"],
+                            "purpose": "Создать документ в выбранной папке"},
+                           {"argv": _root_argv(roots) + ["explain-path", "<путь из кандидатов>"],
+                            "purpose": "Объяснить выбранную папку (dir_type + мета)"}])
+
+
 @docs.command("tree")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
