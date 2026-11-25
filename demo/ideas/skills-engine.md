@@ -3,13 +3,19 @@ id: doc:skills-engine-idea
 title: "Идея: хранилище-движок скилов на todoc (skills vault + CLI-оглавление на лету)"
 doc_type: idea
 lang: ru
-status: captured
+status: planned
+updated: 2026-11-25
+related: ["[[plan-skills-vault]]"]
 ---
 
 # Идея: хранилище-движок скилов на todoc
 
-**Статус:** идея, не перешла в план. Включает ресёрч стандартов скилов (25.11.2026):
-открытый стандарт Agent Skills, механики Claude Code и OpenAI Codex, skills CLI (Vercel).
+**Статус:** запланирована (2026-11-25) — исполняющий план
+[skills-vault-implementation](../plan/skills-vault-implementation.md)
+(doc:plan-skills-vault): задачи 1–7 покрывают фазы 1–5 и диспетчер-скил
+`todoc`; открытые вопросы закрыты в §4 плана. Ресёрч стандартов скилов
+(25.11.2026): открытый стандарт Agent Skills, механики Claude Code и OpenAI
+Codex, skills CLI (Vercel); дополнение — Hermes Agent и router-паттерны (§ниже).
 
 ## Суть
 
@@ -117,6 +123,31 @@ description. В claude.ai/API — строже: только 6 стандарт�
 | Расширенные поля Claude Code (when_to_use, paths, …) | Claude Code | игнорируются сканером, сохраняются файлом — мы не единственный читатель |
 | Progressive disclosure L1–L3 | стандарт | L1 = наше дерево; L2/L3 = чтение SKILL.md и файлов |
 | Мьют без удаления | наша конвенция | `!`-префикс папки (вне стандарта — помечено) |
+
+### Дополнение ресёрча (25.11.2026, вторая волна): Hermes Agent и router-паттерны
+
+- **Hermes Agent (Nous Research)** — ближайший референс со своим иерархическим
+  форматом: скил = `~/.hermes/skills/<category>/<skill>/SKILL.md` (двухуровневая
+  иерархия категорий, 310+ скилов); **4 тира доступа** — `skills_categories()`
+  (разделы+счётчики) → `skills_list()` (name+description) → `skill_view(name)`
+  (SKILL.md целиком) → `skill_view(name, file_path)` (один reference-файл);
+  house-стандарт: описание ≤60 симв., фиксированный порядок секций When to Use →
+  Procedure → Pitfalls → Verification; поля `platforms`, `prerequisites`,
+  `metadata.hermes` поверх открытого стандарта; rglob + первые 4000 симв. на
+  front matter; dedup по имени (локальный побеждает); Skills Hub с trust-уровнями.
+  Источники: tutorsbot.com/blog/hermes-agent-skills-explained-2026,
+  kenhuangus.substack.com (Chapter 12: Claude Code vs Hermes), macgpu.com
+  (GEPA-гайд), marktechpost.com (/learn).
+- **Router-паттерн (context economy)**: OpenAI guidance 2026-09 — «минимизируй
+  метаданные, избегай перекрывающихся скилов, use a small router»; skill-router
+  (chrishan17, 40+ агентов): один router-скил + подавление описаний под-скилов —
+  ~400 токенов вместо десятков тысяч при 100+ скилах; Popov (500+ скилов):
+  router ~100 ток. + server-side search top-3 (только метаданные) + read с
+  path-confinement, entry gate + refusal floor, «context cost scales with usage,
+  not catalog size»; Routed (r/LLMDevs): локальный роутер <20 ms/0 токенов,
+  один инструмент вместо 20+ схем. Принято в план: диспетчер-скил `todoc` +
+  `skills tree/read` как search/read с ограничением пути; витрина в платформы
+  не монтируется.
 
 ## Предложение
 
@@ -239,6 +270,11 @@ skills/  (12 skills, 3 sections, 1 muted)
 ```
 
 ## План внедрения (до рабочей системы)
+
+> Исполнение — план `plan/skills-vault-implementation.md` (doc:plan-skills-vault):
+> Задачи 1–2 = Фазы 1–2, Задача 3 = Фаза 3, Задача 4 = Фаза 4, Задача 6 = Фаза 5;
+> Задача 5 — диспетчер-скил `todoc` и `skills attach` (дополнение из ресёрча
+> router-паттернов 25.11.2026).
 
 - **Фаза 1 — сканер и валидация.** dir_type-семантика «папка = раздел, подкаталог
   со SKILL.md = скил»; парсер front matter (markdown-парсер уже умеет front matter);
