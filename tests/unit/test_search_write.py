@@ -4,7 +4,8 @@ import pytest
 
 from todoc.adapters.filesystem.scanner import file_hash
 from todoc.application.search import search_documents, tokenize
-from todoc.application.write import apply_edit_ops, apply_fix, apply_write_plan, create_record_plan, load_input_record
+from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_record_plan,
+                                     load_input_record, portable_name)
 from todoc.errors import ConflictError, ValidationError
 
 
@@ -82,12 +83,68 @@ def test_create_record_plan_accepts_schema_conformant_record():
     schema = {"type": "object", "properties": {"mood": {"enum": ["calm", "focused"]}}}
     record = {"record_id": "note:2", "entity_type": "note", "mood": "calm"}
     plan = create_record_plan({"dataset_id": "ds"}, {"note": {}}, record, set(), set(), schema)
-    assert plan.target_path == "records/note/note:2.json"
+    # A colon cannot appear in a Windows file name, so the id is sanitized into
+    # the path while staying the record's identity.
+    assert plan.target_path == "records/note/note-2.json"
 
 
 def test_create_record_plan_unknown_type():
     with pytest.raises(ValidationError):
         create_record_plan({"dataset_id": "ds"}, {}, {"record_id": "x:1", "entity_type": "ghost"}, set(), set())
+
+
+WINDOWS_FORBIDDEN = set('<>:"/\\|?*')
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("workout:2026-11-25", "workout-2026-11-25"),
+    ("note:a/b", "note-a-b"),
+    ('bad<>:"/\\|?*', "bad---------"),
+    ("trailing...", "trailing"),
+    ("  padded  ", "padded"),
+    ("CON", "_CON"),
+    ("nul.json", "_nul.json"),
+    (":::", "---"),
+    ("обычный-id", "обычный-id"),
+])
+def test_portable_name(value, expected):
+    assert portable_name(value) == expected
+
+
+def test_portable_name_never_leaves_windows_forbidden_chars():
+    """No identifier may produce a file name Windows refuses to create."""
+    for value in ["a:b", "a/b", "a\\b", "a<b>c", 'a"b', "a|b", "a?b", "a*b", "a\x00b", "a\x1fb"]:
+        assert not (WINDOWS_FORBIDDEN & set(portable_name(value))), value
+
+
+def test_create_record_plan_sanitizes_every_unsafe_char_in_default_template():
+    record = {"record_id": 'note:a/b:c<d>e|f?g*h"i\\j', "entity_type": "note", "title": "T"}
+    plan = create_record_plan({"dataset_id": "ds"}, {"note": {}}, record, set(), set())
+    name = plan.target_path.rsplit("/", 1)[-1]
+    assert not (WINDOWS_FORBIDDEN & set(name))
+    assert plan.target_path == "records/note/note-a-b-c-d-e-f-g-h-i-j.json"
+
+
+def test_create_record_plan_id_with_slash_cannot_create_a_subdirectory():
+    """A slash in an id belongs to the value, not to the path: it must not nest."""
+    record = {"record_id": "note:deep/nested", "entity_type": "note", "title": "T"}
+    plan = create_record_plan({"dataset_id": "ds"}, {"note": {}}, record, set(), set())
+    assert plan.target_path.count("/") == 2  # records/note/<file>.json
+
+
+def test_create_record_plan_honours_slug_template_and_sanitizes_it():
+    descriptor = {"path_template": "records/note/{slug}.json"}
+    record = {"record_id": "note:2026:11:25", "entity_type": "note", "title": "T"}
+    plan = create_record_plan({"dataset_id": "ds"}, {"note": descriptor}, record, set(), set())
+    assert plan.target_path == "records/note/2026-11-25.json"
+
+
+def test_create_record_plan_substitutes_in_a_single_pass():
+    """A literal ``{slug}`` inside an id must not be expanded by the second pass."""
+    descriptor = {"path_template": "records/note/{record_id}.json"}
+    record = {"record_id": "note:{slug}", "entity_type": "note", "title": "T"}
+    plan = create_record_plan({"dataset_id": "ds"}, {"note": descriptor}, record, set(), set())
+    assert plan.target_path == "records/note/note-{slug}.json"
 
 
 def test_create_record_plan_missing_id():

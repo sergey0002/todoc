@@ -5,8 +5,9 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import posixpath
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from todoc.adapters.filesystem.scanner import ScannedFile
@@ -87,16 +88,37 @@ def _fuzzy_candidates(basename: str, by_basename: dict[str, list[str]],
     return by_basename.get(close[0], [])
 
 
+def _link_replacement(candidate: str, source_rel_path: str, is_wikilink: bool) -> str:
+    """Write a root-relative candidate the way the link itself must be written.
+
+    An inline Markdown link resolves against the directory of the file that
+    contains it, so a candidate taken from the root-relative basename index has
+    to be re-based onto that directory. Without this, ``fix --apply`` rewrites
+    ``[a](runbok.md)`` in ``notes/a.md`` into ``ops/runbook.md``, which the
+    parser then looks for at ``notes/ops/runbook.md`` — the file stays broken
+    and the diagnostic comes back on the next ``validate``.
+
+    Wikilinks are the exception: they resolve by basename/stem anywhere in the
+    root (``_wikilink_candidates``), so they must stay a bare stem.
+    """
+    if is_wikilink:
+        return PurePosixPath(candidate).stem
+    parent = PurePosixPath(source_rel_path).parent.as_posix()
+    return posixpath.relpath(candidate, parent)
+
+
 def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any, candidates: list[str],
                      basename: str, by_basename: dict[str, list[str]], basenames: list[str]) -> Diagnostic:
     fixes: tuple[SuggestedFix, ...] = ()
     if len(candidates) == 1:
-        fixes = (SuggestedFix(kind="replace_link_target", replacement=candidates[0],
+        fixes = (SuggestedFix(kind="replace_link_target",
+                              replacement=_link_replacement(candidates[0], scanned.rel_path, link.is_wikilink),
                               basis="Найден единственный кандидат с совпадающим basename."),)
     else:
         fuzzy = _fuzzy_candidates(basename, by_basename, basenames)
         if len(fuzzy) == 1:
-            fixes = (SuggestedFix(kind="replace_link_target", replacement=fuzzy[0],
+            fixes = (SuggestedFix(kind="replace_link_target",
+                                  replacement=_link_replacement(fuzzy[0], scanned.rel_path, link.is_wikilink),
                                   basis="Найден ближайший кандидат по имени файла."),)
     evidence = f"[[{link.target}]]" if link.is_wikilink else f"[{link.text}]({link.target})"
     return Diagnostic(

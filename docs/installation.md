@@ -94,7 +94,7 @@ PYTHONPATH=src python3 -m pytest tests
 ```
 
 Второй вариант проверяет, что окружение пригодно для работы: ожидаемый результат —
-`420 passed`.
+`437 passed`.
 
 ## Первый датасет
 
@@ -170,9 +170,9 @@ pip uninstall todoc                       # удаление
 Полный набор проверок, который проходит на чистом окружении:
 
 ```bash
-python3 -m pytest                                     # 420 passed
+python3 -m pytest                                     # 437 passed
 python3 -m coverage run -m pytest tests               # тесты под coverage
-python3 -m coverage report                            # в строке TOTAL: 2491, 0, 868, 0, 100%
+python3 -m coverage report                            # в строке TOTAL: 2510, 0, 874, 0, 100%
 todoc --root demo validate --all                      # ok, 0 диагностик
 ```
 
