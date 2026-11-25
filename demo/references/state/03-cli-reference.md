@@ -146,7 +146,9 @@ CRUD-промптов (`read`, `create`, `edit`, `delete`) и `schema` дают 
 ### `fix --diagnostic ID [--preview] [--apply] [--if-hash H]`
 Применяет один предложенный фикс (замена цели ссылки). `--preview`: `{diagnostic, preview: true, fix}`;
 `--apply`: `{diagnostic, applied: true, new_hash}`. Неизвестный ID — `fix.diagnostic_not_found` (exit 3).
-**ID диагностики живёт только в рамках одного запуска `validate`** — берите его из того же процесса.
+ID диагностики — SHA-256 от `path + code + message`, поэтому он одинаков в каждом запуске и `fix`
+находит его заново своим сканом. Действителен, пока не изменён файл с дефектом; после правки
+прежний ID даёт `fix.diagnostic_not_found`.
 
 ### `doctor [--check IDS] [--scope S] [--fix]`
 Только чтение: проверки `config`, `index`, `python`. `data.datasets[]`:
