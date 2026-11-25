@@ -20,7 +20,7 @@
 | Покрытие | 100% — 4570 инструкций, 1676 веток, 0 пропусков | `coverage run --branch` + `coverage report -m` |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` | `pyproject.toml` |
 | Python | 3.11.2 | `todoc doctor` |
-| Демо-датасет | 248 документов, 157 записей, 0 диагностик | `todoc validate --root demo --all` |
+| Демо-датасет | 257 документов, 159 записей, 0 диагностик | `todoc validate --root demo --all` |
 
 ## Что реализовано (проверено прогоном)
 

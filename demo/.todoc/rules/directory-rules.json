@@ -154,6 +154,50 @@
         "dir_type": "skill"
       },
       "priority": 100
+    },
+    {
+      "id": "demo-dir-ideas",
+      "match": {
+        "kind": "directory",
+        "basename": "ideas"
+      },
+      "assign": {
+        "dir_type": "idea"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-tasks",
+      "match": {
+        "kind": "directory",
+        "basename": "tasks"
+      },
+      "assign": {
+        "dir_type": "tasks"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-projects",
+      "match": {
+        "kind": "directory",
+        "basename": "projects"
+      },
+      "assign": {
+        "dir_type": "projects"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-projects-subdirs",
+      "match": {
+        "kind": "directory",
+        "glob": "projects/*/"
+      },
+      "assign": {
+        "dir_type": "projects"
+      },
+      "priority": 90
     }
   ]
 }

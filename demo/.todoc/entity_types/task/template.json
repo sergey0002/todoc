@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "record_id": "task:<slug>",
+  "entity_type": "task",
+  "title": "<что сделать — единственное обязательное поле>",
+  "source": "user",
+  "status": "open",
+  "relations": []
+}

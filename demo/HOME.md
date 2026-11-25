@@ -32,6 +32,13 @@ lang: ru
 - [Исследование MCP и CLI](.research/mcp-cli-agents-research.md)
 - [Сравнительный аудит Agent Skills](.research/comparative-audit.md)
 
+## Идеи (`ideas/`)
+
+- [Система документирования кодовой базы через агента](ideas/documentation-system.md) — git-дифы и Jira API → типизированные черновики todoc, очередь сбора, версии правил через `supersedes`.
+- [Хранилище-движок скилов на todoc](ideas/skills-engine.md) — скил как dir_type (формат Agent Skills), иерархия-дерево решений, `todoc skills tree` — оглавление с описаниями на лету, мьют через `!`-префикс.
+- [`.config.json` — самоописание папок](ideas/folder-config.md) — заголовок, описание и порядок папки для CLI-вывода; описания разделов для дерева скилов.
+- [Агентский стейт — state.json в движке](ideas/agent-state.md) — память рабочего состояния между сессиями вне данных; v1: только `context.current_project`.
+
 ## Гайды
 
 - [CLI для агентов](guides/cli-for-agents.md)

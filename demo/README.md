@@ -25,6 +25,7 @@ lang: ru
 | `competitors/` | `competitors` | Карточки конкурентов и Agent Skills |
 | `records/` | `records` | Типизированные JSON-записи |
 | `notes/` | `notes` | Заметки со свободными связями |
+| `ideas/` | `idea` | Идеи, не перешедшие в планы |
 | `inbox/` | `inbox` | Неотсортированные материалы |
 | `attachments/` | `attachments` | CSV-инвентарь документов |
 | `skill/` | `skill` | Копия `SKILL.md` |
@@ -34,7 +35,7 @@ lang: ru
 ```bash
 todoc validate --root demo --all          # ожидается 0 диагностик
 todoc check --root demo                    # сводка по датасету
-todoc types list --root demo               # 14 dir_types, 19 doc_types, 12 entity_types, 9 relation_types
+todoc types list --root demo               # 15 dir_types, 21 doc_types, 13 entity_types, 9 relation_types
 todoc docs tree --root demo --max-depth 2  # дерево папок с типами
 todoc docs search --root demo --query "портабельность" --limit 3
 todoc docs read --root demo --id doc:constitution --section "Принципы"

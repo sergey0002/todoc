@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "type_id": "task",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Задача/дело: минимум — заголовок; опционально полный снимок Jira (комментарии, вложения ссылками) и локальные статусы этапов.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title"
+  ],
+  "path_template": "tasks/{slug}.json",
+  "views": {
+    "summary": ["record_id", "title", "status", "source", "jira_key"],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

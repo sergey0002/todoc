@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "record_id": "task:shop-0001",
+  "entity_type": "task",
+  "title": "Проверить экспорт задач из Jira в хранилище",
+  "source": "user",
+  "status": "open",
+  "created": "2026-11-25",
+  "origin": {
+    "project": "shop"
+  },
+  "relations": []
+}

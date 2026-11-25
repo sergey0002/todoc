@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "record_id": "task:shop-0002",
+  "entity_type": "task",
+  "title": "Настроить еженедельную выгрузку задач из Jira",
+  "source": "user",
+  "status": "open",
+  "checklist": [
+    {
+      "text": "Получить API-токен",
+      "done": false
+    },
+    {
+      "text": "Написать фетчер",
+      "done": false
+    },
+    {
+      "text": "Проверить на проекте shop",
+      "done": false
+    }
+  ],
+  "origin": {
+    "project": "shop"
+  },
+  "relations": []
+}
