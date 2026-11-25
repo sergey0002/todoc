@@ -3,7 +3,7 @@ id: doc:engineering-plan
 title: "Engineering plan: исходный инженерный набросок"
 doc_type: research-report
 lang: ru
-source: plan.md
+source: docs/plan/engineering-draft.md
 copied: true
 ---
 
