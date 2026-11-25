@@ -106,6 +106,11 @@ pytest; новых зависимостей нет.
   группы `index`); `docs tree` (cli.py:1041) занят деревом секций документа;
   `docs read` принимает только `--id` (cli.py:952), а не `--path` — поэтому
   чтение тела скила идёт через новую команду `skills read`.
+- **House-стиль CLI:** режимы — `--output json|table` (не `--format`; образец
+  `docs tree`, cli.py:1041-1043), глубина — `--max-depth`; вывод — через
+  `_emit_ok` (cli.py:46, поле конверта `next_actions` с argv+purpose), ошибки —
+  `_emit_error` (cli.py:1511) с `TodocError` (тесты: паттерн
+  `tests/cli/test_cli.py` — `_run` + `_json`).
 
 ## 4. Архитектура и файловая карта
 
@@ -189,7 +194,7 @@ suggested_fix в духе существующих): `skills.missing_front_matte
 | `src/todoc/application/validator.py` | Modify (`validate_dataset`:278) | вызов `validate_skills` для каждого vault, мерж диагностик |
 | `src/todoc/application/search.py` | Modify (пост-фильтр рядом с :146-148) | исключение `!`-сегментов из результатов `docs search` |
 | `src/todoc/data/agent-skill/todoc/SKILL.md` | Create | диспетчер-скил: entry gate, `{ROOT}`-плейсхолдер, tier-инструкции |
-| `pyproject.toml` | Modify (если требуется) | включить `data/` в пакет (importlib.resources) |
+| `pyproject.toml` | Modify | `[tool.setuptools.package-data]` — packages.find без package-data НЕ пакует SKILL.md в wheel; чтение через `importlib.resources.files("todoc")` |
 | `demo/.todoc/rules/document-rules.json` | Modify | правило `vault-skills-glob` (priority 60) + fm-правило `agent-skill` (priority 200) |
 | `demo/.todoc/doc_types/agent-skill/type.json` | Create (условное, см. Задача 1) | doc_type БЕЗ required_sections для чужих SKILL.md |
 | `demo/skills/**` | Create | демо-хранилище: **10 скилов**, 3 раздела, 1 мьют, references/ |
@@ -336,13 +341,14 @@ git commit -m "feat(skills): сканер хранилища скилов + ва
 **Интерфейсы:**
 - Consumes: `scan_skills`, `SkillInfo` (Задача 1).
 - Produces: `todoc skills tree --root PATH [--vault skills] [--within SECTION]
-  [--query Q] [--all] [--limit N] [--depth N] [--format tree|json]`.
-  JSON-конверт: `data: {vault, counts: {skills, sections, muted},
-  skills: [{name, path, section, description, muted, refs, scripts, assets}],
-  truncated: bool}`. Tree-режим — как в образце идеи (описание = первая строка
-  description, обрезка по ширине, `[!]`-пометка, счётчики на разделах).
+  [--query Q] [--all] [--limit N] [--max-depth N] [--output json|table]`.
+  JSON-конверт (через `_emit_ok`): `data: {vault, counts: {skills, sections,
+  muted}, skills: [{name, path, section, description, muted, refs, scripts,
+  assets}], truncated: bool}`. Table-режим — ASCII-дерево как в образце идеи
+  (описание = первая строка description, обрезка по ширине, `[!]`-пометка,
+  счётчики на разделах); `--max-depth` дефолт 6 (у `docs tree` — 3).
 - Produces: `todoc skills read --root PATH --path P [--vault skills]
-  [--line-range A-B] [--budget N] [--format json|markdown]` — P относительно
+  [--line-range A-B] [--budget N] [--output json|markdown]` — P относительно
   root: путь к папке скила или к её SKILL.md (принимаются обе формы; с/без
   префикса `skills/`); путь резолвится ТОЛЬКО внутри vault (path-confinement,
   паттерн Popov); `--budget` ограничивает длину содержимого (приложение
@@ -353,11 +359,15 @@ git commit -m "feat(skills): сканер хранилища скилов + ва
 - [ ] **Шаг 1: падающие CLI-тесты** (CliRunner, fixtures — tmp_path с 4 скилами)
 
 ```python
-# tests/cli/test_cli_skills_tree.py
+# tests/cli/test_cli_skills_tree.py — house-паттерн tests/cli/test_cli.py
 import json
 from pathlib import Path
+
 from click.testing import CliRunner
+
 from todoc.cli import cli
+from todoc.errors import TodocError
+
 
 def _skill(root: Path, rel: str, name: str, desc: str = "Описание скила") -> None:
     d = root / "skills" / rel
@@ -365,43 +375,61 @@ def _skill(root: Path, rel: str, name: str, desc: str = "Описание ски
     (d / "SKILL.md").write_text(
         f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n", encoding="utf-8")
 
+
 def _vault(root: Path) -> None:
     _skill(root, "coding/git/commit-message", "commit-message", "Пишет commit message.")
-    _skill(root, "coding/review/adr", "adr", "Пишет ADR из обсуждения.")
-    _skill(root, "docs/jira-fetch", "jira-fetch", "Тянет задачу Jira.")
-    _skill(root, "coding/git/!legacy-deploy", "legacy-deploy", "Мьютнутый скил.")
+    _skill(root, "coding/review/adr", "adr", "Пишет ADR: контекст, решение, последствия.")
+    _skill(root, "docs/jira-fetch", "jira-fetch", "Тянет задачу Jira в снимок.")
+    _skill(root, "coding/git/!legacy-deploy", "legacy-deploy", "Мьютнутый: деплой legacy.")
+    _skill(root, "docs/note-search", "note-search", "Ищет заметки по кириллическому запросу.")
 
-def _invoke(*args):
-    r = CliRunner().invoke(cli, list(args))
-    assert r.exit_code == 0, r.output
-    return json.loads(r.output)
+
+def _run(runner, args):
+    result = runner.invoke(cli, args)
+    if isinstance(result.exception, TodocError):
+        result.exit_code = result.exception.exit_code
+    return result
+
+
+def _json(result):
+    return json.loads(result.output)
+
 
 def test_tree_json_bounded(tmp_path):
+    runner = CliRunner()
     _vault(tmp_path)
-    d = _invoke("skills", "tree", "--root", str(tmp_path), "--format", "json")["data"]
-    assert d["counts"]["skills"] == 4 and d["counts"]["muted"] == 1
+    d = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "json"]))["data"]
+    assert d["counts"]["skills"] == 5 and d["counts"]["muted"] == 1
     assert d["truncated"] is False
     assert all("description" in s for s in d["skills"])
 
-def test_tree_query_within_all(tmp_path):
+
+def test_tree_table_query_within_all(tmp_path):
+    runner = CliRunner()
     _vault(tmp_path)
-    q = CliRunner().invoke(cli, ["skills", "tree", "--root", str(tmp_path), "--query", "commit"])
+    t = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "table"])
+    assert "commit-message" in t.output and "[!]" not in t.output  # мьют скрыт
+    q = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--query", "commit"])
     assert "commit-message" in q.output and "jira-fetch" not in q.output
-    w = CliRunner().invoke(cli, ["skills", "tree", "--root", str(tmp_path), "--within", "coding"])
+    w = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--within", "coding"])
     assert "jira-fetch" not in w.output
-    d = CliRunner().invoke(cli, ["skills", "tree", "--root", str(tmp_path)])
-    assert "legacy-deploy" not in d.output          # мьют скрыт по умолчанию
-    a = CliRunner().invoke(cli, ["skills", "tree", "--root", str(tmp_path), "--all"])
+    cyr = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--query", "кириллическ"])
+    assert "note-search" in cyr.output               # кириллица в --query работает (§4, §7)
+    a = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--all"])
     assert "[!]" in a.output and "legacy-deploy" in a.output
+    d1 = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--max-depth", "1"])
+    assert "commit-message" not in d1.output         # глубина ограничивает выдачу
+
 
 def test_read_by_dir_and_file(tmp_path):
+    runner = CliRunner()
     _vault(tmp_path)
-    d = _invoke("skills", "read", "--root", str(tmp_path), "--path", "coding/review/adr")["data"]
+    d = _json(_run(runner, ["skills", "read", "--root", str(tmp_path), "--path", "coding/review/adr"]))["data"]
     assert d["name"] == "adr" and "# adr" in d["content"]
-    d2 = _invoke("skills", "read", "--root", str(tmp_path),
-                 "--path", "skills/docs/jira-fetch/SKILL.md")["data"]
+    d2 = _json(_run(runner, ["skills", "read", "--root", str(tmp_path),
+                             "--path", "skills/docs/jira-fetch/SKILL.md"]))["data"]
     assert d2["name"] == "jira-fetch"
-    bad = CliRunner().invoke(cli, ["skills", "read", "--root", str(tmp_path), "--path", "../secrets.md"])
+    bad = _run(runner, ["skills", "read", "--root", str(tmp_path), "--path", "../secrets.md"])
     assert bad.exit_code != 0 and "skills.not_found" in bad.output
 ```
 
@@ -409,8 +437,10 @@ def test_read_by_dir_and_file(tmp_path):
 - [ ] **Шаг 3: реализовать группу и команды** — thin wrapper: scan → фильтры
   (`--query` lowercase-подстрока по name+description+пути; `--within` — префикс
   section; мьют: исключить из выдачи без `--all`) → сортировка по пути →
-  limit/depth/truncated → формат. Warning при `len(skills) > 500`. `read` —
-  через сканер: найти SkillInfo по пути, прочитать файл, применить budget.
+  `--limit`/`--max-depth`/truncated → `--output` (table = ASCII-дерево, json =
+  `_emit_ok`; ошибки — `_emit_error`/`TodocError`). Warning при
+  `len(skills) > 500`. `read` — через сканер: найти SkillInfo по пути,
+  прочитать файл, применить budget.
 - [ ] **Шаг 4: тесты проходят** + ограничение времени: дерево из 50 скилов
   в tmp_path печатается < 1 c (`time.monotonic()` в тесте, порог 1.0 с).
 - [ ] **Шаг 5: коммит**
@@ -467,8 +497,14 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
 - Consumes: `skills tree`/`skills read` (Задача 2), конвенция именования.
 - Produces: работающий роутинг: одна императивная строка с готовым argv.
 
-- [ ] **Шаг 1: создать 10 SKILL.md** — front matter по стандарту (name = имени
-  папки; у `!legacy-deploy` name = `legacy-deploy`); body 20–60 строк реальных
+- [ ] **Шаг 1: создать 10 SKILL.md** — front matter в ОДНОМ YAML-блоке
+  (образец структуры — `demo/skill/SKILL.md`): todoc-поля `id: doc:skill-<name>`,
+  `title` (русский — конвенция именования), `doc_type: agent-skill` (явно →
+  работает fm-правило 200; glob-правило 60 — страховка для чужих без fm),
+  `lang: ru`, `updated: <дата>` + стандартные `name` (латиница, = имени папки;
+  у `!legacy-deploy` name = `legacy-deploy`) и `description` — лишние для
+  платформ поля они игнорируют (§3, ресёрч Hermes/Claude Code); body 20–60
+  строк реальных
   инструкций по body-конвенции §3 (When to Use → Procedure → Pitfalls →
   Verification), не заглушки: commit-message — из staged diff; adr — из
   обсуждения; todoc-docs — поиск KB через CLI с argv-примерами; jira-fetch —
@@ -524,8 +560,10 @@ git commit -m "feat(skills-demo): демо-хранилище 10 скилов + 
   пакетную папку `todoc/` в DIR (любой платформенный каталог скилов:
   `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, …), подставляя
   `--root` вместо плейсхолдера `{ROOT}` в теле. Без перезаписи (ошибка
-  `attach.exists`, обновление — `--force`). Отчёт: `data: {installed: <путь>,
-  skill: "todoc", mount_hint: "..."} ` + next: « AGENTS.md-строка — Задача 4, шаг 3».
+  `attach.exists`, обновление — `--force`). Отчёт — `_emit_ok` с
+  `data: {installed: <путь>, skill: "todoc", mount_hint: "…"}` и `next_actions`
+  (house-поле конверта, cli.py:46) — argv+purpose, включая строку AGENTS.md
+  из Задачи 4, шаг 3.
 
 Тело диспетчера (house-конвенция; полный текст — в файле):
 
@@ -554,26 +592,42 @@ metadata:
 - [ ] **Шаг 1: падающий тест attach**
 
 ```python
-# tests/cli/test_cli_skills_attach.py
+# tests/cli/test_cli_skills_attach.py — house-паттерн
 from click.testing import CliRunner
+
 from todoc.cli import cli
+from todoc.errors import TodocError
+
+
+def _run(runner, args):
+    result = runner.invoke(cli, args)
+    if isinstance(result.exception, TodocError):
+        result.exit_code = result.exception.exit_code
+    return result
+
 
 def test_attach_copies_and_embeds_root(tmp_path):
+    runner = CliRunner()
     proj = tmp_path / "proj"; (proj / ".agents" / "skills").mkdir(parents=True)
     demo = tmp_path / "demo"; demo.mkdir()
-    r = CliRunner().invoke(cli, ["skills", "attach", "--to", str(proj / ".agents/skills"), "--root", str(demo)])
+    args = ["skills", "attach", "--to", str(proj / ".agents/skills"), "--root", str(demo)]
+    r = _run(runner, args)
     assert r.exit_code == 0, r.output
     sk = proj / ".agents" / "skills" / "todoc" / "SKILL.md"
     assert sk.exists() and str(demo) in sk.read_text(encoding="utf-8")
-    r2 = CliRunner().invoke(cli, ["skills", "attach", "--to", str(proj / ".agents/skills"), "--root", str(demo)])
+    r2 = _run(runner, args)
     assert r2.exit_code != 0 and "attach.exists" in r2.output
-    r3 = CliRunner().invoke(cli, ["skills", "attach", "--to", str(proj / ".agents/skills"), "--root", str(demo), "--force"])
+    r3 = _run(runner, args + ["--force"])
     assert r3.exit_code == 0
 ```
 
 - [ ] **Шаг 2: убедиться, что падает** (команды нет)
-- [ ] **Шаг 3: реализовать** — `importlib.resources` читает пакетную папку;
-  `{ROOT}` → абсолютный `--root`; copytree no-overwrite; `--force` — перезапись.
+- [ ] **Шаг 3: реализовать** — чтение пакетной папки:
+  `importlib.resources.files("todoc") / "data" / "agent-skill" / "todoc"`;
+  `pyproject.toml`: секция `[tool.setuptools.package-data]` →
+  `todoc = ["data/**/*"]` (packages.find без package-data не пакует данные —
+  иначе в wheel нет SKILL.md); `{ROOT}` → абсолютный `--root`; copytree
+  no-overwrite; `--force` — перезапись.
 - [ ] **Шаг 4: проходят; приёмка экономики** — attach в tmp-платформу: в
   платформенном каталоге ровно ОДНА папка скила (`todoc/`) — L1 = ~100 токенов
   при vault на 10+ скилов; тело содержит вшитый root и refusal floor.
@@ -599,8 +653,10 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
   `--adopt` — источник УЖЕ скопирован в vault вручную: валидация + отчёт без
   копирования (путь «скопировал папку → одна команда»). Отчёт-конверт:
   `data: {imported: [{name, path}], skipped: [...], diagnostics: [...],
-  audit_note: "аудируй чужие скилы перед использованием (scripts/ — код)",
-  next: ["todoc index rebuild", "todoc skills tree --root …"]}`.
+  audit_note: "аудируй чужие скилы перед использованием (scripts/ — код)"},
+  next_actions: [{argv: ["todoc", "index", "rebuild", …], purpose: "Пересобрать
+  индекс после импорта"}, {argv: ["todoc", "skills", "tree", …], purpose:
+  "Показать дерево после импорта"}]} — house-поле конверта (cli.py:46).
 
 - [ ] **Шаг 1: падающие тесты** — tmp «репо» с 2 скилами → import в tmp vault:
   папки скопированы целиком (включая `references/`), отчёт содержит `imported`,
@@ -657,7 +713,8 @@ git commit -m "docs(skills): README/HOME/план — документирова
       `skills read` читает по пути с confinement; E2E-сценарий Задачи 4 выполнен.
 - [ ] Диспетчер: `skills attach` кладёт единственный скил `todoc` в платформенный
       каталог с вшитым root; vault НЕ монтируется (0 L1-описаний под-скилов);
-      entry gate и refusal floor в теле.
+      entry gate и refusal floor в теле; SKILL.md диспетчера пакуется в wheel
+      (package-data — проверка переустановкой `.venv/bin/pip install -e .`).
 - [ ] Роутинг-правило присутствует в канонических носителях
       (agent-contract.md, SKILL.md) и указателем в AGENTS.md.
 - [ ] Счётчики README/HOME согласованы с фактом; ни один статус `done` не
@@ -697,7 +754,23 @@ git commit -m "docs(skills): README/HOME/план — документирова
   один скил (~100 ток. L1) вместо N описаний — точное исполнение через
   детерминированный CLI и экономия контекста; приёмка идеи «10+ скилов» и
   hermes-tier-маппинг — в §4. Отклонений при исполнении нет.
-- Отклонений нет (исполнение не начато).
+- 2026-11-25 — финальный аудит перед реализацией (все якоря сверены с кодом):
+  (1) house-стиль CLI — `--format` → `--output json|table`, `--depth` →
+  `--max-depth` (образец `docs tree`, cli.py:1041-1043), вывод через `_emit_ok`
+  (cli.py:46) / `_emit_error` (cli.py:1511), поле конверта `next_actions`;
+  тесты приведены к house-паттерну `tests/cli/test_cli.py` (`_run` c
+  TodocError + `_json`) и дополнены кириллическим `--query` (рисковая строка §7);
+  (2) pyproject: `[tool.setuptools.packages.find]` без package-data — SKILL.md
+  диспетчера не попал бы в wheel; правка зафиксирована точно (Задача 5, шаг 3);
+  (3) front matter демо-скилов задан единым YAML-блоком по образцу
+  `demo/skill/SKILL.md` (id/title/doc_type/lang/updated + name/description) —
+  иначе не работают конвенция «русский title» и поиск (Задача 4, шаг 1);
+  (4) подтверждено по `typing_system/resolver.py:117`: явный fm-doc_type сам
+  по себе не назначается — обязательны ОБА правила (glob 60 + fm 200); у
+  демо-файлов матчатся оба с одинаковым assign — `config.ambiguous_rule` не
+  возникает; (5) doc_type `skill` подтверждён с 5 required_sections,
+  `glob-skill` = `skill/**` (singular) — с `skills/**` не пересекается.
+  Отклонений при исполнении нет.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
