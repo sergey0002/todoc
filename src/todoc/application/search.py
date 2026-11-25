@@ -137,6 +137,10 @@ def search_documents(
             path = str(doc.get("path", ""))
             if path != within and not path.startswith(within.rstrip("/") + "/"):
                 continue
+        # Мьют скилов (план skills-vault §4): !-сегмент пути исключает документ
+        # из дефолтной выдачи; мьют — свойство хранилища, не параметр запроса.
+        if any(part.startswith("!") for part in Path(str(doc.get("path", ""))).parts):
+            continue
         match_text, source_text = _document_text(root, str(doc.get("path", "")), str(doc.get("format", "")))
         lowered = match_text.lower()
         matched = [t for t in terms if t in lowered]
