@@ -49,6 +49,7 @@
 | [13-demo-dataset.md](state/13-demo-dataset.md) | Устройство демо-датасета |
 | [14-glossary.md](state/14-glossary.md) | Термины |
 | [15-benchmark.md](state/15-benchmark.md) | Бенчмарк качества, сравнение с конкурентами |
+| [16-leftovers-report.md](state/16-leftovers-report.md) | Отчёт по остаткам: что открыто и в каком порядке |
 
 ### `plan/` — норматив и планы
 
