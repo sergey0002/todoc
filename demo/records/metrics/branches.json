@@ -5,7 +5,7 @@
   "name": "Веток в покрытии",
   "aspect": "tests",
   "value": {
-    "value": 854,
+    "value": 890,
     "unit": "count"
   },
   "source": "coverage report --show-missing"

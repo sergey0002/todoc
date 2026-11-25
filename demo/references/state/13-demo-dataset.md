@@ -60,7 +60,7 @@ copied: true
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/schemas/records/<entity_type>.json` применяются ко всем 130 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 130 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.

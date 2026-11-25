@@ -32,7 +32,7 @@ Create-only: перезапись существующих записей зап
 
 | Проверка | Код |
 |---|---|
-| JSON Schema из `.todoc/schemas/records/<entity_type>.json` | `record.schema_violation` |
+| JSON Schema из `.todoc/entity_types/<entity_type>/schema.json` | `record.schema_violation` |
 | дубль `record_id` в датасете | `record.duplicate_id` |
 | нет `entity_type` | `record.missing_entity_type` |
 

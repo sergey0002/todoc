@@ -208,7 +208,7 @@ def test_types_show_reports_template_and_prompt_locations(root):
     (root / ".todoc" / "doc_types" / "spec" / "prompts" / "read.md").write_text("# read\n", encoding="utf-8")
     data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "spec", "--output", "json"]))["data"]
     assert data["kind"] == "doc_type"
-    assert data["template"] == {"path": ".todoc/doc_types/spec/template.md", "exists": True}
+    assert data["template"] == {"path": ".todoc/doc_types/spec/template.md", "exists": True, "origin": "type"}
     assert data["prompts"]["read"] == {"path": ".todoc/doc_types/spec/prompts/read.md", "exists": True}
     assert data["prompts"]["create"]["exists"] is False
 
@@ -318,3 +318,79 @@ def test_check_config_clean_in_a_subprocess(root):
     proc = _run_cli(root, ["check-config", "--output", "json"])
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Всё, что относится к типу, лежит в его папке
+# ---------------------------------------------------------------------------
+
+def test_types_show_reports_the_schema_of_an_entity_type(root):
+    """`types show` for a record type names its JSON Schema, kept beside type.json."""
+    # `workout` is entity-only: `note` exists as a doc_type too and would be found first.
+    (root / ".todoc" / "entity_types" / "workout" / "schema.json").write_text(
+        json.dumps({"type": "object", "required": ["record_id"]}), encoding="utf-8")
+    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"]))["data"]
+    assert data["schema"] == {"path": ".todoc/entity_types/workout/schema.json", "exists": True}
+
+
+def test_check_config_accepts_a_schema_kept_in_the_type_folder(root):
+    """The type folder is the primary home of a schema: no legacy catalog needed."""
+    (root / ".todoc" / "entity_types" / "workout" / "schema.json").write_text(
+        json.dumps({"type": "object", "required": ["record_id"]}), encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    assert _json(result)["data"]["datasets"][0]["issues"] == 0
+
+
+def test_check_config_flags_a_schema_duplicated_in_two_places(root):
+    """The same schema in the type folder and the legacy catalog is reported, not guessed."""
+    schema = json.dumps({"type": "object", "required": ["record_id"]})
+    (root / ".todoc" / "entity_types" / "workout" / "schema.json").write_text(schema, encoding="utf-8")
+    legacy = root / ".todoc" / "schemas" / "records"
+    legacy.mkdir(parents=True)
+    (legacy / "workout.json").write_text(schema, encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"])
+    codes = [d["code"] for d in _json(result)["diagnostics"]]
+    assert "config.duplicate_asset" in codes
+
+
+def test_init_keeps_every_type_asset_inside_the_type_folder(root):
+    """A fresh dataset has no parallel templates/ or schemas/ catalogs to drift from."""
+    fresh = root / "fresh"
+    assert _run(CliRunner(), ["init", "--root", str(fresh), "--output", "json"]).exit_code == 0
+    todoc = fresh / ".todoc"
+    assert not (todoc / "templates").exists()
+    assert not (todoc / "schemas").exists()
+    note = todoc / "entity_types" / "note"
+    assert (note / "type.json").is_file()
+    assert (note / "template.json").is_file()
+    assert (note / "prompts" / "create.md").is_file()
+    assert "templates" not in json.loads((todoc / "dataset.json").read_text(encoding="utf-8"))
+
+
+def test_a_legacy_record_template_is_still_usable(root):
+    """Datasets built before per-type templates keep working through the fallback."""
+    (root / ".todoc" / "entity_types" / "workout" / "template.json").unlink()
+    legacy = root / ".todoc" / "templates" / "records"
+    legacy.mkdir(parents=True)
+    (legacy / "workout.json").write_text(
+        json.dumps({"schema_version": 1, "record_id": "workout:legacy", "entity_type": "workout", "title": ""}),
+        encoding="utf-8")
+    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"]))["data"]
+    assert data["template"]["origin"] == "legacy"
+    assert data["template"]["exists"] is True
+
+
+def test_a_schema_violation_points_at_the_schema_in_the_type_folder(root):
+    """End to end: the diagnostic names the schema that was applied, once."""
+    base = root / ".todoc" / "entity_types" / "workout"
+    (base / "schema.json").write_text(
+        json.dumps({"type": "object", "required": ["record_id", "entity_type", "date"]}), encoding="utf-8")
+    record = root / "records" / "workouts" / "w1.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(json.dumps({"schema_version": 1, "record_id": "workout:w1",
+                                  "entity_type": "workout"}), encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "validate", "--all", "--output", "json"])
+    diagnostics = _json(result)["diagnostics"]
+    assert [d["code"] for d in diagnostics] == ["record.schema_violation"]
+    assert diagnostics[0]["evidence"] == "schema: .todoc/entity_types/workout/schema.json"

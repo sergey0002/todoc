@@ -31,7 +31,6 @@ def default_dataset(dataset_id: str) -> dict[str, Any]:
         "entity_types": "entity_types",
         "relation_types": "relation_types",
         "queries": "queries",
-        "templates": "templates",
         "trusted_workflows": {
             "record-capture-v1": {
                 "kind": "external-skill",
@@ -125,8 +124,8 @@ def init_dataset(root: Path) -> dict[str, Any]:
     (todoc_dir / "doc_types").mkdir(parents=True, exist_ok=True)
     (todoc_dir / "entity_types").mkdir(parents=True, exist_ok=True)
     (todoc_dir / "relation_types").mkdir(parents=True, exist_ok=True)
-    (todoc_dir / "templates" / "records").mkdir(parents=True, exist_ok=True)
-    (todoc_dir / "schemas" / "records").mkdir(parents=True, exist_ok=True)
+    # Everything that belongs to a type lives in that type's folder: descriptor,
+    # template, prompts and JSON Schema. No parallel top-level catalogs.
     (todoc_dir / "queries").mkdir(parents=True, exist_ok=True)
     (todoc_dir / "generated").mkdir(parents=True, exist_ok=True)
 
@@ -167,10 +166,6 @@ def init_dataset(root: Path) -> dict[str, Any]:
             json.dumps(_type_stub(type_id, f"Relation type {type_id}.", "relation_type"), indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
-    (todoc_dir / "templates" / "records" / "note.json").write_text(
-        json.dumps({"schema_version": 1, "record_id": "note:example", "entity_type": "note", "title": ""}, indent=2) + "\n",
-        encoding="utf-8",
-    )
     return dataset
 
 

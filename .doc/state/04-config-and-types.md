@@ -37,14 +37,14 @@
 │   ├── template.json            # стартовая запись
 │   └── prompts/{read,create,edit,delete}.md
 ├── relation_types/{performed_by, derived_from, supports, contradicts}/type.json
-├── templates/records/note.json
-├── schemas/records/          # пусто: схемы добавляет пользователь
-├── queries/
-└── generated/
+└── queries/
 ```
 
-Git не отслеживает пустые каталоги, поэтому `schemas/records/` и `queries/` после клонирования
-могут отсутствовать — их создаёт `init` или пользователь.
+Всё, что относится к типу, лежит в папке этого типа: `type.json`, `template.<ext>`,
+`prompts/{read,create,edit,delete}.md`, а у типов записей ещё и `schema.json`. Параллельных
+каталогов `templates/records/` и `schemas/records/` больше нет — прежние расположения читаются
+только как совместимость со старыми наборами данных, и `check-config` сообщает о них
+(`config.legacy_asset` — warning, `config.duplicate_asset` — error).
 
 Каждый тип документа и записи получает стартовый шаблон и четыре CRUD-промпта: `init` пишет
 66 таких файлов (4 doc-типа + 7 entity-типов по 6 файлов).
@@ -167,7 +167,7 @@ Git не отслеживает пустые каталоги, поэтому `s
 
 ## Схемы записей
 
-`.todoc/schemas/records/<entity_type>.json` — JSON Schema (Draft 2020-12). Применяются к каждой
+`.todoc/entity_types/<entity_type>/schema.json` — JSON Schema (Draft 2020-12). Применяются к каждой
 записи соответствующего типа; нарушения дают `record.schema_violation` с JSON Pointer в
 `location.pointer`. Некорректный файл схемы игнорируется (не роняет валидацию).
 

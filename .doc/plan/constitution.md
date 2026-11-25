@@ -468,7 +468,7 @@ todoc --root ./knowledge docs edit --id doc_... --patch-file ./change.diff --if-
 
 **Entity type (`workout`):**
 ```json
-{"schema_version": 1, "type_id": "workout", "version": "0.1", "description": "Одна тренировка с упражнениями и подходами.", "format": "json", "schema_ref": "schemas/records/workout.schema.json", "id_pattern": "workout:{date}-{person-slug}-{slug}", "record_template": "templates/records/workout.json", "path_template": "records/workouts/{date_year}/{date_month}/{slug}.json", "required_relations": ["performed_by"], "default_workflow": "record-capture-v1", "views": {"compact": ["record_id", "date", "relations", "exercises.name", "exercises.muscle_groups"], "summary": ["date", "totals"]}}
+{"schema_version": 1, "type_id": "workout", "version": "0.1", "description": "Одна тренировка с упражнениями и подходами.", "format": "json", "schema": "schema.json", "id_pattern": "workout:{date}-{person-slug}-{slug}", "template": "template.json", "prompts": {"read": "prompts/read.md", "create": "prompts/create.md", "edit": "prompts/edit.md", "delete": "prompts/delete.md"}, "path_template": "records/workouts/{date_year}/{date_month}/{slug}.json", "required_relations": ["performed_by"], "default_workflow": "record-capture-v1", "views": {"compact": ["record_id", "date", "relations", "exercises.name", "exercises.muscle_groups"], "summary": ["date", "totals"]}}
 ```
 
 **Relation type:**
@@ -600,6 +600,10 @@ todoc/
     └── fixtures/
 ```
 
+**Правило раскладки `.todoc/`.** Всё, что относится к типу, лежит в папке этого типа: дескриптор `type.json`, стартовый шаблон `template.<ext>`, стартовые промпты `prompts/{read,create,edit,delete}.md`, а у типов записей ещё и `schema.json`. Параллельных top-level каталогов по типам нет: `init` их не создаёт, а прежние расположения `.todoc/templates/records/<type>.json` и `.todoc/schemas/records/<type>.json` читаются только как совместимость со старыми наборами данных. `todoc check-config` говорит о них явно: `config.legacy_asset` (warning — перенести файл в папку типа) и `config.duplicate_asset` (error — одна сущность в двух местах, приоритет не угадывается). `todoc types show <type>` показывает фактические пути шаблона, промптов и схемы с флагом `exists`.
+
+Ещё не реализовано из этого раздела (осознанно отложено, а не потеряно): `identities.json` (versioned stable IDs, когда ID нельзя хранить в source), `generated/types-reference.md` (generated-справка по типам) и `cache/search/` (пересоздаваемые lexical/vector/graph представления).
+
 Правила: `SKILL.md` — корректный YAML front matter, краткие правила выбора data root и последовательность CLI-действий; прямые relative links на `references/*.md` (без цепочек). `references/type-system.generated.md` — общая generated-справка по контрактам версии CLI, не содержащая данных конкретной папки. `assets/` — только template/example для `todoc init`. CLI — обычный установленный Python package (`todoc = "todoc.cli:main"`); production-команда не запускается как `python src/...` с ручным `sys.path`. Если целевой агент может запускать только bundled scripts — тонкий `scripts/todoc` launcher, только вызывает пакет.
 
 ### 11.2. Набор данных: `<DATA_ROOT>/`
@@ -615,30 +619,22 @@ todoc/
 │   │   ├── research/type.json
 │   │   └── plan/type.json
 │   ├── doc_types/
-│   │   ├── adr/type.json
-│   │   ├── glossary-entry/type.json
-│   │   └── research-note/type.json
+│   │   └── adr/
+│   │       ├── type.json            # формат, required_sections, section_rules
+│   │       ├── template.md          # стартовый шаблон документа этого типа
+│   │       └── prompts/             # стартовые промпты агента: read|create|edit|delete
 │   ├── entity_types/
-│   │   ├── note/type.json
-│   │   ├── research/type.json
-│   │   ├── link/type.json
-│   │   ├── plan/type.json
-│   │   ├── product/type.json
-│   │   ├── person/type.json
-│   │   └── workout/type.json
+│   │   └── workout/
+│   │       ├── type.json            # required_fields, path_template, views, metric_fields
+│   │       ├── schema.json          # JSON Schema записей этого типа
+│   │       ├── template.json        # стартовая запись
+│   │       └── prompts/             # read|create|edit|delete
 │   ├── relation_types/
 │   │   ├── performed_by/type.json
 │   │   ├── derived_from/type.json
 │   │   ├── supports/type.json
 │   │   └── contradicts/type.json
-│   ├── templates/
-│   │   └── records/workout.json
-│   ├── schemas/
-│   │   ├── dataset.schema.json
-│   │   ├── documents/
-│   │   ├── records/
-│   │   └── relations/
-│   ├── identities.json              # versioned stable IDs, где ID нельзя хранить в source
+│   ├── queries/                     # optional declarative saved QuerySpec/metric definitions
 │   ├── index/
 │   │   ├── CURRENT.json             # атомарно обновляемый указатель поколения
 │   │   └── generations/
@@ -648,12 +644,8 @@ todoc/
 │   │           ├── records.json
 │   │           ├── relations.json
 │   │           └── diagnostics.json
-│   ├── queries/                     # optional declarative saved QuerySpec/metric definitions
-│   ├── cache/
-│   │   ├── parse/                   # JSON cache по hash/версии parser-а
-│   │   └── search/                  # пересоздаваемые lexical/vector/graph representations
-│   └── generated/
-│       └── types-reference.md       # опциональный generated отчёт; не skill
+│   └── cache/
+│       └── parse/                   # JSON cache по hash/версии parser-а
 ├── projects/
 │   ├── service-a/
 │   │   ├── .todoc.json              # необязательные локальные правила/override

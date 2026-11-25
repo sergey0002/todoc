@@ -73,9 +73,9 @@ CLI (click)  →  application  →  domain / typing_system
 | Точка расширения | Как |
 |---|---|
 | Новый тип папки/документа/записи/отношения | файл `type.json` в соответствующем каталоге `.todoc/` |
-| Новая схема записи | `.todoc/schemas/records/<entity_type>.json` (JSON Schema 2020-12) |
+| Новая схема записи | `.todoc/entity_types/<entity_type>/schema.json` (JSON Schema 2020-12) |
 | Новое правило маршрутизации | запись в `rules/directory-rules.json` или `rules/document-rules.json` |
-| Новый шаблон записи | `.todoc/templates/records/<entity_type>.json` |
+| Новый шаблон записи | `.todoc/entity_types/<entity_type>/template.json` |
 | Сохранённый запрос | `.todoc/queries/<name>.json` + `records query --query-file` |
 | Новый формат файла | адаптер в `adapters/formats/` + суффикс в `FORMAT_BY_SUFFIX` |
 

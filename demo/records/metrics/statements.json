@@ -5,7 +5,7 @@
   "name": "Инструкций в покрытии",
   "aspect": "tests",
   "value": {
-    "value": 2455,
+    "value": 2524,
     "unit": "count"
   },
   "source": "coverage report"

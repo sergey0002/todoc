@@ -5,7 +5,7 @@
   "name": "Медиана validate, 254 документа",
   "aspect": "performance",
   "value": {
-    "value": 1049,
+    "value": 1006,
     "unit": "ms"
   },
   "source": "K27",

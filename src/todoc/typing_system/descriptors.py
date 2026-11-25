@@ -97,7 +97,7 @@ KIND_FIELDS: dict[str, set[str]] = {
                  "template", "prompts", "required_sections", "section_rules"},
     "entity_type": {"schema_version", "type_id", "version", "kind", "description", "format",
                     "required_fields", "path_template", "views", "metric_fields",
-                    "template", "prompts"},
+                    "template", "prompts", "schema"},
     "relation_type": {"schema_version", "type_id", "version", "kind", "description", "endpoints"},
 }
 
@@ -136,6 +136,55 @@ def template_file(root: Path, dataset: dict[str, Any], kind: str, descriptor: di
         return None
     base = type_dir(root, dataset, kind, str(descriptor.get("type_id", "")))
     return (base / declared) if not Path(declared).is_absolute() else Path(declared)
+
+
+def resolve_template(root: Path, dataset: dict[str, Any], kind: str,
+                     descriptor: dict[str, Any]) -> tuple[Path | None, str]:
+    """Template of a type with its origin: ``type`` (folder), ``legacy`` or ``none``."""
+    declared = template_file(root, dataset, kind, descriptor)
+    if declared is not None and declared.is_file():
+        return declared, "type"
+    if kind == "entity_type":
+        legacy = legacy_template_file(root, dataset, descriptor)
+        if legacy.is_file():
+            return legacy, "legacy"
+    return (declared, "type") if declared is not None else (None, "none")
+
+
+#: Legacy top-level catalogs, kept as read-only fallbacks so datasets created before
+#: per-type folders keep working. New datasets keep everything inside the type folder.
+LEGACY_RECORD_SCHEMAS = ("schemas", "records")
+LEGACY_RECORD_TEMPLATES = ("templates", "records")
+
+
+def schema_file(root: Path, dataset: dict[str, Any], kind: str, descriptor: dict[str, Any]) -> Path | None:
+    """The JSON Schema of an entity type: ``<type>/schema.json`` first.
+
+    Falls back to the legacy ``.todoc/schemas/records/<type>.json`` so an existing
+    dataset does not break; when both exist, ``check-config`` reports the duplicate
+    rather than silently picking one.
+    """
+    if kind != "entity_type":
+        return None
+    declared = descriptor.get("schema")
+    base = type_dir(root, dataset, kind, str(descriptor.get("type_id", "")))
+    if isinstance(declared, str) and declared:
+        return base / declared if not Path(declared).is_absolute() else Path(declared)
+    own = base / "schema.json"
+    if own.is_file():
+        return own
+    legacy = root / ".todoc" / LEGACY_RECORD_SCHEMAS[0] / LEGACY_RECORD_SCHEMAS[1] / f"{descriptor.get('type_id', '')}.json"
+    return legacy if legacy.is_file() else None
+
+
+def legacy_schema_file(root: Path, dataset: dict[str, Any], descriptor: dict[str, Any]) -> Path:
+    type_id = str(descriptor.get("type_id", ""))
+    return root / ".todoc" / LEGACY_RECORD_SCHEMAS[0] / LEGACY_RECORD_SCHEMAS[1] / f"{type_id}.json"
+
+
+def legacy_template_file(root: Path, dataset: dict[str, Any], descriptor: dict[str, Any]) -> Path:
+    type_id = str(descriptor.get("type_id", ""))
+    return root / ".todoc" / LEGACY_RECORD_TEMPLATES[0] / LEGACY_RECORD_TEMPLATES[1] / f"{type_id}.json"
 
 
 def prompt_files(root: Path, dataset: dict[str, Any], kind: str, descriptor: dict[str, Any]) -> dict[str, Path]:
@@ -210,9 +259,28 @@ def descriptor_diagnostics(root: Path, dataset: dict[str, Any], kind: str,
     # Declared files must exist: a type that points at a missing template cannot
     # generate documents, and a prompt the agent cannot read is dead config.
     tpl = template_file(root, dataset, kind, descriptor)
-    if tpl is not None and not tpl.is_file():
+    if tpl is not None and not tpl.is_file() and not legacy_template_file(root, dataset, descriptor).is_file():
         out.append({"code": "config.template_missing", "path": rel_config,
                     "message": f"Declared template not found: {tpl.name}."})
+    declared_schema = descriptor.get("schema")
+    if declared_schema is not None and (not isinstance(declared_schema, str) or not declared_schema):
+        out.append({"code": "config.invalid_schema", "path": rel_config,
+                    "message": "schema must be a non-empty relative file name."})
+    if kind == "entity_type":
+        # A type owns its assets: two copies of the same schema or template (one in
+        # the type folder, one in a legacy top-level catalog) is ambiguous config and
+        # is reported instead of being resolved by a silent preference.
+        base = type_dir(root, dataset, kind, str(descriptor.get("type_id", "")))
+        for name, own, legacy in (("Schema", base / "schema.json", legacy_schema_file(root, dataset, descriptor)),
+                                  ("Template", base / "template.json",
+                                   legacy_template_file(root, dataset, descriptor))):
+            where = f".todoc/{legacy.relative_to(root / '.todoc').as_posix()}"
+            if own.is_file() and legacy.is_file():
+                out.append({"code": "config.duplicate_asset", "path": rel_config,
+                            "message": f"{name} exists both at {own.name} and {where}; keep one."})
+            elif legacy.is_file():
+                out.append({"code": "config.legacy_asset", "path": rel_config, "severity": "warning",
+                            "message": f"{name} lives in {where}; move it into the type folder."})
     for operation, path in prompt_files(root, dataset, kind, descriptor).items():
         if operation in (prompts if isinstance(prompts, dict) else {}) and not path.is_file():
             out.append({"code": "config.prompt_missing", "path": rel_config,
