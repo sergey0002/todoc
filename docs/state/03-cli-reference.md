@@ -59,10 +59,28 @@
 Каждая диагностика: `{dataset_id, id, code, severity, path, location, evidence, message, suggested_fixes[]}`.
 Exit 3, если есть ошибки.
 
-### `index status` / `index rebuild`
-`data.datasets[]`. `status` читает последнее опубликованное поколение: `{dataset_id, generation_id, current}`.
+### `index status` / `index rebuild [--force]`
+`data.datasets[]`. `status` читает опубликованный снимок:
+`{dataset_id, generation_id, current, corpus_digest, created_at}`.
 **До первой пересборки возвращает `generation_id: null`** — сначала выполните `index rebuild`.
-`rebuild` публикует новое поколение: `{dataset_id, generation_id, folders, documents, records, relations, diagnostics}`.
+`rebuild` публикует снимок: `{dataset_id, generation_id, corpus_digest, reused, folders, documents, records, relations, diagnostics}`.
+Без `--force` валидный снимок переиспользуется и возвращается `reused: true`; `--force`
+пересчитывает всегда. Снимок один и перезаписывается на месте — размер `.todoc/index/` не
+растёт от числа запусков.
+
+### `stale [--path P] [--severity S]` / `stale --ack P --reason R [--apply] [--expected-hash H]`
+Сравнивает хеши фрагментов, объявленных в `derived_from`, с фактическими.
+`data`: `{dataset_id, path, stale}`; диагностики `staleness.dependency_changed` и
+`staleness.dependency_missing` (severity `warning`).
+
+Якорь зависимости — `путь[#фрагмент]@sha256:…`, где фрагмент либо JSON Pointer (`/meta/date`),
+либо `section:<заголовок>`. Хеш считается от фрагмента, поэтому правка несвязанного поля не
+помечает документ устаревшим.
+
+`--ack` подтверждает, что дрейф не релевантен: без `--apply` команда показывает план и ничего
+не пишет, с `--apply` — дописывает во front matter `stale_acknowledged_at`,
+`stale_ack_reason`, `stale_ack_hashes`. Подтверждение хранит хеши на момент подтверждения и
+сбрасывается, когда любой из них меняется снова.
 
 ### `explain-path PATH`
 Объясняет типизацию пути: `{dataset_id, path, doc_type, format, rule_source, document_id}`.

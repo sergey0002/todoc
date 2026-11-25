@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 10:42:29",
+    "date": "2026-11-25 12:55:51",
     "corpus": "/tmp/todoc-bench-corpus",
     "documents": 256,
     "records": 159,
     "relations": 140,
     "latency_ms": {
-      "status": 150,
-      "types list": 149,
-      "docs search": 1511,
-      "docs read": 1059,
-      "records list": 1060,
-      "validate": 997
+      "status": 163,
+      "types list": 162,
+      "docs search": 624,
+      "docs read": 168,
+      "records list": 160,
+      "validate": 975
     },
     "seeded_defects": 9
   },
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note:bench-safety-c6ab68a4.json, файлов изменено: 0"
+      "detail": "target=records/note/note-bench-safety-1683096d.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=150мс, types list=149мс, docs search=1511мс, docs read=1059мс, records list=1060мс, validate=997мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=163мс, types list=162мс, docs search=624мс, docs read=168мс, records list=160мс, validate=975мс"
     },
     {
       "id": "K28",
@@ -242,7 +242,7 @@
       "name": "Тестовый набор проходит",
       "status": "pass",
       "score": 1.0,
-      "detail": "420 passed"
+      "detail": "513 passed"
     },
     {
       "id": "K29",
@@ -423,7 +423,7 @@
         },
         {
           "query": "агрегация единицы",
-          "relevant_total": 16,
+          "relevant_total": 17,
           "top3": [
             "doc:after-mcp-adapter",
             "doc:constitution",
@@ -443,7 +443,7 @@
         },
         {
           "query": "wikilink",
-          "relevant_total": 16,
+          "relevant_total": 17,
           "top3": [
             "competitor:foam",
             "competitor:obsidian",
@@ -496,37 +496,37 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 150,
+        "median_ms": 163,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "types list",
-        "median_ms": 149,
+        "median_ms": 162,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "docs search",
-        "median_ms": 1511,
+        "median_ms": 624,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "docs read",
-        "median_ms": 1059,
+        "median_ms": 168,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "records list",
-        "median_ms": 1060,
+        "median_ms": 160,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "validate",
-        "median_ms": 997,
+        "median_ms": 975,
         "limit_ms": 4000,
         "within": true
       }
@@ -544,9 +544,9 @@
   },
   "competitors": {
     "obsidiantools": {
-      "elapsed_s": 6.806,
+      "elapsed_s": 6.58,
       "notes": 91,
-      "local_md_links": 287,
+      "local_md_links": 286,
       "broken_links_detected": 1,
       "broken_samples": [
         "broken-link -> does-not-exist.md"
@@ -562,21 +562,21 @@
       "commands": {
         "help": {
           "exit_code": 0,
-          "elapsed_s": 0.534,
+          "elapsed_s": 0.503,
           "stdout_bytes": 4967,
           "stderr_bytes": 0,
           "first_line": "Usage: open-knowledge [options] [file | command]"
         },
         "status": {
           "exit_code": 0,
-          "elapsed_s": 0.63,
+          "elapsed_s": 0.603,
           "stdout_bytes": 40,
           "stderr_bytes": 0,
           "first_line": "server  not running"
         },
         "diagnose": {
           "exit_code": 1,
-          "elapsed_s": 0.527,
+          "elapsed_s": 0.52,
           "stdout_bytes": 0,
           "stderr_bytes": 714,
           "first_line": ""

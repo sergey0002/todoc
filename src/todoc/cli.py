@@ -17,11 +17,12 @@ from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
 from todoc.adapters.formats.markdown import heading_path_for, parse_markdown
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
+from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
 from todoc.application.validator import _load_record_schemas, stable_id
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
-from todoc.errors import EXIT_USAGE, AccessError, ConflictError, TodocError, ValidationError
+from todoc.errors import EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError, TodocError, ValidationError
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics, prompt_files,
@@ -264,18 +265,82 @@ def index(ctx: click.Context) -> None:
 def index_status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     results = []
     for ctx in _contexts(roots):
-        gen = ctx.store.current_generation_id()
-        results.append({"dataset_id": ctx.dataset_id, "generation_id": gen, "current": gen is not None})
+        meta = ctx.store.read_current_meta() or {}
+        gen = meta.get("generation_id")
+        results.append({"dataset_id": ctx.dataset_id, "generation_id": gen, "current": gen is not None,
+                        "corpus_digest": meta.get("corpus_digest"), "created_at": meta.get("created_at")})
     _emit_ok({"datasets": results}, output, None)
 
 
 @index.command("rebuild")
 @click.option("--root", "roots", multiple=True)
+@click.option("--force", is_flag=True, help="Recompute even when the corpus digest is unchanged.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def index_rebuild(roots: tuple[str, ...], output: str, no_input: bool) -> None:
-    results = [ctx.rebuild_index() for ctx in _contexts(roots)]
+def index_rebuild(roots: tuple[str, ...], force: bool, output: str, no_input: bool) -> None:
+    results = [ctx.rebuild_index(force=force) for ctx in _contexts(roots)]
     _emit_ok({"datasets": results}, output, None)
+
+
+@cli.command("stale")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--path", default=None, help="Only this owner document/record.")
+@click.option("--severity", default=None, help="Filter diagnostics by severity.")
+@click.option("--ack", "ack_path", default=None, help="Acknowledge staleness of this owner.")
+@click.option("--reason", default=None, help="Why the drift is not relevant (required with --ack).")
+@click.option("--apply", "apply_ack", is_flag=True, help="Write the acknowledgement (default: preview).")
+@click.option("--expected-hash", default=None)
+def stale(roots: tuple[str, ...], output: str, no_input: bool, path: str | None, severity: str | None,
+          ack_path: str | None, reason: str | None, apply_ack: bool, expected_hash: str | None) -> None:
+    """Report documents whose dependencies drifted, or acknowledge a drift."""
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    if ack_path:
+        _stale_ack(ctx, ack_path, reason, apply_ack, expected_hash, output, payload)
+        return
+    diagnostics = check_all(ctx.dataset_id, ctx.root, payload, only_path=path)
+    if severity:
+        diagnostics = [d for d in diagnostics if d.severity == severity]
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "stale": len(diagnostics)}, output, None,
+             [d.to_dict() for d in diagnostics])
+
+
+def _stale_ack(ctx: DatasetContext, ack_path: str, reason: str | None, apply_ack: bool,
+               expected_hash: str | None, output: str, payload: dict[str, Any]) -> None:
+    if not reason:
+        raise TodocError("--ack requires --reason: an acknowledgement without a reason is not reviewable",
+                       EXIT_USAGE, "usage.error")
+    owners = {o["path"]: o for o in collect_owners(ctx.root, payload)}
+    owner = owners.get(ack_path)
+    if owner is None:
+        raise TodocError(f"No dependencies declared in {ack_path}", EXIT_OPERATION, "staleness.owner_not_found")
+    if owner["kind"] != "document":
+        raise TodocError("--ack writes markdown front matter; records are edited directly",
+                         EXIT_OPERATION, "staleness.ack_unsupported")
+    current = current_hashes(ctx.root, owner)
+    if not current:
+        raise TodocError(f"No resolvable dependencies in {ack_path}", EXIT_OPERATION, "staleness.ack_unsupported")
+    new_text = plan_ack(ctx.root, ack_path, reason, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), current)
+    if not apply_ack:
+        _emit_ok({"dataset_id": ctx.dataset_id, "path": ack_path, "applied": False,
+                  "reason": reason, "acknowledged_hashes": current}, output, None)
+        return
+    new_hash = _write_whole(ctx.root, ack_path, new_text, expected_hash)
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": ack_path, "applied": True, "new_hash": new_hash,
+              "reason": reason, "acknowledged_hashes": current}, output, None)
+
+
+def _write_whole(root: Path, rel_path: str, text: str, expected_hash: str | None) -> str:
+    target = root / rel_path
+    if expected_hash is not None:
+        actual = file_hash(target) if target.is_file() else ""
+        if actual != expected_hash:
+            raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
+    atomic_write(target, text)
+    return file_hash(target)
 
 
 @cli.command("explain-path")
@@ -369,7 +434,7 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
     plan = create_document_plan(ctx.dataset, ctx.registry_types.doc_types, type_id, title, rel,
                                 template_text, values)
     apply_write_plan(ctx.root, plan)
-    ctx.rebuild_index()
+    ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "path": rel, "title": title, "doc_type": type_id,
               "template": source, "hash": plan.new_hash}, output, None,
              next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", f"doc:{rel}"],
@@ -392,8 +457,7 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, doc_type: s
                 budget: int | None, limit: int, within: str | None, cursor: str | None) -> None:
     """Bounded lexical search with provenance."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     offset = _parse_offset(cursor)
     hits, total, truncated = search_documents(ctx.root, payload["documents"], query, doc_type, within, limit,
                                              budget, offset)
@@ -422,8 +486,7 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
               rows: int | None, where: str | None, budget: int | None) -> None:
     """Bounded projection read (section/pointer/columns)."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
@@ -500,8 +563,7 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
 def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None, max_depth: int) -> None:
     """Compact derived outline (folders + documents)."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     folders = payload["folders"]
     documents = payload["documents"]
     if within:
@@ -524,8 +586,7 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
               if_hash: str | None, preview: bool, apply_: bool) -> None:
     """Review-first patch edit (preview default, --apply to write)."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
@@ -545,7 +606,7 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
         _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "preview": True, "ops": ops}, output, None)
         return
     new_hash = apply_edit_ops(ctx.root, doc["path"], ops, expected_hash=if_hash)
-    ctx.rebuild_index()
+    ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "applied": True, "new_hash": new_hash}, output, None)
 
 
@@ -568,8 +629,7 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
                    preview: bool, apply_: bool, if_hash_new: bool) -> None:
     """Create-only new JSON record (preview default)."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     record = load_input_record(Path(input_file))
     if record.get("entity_type") != entity_type:
         record["entity_type"] = entity_type
@@ -582,7 +642,7 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
         _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan.to_dict()}, output, None)
         return
     new_hash = apply_write_plan(ctx.root, plan)
-    ctx.rebuild_index()
+    ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "created": plan.target_path, "new_hash": new_hash}, output, None)
 
 
@@ -599,8 +659,7 @@ def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_typ
                  until: str | None, relation: str | None, limit: int) -> None:
     """List records with optional filters."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     filters: dict[str, Any] = {}
     if since:
         filters["date"] = {"$gte": since}
@@ -626,8 +685,7 @@ def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_typ
 def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_file: str) -> None:
     """Run a saved declarative QuerySpec."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     try:
         spec = json.loads(Path(query_file).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -648,8 +706,7 @@ def records_aggregate(roots: tuple[str, ...], output: str, no_input: bool, metri
                       group_by: str | None, entity_type: str | None) -> None:
     """Aggregate with units/formula/provenance."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     result = aggregate_records(payload["records"], entity_type or "workout", metric, group_by)
     result["dataset_id"] = ctx.dataset_id
     _emit_ok(result, output, None)
@@ -664,8 +721,7 @@ def records_aggregate(roots: tuple[str, ...], output: str, no_input: bool, metri
 def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id: str, view: str | None) -> None:
     """Read one record (optional view projection)."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     record = next((r for r in payload["records"] if r["record_id"] == record_id), None)
     if record is None:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
@@ -696,8 +752,7 @@ def relations_graph(roots: tuple[str, ...], output: str, no_input: bool, from_id
                     type_id: str | None, depth: int, limit: int) -> None:
     """Typed edges + brief neighbours (BFS, bounded)."""
     ctx = _contexts(roots)[0]
-    ctx.rebuild_index()
-    payload = ctx.load_index()
+    payload = ctx.ensure_index()
     edges = graph_neighbors(payload["relations"], from_id, type_id, depth, limit)
     _emit_ok({"dataset_id": ctx.dataset_id, "from": from_id, "edges": edges, "total": len(edges)}, output, None)
 
@@ -876,7 +931,7 @@ def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, pr
     if not old_target or not new_target:
         raise ValidationError("Cannot derive link targets from diagnostic", "fix.cannot_apply")
     new_hash = apply_fix(ctx.root, rel_path, old_target, new_target, expected_hash=if_hash)
-    ctx.rebuild_index()
+    ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "diagnostic": diagnostic, "applied": True, "new_hash": new_hash}, output, None)
 
 
