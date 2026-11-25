@@ -15,11 +15,16 @@
 
 ## Установка
 
+Нужен Python **3.11+**. Полное руководство — [`docs/installation.md`](docs/installation.md).
+
 ```bash
 pip install -e .          # editable (разработка)
-pip install .             # wheel
+pip install .             # обычная установка
+pip install -e ".[dev]"   # + pytest и coverage
 todoc --version           # todoc, version 0.1.0
 ```
+
+Без установки: `PYTHONPATH=src python3 -m todoc --version`.
 
 ## Быстрый старт
 
@@ -166,6 +171,8 @@ pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, adapters, typing_system, output
 tests/                420 тестов: unit, cli, integration (покрытие 100%)
 docs/
+├── README.md         индекс всей документации
+├── installation.md   установка, проверка, первый датасет
 ├── plan/             конституция, план реализации, конкурентный анализ, аудит, AFTER-планы,
 │                     engineering-draft.md — инженерный набросок §1–§18
 ├── state/            документация текущего состояния системы (15 разделов)
@@ -185,6 +192,8 @@ demo/                 демо-датасет (DATA_ROOT) — живой при�
 
 | Что читать | Где |
 |---|---|
+| Установка и первый запуск | [`docs/installation.md`](docs/installation.md) |
+| Индекс всей документации | [`docs/README.md`](docs/README.md) |
 | Текущее состояние системы | [`docs/state/README.md`](docs/state/README.md) |
 | Справочник CLI для агента | [`docs/state/03-cli-reference.md`](docs/state/03-cli-reference.md) |
 | Как агенту работать безопасно | [`docs/state/12-agent-operations.md`](docs/state/12-agent-operations.md) |
