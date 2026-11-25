@@ -96,3 +96,4 @@ doc:folder-config-idea,ideas/folder-config.md,idea,ideas,authored,ru,351
 doc:agent-state-idea,ideas/agent-state.md,idea,ideas,authored,ru,163
 doc:plan-agent-state,plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md,plan,plan,authored,ru,230
 doc:plan-lifecycle-skills,plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md,plan,plan,authored,ru,388
+doc:plan-doc-tags,plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md,plan,plan,authored,ru,254
