@@ -420,6 +420,15 @@ todoc --root ./knowledge docs edit --id doc_... --patch-file ./change.diff --if-
 
 Точную вложенность Click-команд можно изменить, сохранив контракты. CLI — тонкий входной слой: разобрать аргументы → application service → результат/exit code. Разбор CSV/бизнес-валидация в callback Click запрещены.
 
+> **Статус на 2026-11-25.** Эскиз выше — норматив, а не снимок реализации: фактический список
+> команд и полей ответа — в [03-cli-reference.md](../state/03-cli-reference.md) (46 листовых
+> команд / 25 верхнеуровневых). Проверенные расхождения с этим эскизом:
+> `records aggregate --metric <именованная метрика> --group-by date.month,muscle` не реализован
+> (`--metric` принимает имя поля, `--group-by` — одно поле, `date.month` не работает);
+> `--out` есть только у `types guide`, а не глобально; `validate` не выдаёт
+> `total`/`shown`/`truncated`. Всё перечисленное заведено в
+> [11-known-issues.md](../state/11-known-issues.md) как P1-15, P1-16 и пункт P2 про агрегацию.
+
 ### 8.2. Вход/выход, envelope, exit codes
 
 - **Вход:** явный `--root` (повторяемый) или `TODOC_ROOT`; CWD не выбирает config. `--output` = режим сериализации (`json`/`table`/`markdown`), `--out` = необязательный путь отчёта (relative проверяется на containment). `--budget`/`--limit`/cursor — лимиты выдачи. `--preview`/`--apply`/`--if-hash` — write-контроль. `--no-input` — неинтерактивный режим без зависания.
@@ -560,7 +569,7 @@ todoc/
 │   ├── plan/                        # норматив и планы: constitution, implementation-plan,
 │   │   │                            # competitive-analysis, audit-implementation, *.after.md
 │   │   └── engineering-draft.md     # инженерный набросок §1–§18 (первоисточник)
-│   ├── state/                       # текущее состояние системы: 01-overview … 15-benchmark
+│   ├── state/                       # текущее состояние системы: 01-overview … 16-leftovers-report
 │   ├── guides/                      # гайды для агентов: cli, mcp, markdown-knowledge
 │   └── research/                    # исследования и аудиты + skills-audit/ (материалы аудита)
 ├── references/                      # Skill-references: обычные docs, не отдельные skills
@@ -574,7 +583,7 @@ todoc/
 │   ├── page-templates.md
 │   └── type-system.generated.md     # автогенерация общей справки о типах
 ├── assets/
-│   └── data-root-template/          # JSON-шаблоны для `todoc init`, не реальные данные
+│   └── data-root-template/          # README с раскладкой DATA_ROOT; JSON собирает `init`
 ├── src/
 │   └── todoc/
 │       ├── cli.py                   # создание Click app и main()
@@ -638,20 +647,22 @@ Markdown-файлах, пропуская примеры внутри блоко
 │   │   ├── supports/type.json
 │   │   └── contradicts/type.json
 │   ├── queries/                     # optional declarative saved QuerySpec/metric definitions
+│   ├── history/                     # append-only журнал записи и снимки «до» — НЕ производное
 │   ├── index/
-│   │   ├── CURRENT.json             # атомарно обновляемый указатель поколения
-│   │   └── generations/
-│   │       └── <generation-id>/
-│   │           ├── folders.json
-│   │           ├── documents.json
-│   │           ├── records.json
-│   │           ├── relations.json
-│   │           └── diagnostics.json
+│   │   ├── CURRENT.json             # атомарно обновляемый указатель снимка
+│   │   ├── stats.json
+│   │   └── current/                 # один снимок; инвалидация по дайджесту корпуса
+│   │       ├── folders.json
+│   │       ├── documents.json
+│   │       ├── records.json
+│   │       ├── relations.json
+│   │       ├── diagnostics.json
+│   │       └── meta.json
 │   └── cache/
 │       └── parse/                   # JSON cache по hash/версии parser-а
 ├── projects/
 │   ├── service-a/
-│   │   ├── .todoc.json              # необязательные локальные правила/override
+│   │   ├── .todoc.json              # необязательные локальные правила/override (см. примечание ниже)
 │   │   ├── .research/
 │   │   ├── plan/
 │   │   │   └── migration-plan.md
@@ -664,6 +675,7 @@ Markdown-файлах, пропуская примеры внутри блоко
 ├── records/
 │   ├── people/sergei.json            # entity_type=person, stable record_id
 │   └── workouts/2026/11/             # путь вычисляет безопасный type template
+├── changes/                          # записи изменений и дельты — НЕ производное
 ├── inbox/                            # optional: новые непроверенные документы/черновики
 ├── attachments/                      # optional: assets рядом с заметками; paths относительно DATA_ROOT
 ├── tables/
@@ -672,8 +684,15 @@ Markdown-файлах, пропуская примеры внутри блоко
 
 Правила DATA_ROOT: внутри `.todoc/` и папок проекта может быть JSON-конфиг, JSON Schema, JSON-реестр/кэш и исходные данные. **Не должно быть `SKILL.md`, skill-каталогов, executable Python, shell-скриптов или ссылок на `module:callable`.** `.todoc/` читается целенаправленно и не индексируется как пользовательская документация. Type-конфиги/schemas/relation definitions/query specs/templates — declarative JSON; `description`/пример — untrusted data для справки, не исполняемый prompt/code. File-backed record содержит явные `record_id` и `entity_type`; typed references — в source record/front matter. Naming/location templates — только документированные placeholders из validated fields, нормализация + containment; запрет `..`/absolute/подмены type/permissions. Saved QuerySpec/metric — ограниченные JSON AST/операторы, schema-checked, ресурсно ограниченные; запрещены Python/SQL/`eval`/import/shell/network. `generated/types-reference.md` — опциональная производная справка с маркером `generated`; `types guide` по умолчанию печатает в stdout. Папку можно переносить целиком: только relative paths. Один root = одна config/index namespace. Если папка открыта как Obsidian vault, Obsidian может создать `.obsidian/`; `todoc` исключает её из поиска и не редактирует.
 
-### 11.3. Будущий веб-интерфейс (отдельный adapter, не часть MVP-структуры)
+> **Статус раскладки на 2026-11-25** (проверено на датасете после `init`): `.todoc/history/`
+> появляется после первой записи, `.todoc/index/` и `.todoc/cache/` — после первого чтения,
+> `changes/` — после `change open`. Поколений индекса нет: один снимок в `index/current/`.
+> **`.todoc.json` в папках проекта не читается** — сканер только пропускает это имя
+> (`adapters/filesystem/scanner.py:96`); локальные правила не применяются. Заведено как
+> [P1-13](../state/11-known-issues.md). Фактическая раскладка — в
+> [09-storage-and-index.md](../state/09-storage-and-index.md).
 
+### 11.3. Будущий веб-интерфейс (отдельный adapter, не часть MVP-структуры)
 ```text
 todoc-web/                           # отдельный пакет/репозиторий или подпакет, не source of truth
 ├── README.md
