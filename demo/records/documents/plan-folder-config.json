@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "record_id": "document:plan-folder-config",
+  "entity_type": "document",
+  "title": "Конфиг папок: .config.json — самоописание, дерево с описаниями, suggest-скоринг (план)",
+  "source_path": "plan/folder-config-implementation.md",
+  "doc_type": "plan",
+  "lang": "ru",
+  "origin": "authored",
+  "lines": 445,
+  "tags": [
+    "folder-config",
+    "cli",
+    "tree",
+    "suggest",
+    "scoring",
+    "search"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:implementation-plan"
+      }
+    }
+  ]
+}
