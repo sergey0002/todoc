@@ -27,7 +27,7 @@ pytest; новых зависимостей нет.
 ## 1. Критерии успеха
 
 1. `todoc skills tree --root demo` печатает дерево демо-хранилища
-   (**10 скилов, 3 раздела, 1 замьючен**) с описаниями **за < 1 c**, bounded
+   (**11 скилов, 3 раздела, 1 замьючен**) с описаниями **за < 1 c**, bounded
    (`--limit` по умолчанию 100, `truncated` в JSON-конверте).
 2. Чужой скил (скопированная папка со SKILL.md) виден в дереве сразу после
    копирования; SKILL.md с невалидным front matter даёт точные коды `skills.*`
@@ -47,6 +47,11 @@ pytest; новых зависимостей нет.
   копия импортируется как есть; трекинг — вручную через git-историю.
 - **Сетевые операции в движке.** `skills import` принимает только локальные
   пути (уже склонированный репо / скачанная папка); скачивание — вне движка.
+- **Плагинная обвязка пакетов** (hooks/, commands/, agents/, index.js,
+  package.json, gemini-extension.json и т.п. манифесты платформ) — НЕ
+  копируется и не исполняется: `skills import` переносит только папки со
+  SKILL.md (формат открытого стандарта); проверено на реальном пакете
+  obra/superpowers (15 скилов + 9 файлов обвязки) — см. §8.
 - **Well-known-реестры** (`/.well-known/skills/index.json`, источник Hermes Hub)
   и любые реестровые протоколы — будущая фаза, здесь только локальные пути.
 - **Самоэволюция скилов** (GEPA/DSPy-оптимизация описаний и тел, /learn
@@ -121,6 +126,20 @@ pytest; новых зависимостей нет.
 attach) — тонкая обёртка над сканером; `validate` вызывает `validate_skills`
 и мержит диагностики в общий поток. Мьют — фильтр по сегменту пути `!…` в
 сканере и в `docs search` (пост-фильтр по пути в search.py).
+
+**Границы ответственности (концепция `.research`-доков, не нарушается):** CLI —
+детерминированный исполнитель, агент — вероятностный планировщик
+(mcp-cli-agents-research.md:62 «контракт между вероятностным планировщиком и
+детерминированным исполнителем»). Мысительные процессы движку НЕ переносим:
+выбор скила, аудит чужого кода, интерпретация результата — агенту; вывод любой
+команды — недоверенные данные для агента (mcp-cli-agents-research.md:27) —
+потому отчёты import/attach несут `audit_note`/диагностики, а не вердикты.
+Скил — процедурная память ДЛЯ агента, не логика в CLI: движок никогда не
+решает, какой скил выбрать, и scripts/ не исполняет; инструкции SKILL.md сами
+по себе не гарантируют исполнения (comparative-audit.md:19) — гарантию даёт
+детерминированная команда (tree/read). `init` остаётся «не устанавливает
+Skill и не перемещает данные» (engineering-plan.md:859): `skills attach` —
+отдельная явная команда с явным `--to` вне датасета, не часть init.
 
 ### Диспетчер-скил `todoc` — одна точка входа для любого агента
 
@@ -197,7 +216,7 @@ suggested_fix в духе существующих): `skills.missing_front_matte
 | `pyproject.toml` | Modify | `[tool.setuptools.package-data]` — packages.find без package-data НЕ пакует SKILL.md в wheel; чтение через `importlib.resources.files("todoc")` |
 | `demo/.todoc/rules/document-rules.json` | Modify | правило `vault-skills-glob` (priority 60) + fm-правило `agent-skill` (priority 200) |
 | `demo/.todoc/doc_types/agent-skill/type.json` | Create (условное, см. Задача 1) | doc_type БЕЗ required_sections для чужих SKILL.md |
-| `demo/skills/**` | Create | демо-хранилище: **10 скилов**, 3 раздела, 1 мьют, references/ |
+| `demo/skills/**` | Create | демо-хранилище: **11 скилов**, 3 раздела, 1 мьют, references/ |
 | `SKILL.md`, `demo/notes/agent-contract.md`, `AGENTS.md` | Modify | роутинг-правило (канон в системе, AGENTS.md — указатель) |
 | `README.md`, `demo/HOME.md` | Modify | раздел «Скилы» (attach/dispatcher, 2 пути установки), линия карты, счётчики |
 | `tests/unit/test_skills_scan.py` | Test | сканер: детект, sections, muted, effective_name |
@@ -476,7 +495,7 @@ git add src/todoc/application/search.py tests/
 git commit -m "feat(skills): мьют !-папки исключён из docs search"
 ```
 
-### Задача 4: демо-хранилище (10 скилов) и роутинг-правило
+### Задача 4: демо-хранилище (11 скилов) и роутинг-правило
 
 **Файлы:**
 - Create: `demo/skills/coding/git/commit-message/SKILL.md`,
@@ -488,7 +507,8 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
   `demo/skills/docs/todoc-docs/SKILL.md` + `references/query-cheatsheet.md`,
   `demo/skills/docs/jira-fetch/SKILL.md`,
   `demo/skills/process/release-flow/SKILL.md`,
-  `demo/skills/process/incident-postmortem/SKILL.md`
+  `demo/skills/process/incident-postmortem/SKILL.md`,
+  `demo/skills/coding/env/package-install/SKILL.md`
 - Modify: `SKILL.md` (движковый, 1:1 строка), `demo/notes/agent-contract.md`
   (новый раздел), `AGENTS.md` (указатель)
 - Test: E2E-сценарий — руками по приёмке ниже; тесты не требуются
@@ -510,12 +530,17 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
   обсуждения; todoc-docs — поиск KB через CLI с argv-примерами; jira-fetch —
   снимок задачи в notes; release-flow — merge-forward; code-review — чеклист;
   security-review — аудит зависимостей/секретов; incident-postmortem —
-  разбор инцидента по шаблону. У `todoc-docs` — `references/query-cheatsheet.md`
+  разбор инцидента по шаблону; package-install — установка CLI-пакетов в
+  систему по конвенции проекта (мотив — наш реальный инцидент: глобальный pip
+  заблокирован PEP 668 → Python-пакеты только в .venv; Node — npm/npx;
+  проверка `command -v` + `--version`; запрет sudo и исполнения недоверенных
+  install-скриптов; примеры ставимых тулов — playwright-cli и т.п.). Это скил
+  ДЛЯ агента (процедурная память), не функция CLI — граница §4. У `todoc-docs` — `references/query-cheatsheet.md`
   (10+ строк). Русский H1 в теле, `name` латиницей — конвенция. Один скил несёт
   расширенное поле Claude Code (`when_to_use`) — тест совместимости «парсится,
   не ломается».
 - [ ] **Шаг 2: сквозная проверка** — `todoc skills tree --root demo` печатает
-  10 скилов/3 раздела, `[!]` без `--all` не видно, `--all` видно; `todoc validate
+  11 скилов/3 раздела, `[!]` без `--all` не видно, `--all` видно; `todoc validate
   --root demo --all` — 0 диагностик (в т.ч. `skills.*` и `markdown.*` на
   SKILL.md); `docs search "commit message"` находит `commit-message`,
   но НЕ `!legacy-deploy` (после `index rebuild`).
@@ -542,7 +567,7 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
 
 ```bash
 git add demo/skills SKILL.md demo/notes/agent-contract.md AGENTS.md
-git commit -m "feat(skills-demo): демо-хранилище 10 скилов + роутинг-правило в агентских носителях"
+git commit -m "feat(skills-demo): демо-хранилище 11 скилов + роутинг-правило в агентских носителях"
 ```
 
 ### Задача 5: диспетчер-скил `todoc` и команда `skills attach`
@@ -649,7 +674,10 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
 - Consumes: `scan_skills`, `validate_skills` (Задача 1).
 - Produces: `todoc skills import --root PATH --src LOCAL_DIR [--skill NAME]
   --into SECTION [--vault skills] [--dry-run] [--adopt]`. `--src` — локальная
-  папка (скил или репо: рекурсивный поиск `**/SKILL.md`); без сети.
+  папка (скил или репо-ПАКЕТ: рекурсивный поиск `**/SKILL.md`); без сети.
+  Семантика пакета: копируются ТОЛЬКО папки со SKILL.md; плагинная обвязка
+  (hooks/, commands/, index.js, package.json, манифесты) не переносится
+  (проверено на obra/superpowers — §8).
   `--adopt` — источник УЖЕ скопирован в vault вручную: валидация + отчёт без
   копирования (путь «скопировал папку → одна команда»). Отчёт-конверт:
   `data: {imported: [{name, path}], skipped: [...], diagnostics: [...],
@@ -664,7 +692,10 @@ git commit -m "feat(skills): диспетчер-скил todoc + skills attach �
   (no-overwrite); `--skill NAME` копирует один; скил с плохим front matter
   импортируется (файлы — истина), но отчёт несёт его `skills.*`-диагностики и
   `audit_note`; `--dry-run` ничего не пишет; `--adopt` на уже скопированной
-  папке — валидирует и отчётует без копии, на отсутствующей — ошибка.
+  папке — валидирует и отчётует без копии, на отсутствующей — ошибка;
+  **pack-сценарий**: tmp-«репо» с 3 скилами в `skills/` + обвязкой `hooks/`,
+  `commands/`, `plugin.json` → после import в vault ровно 3 папки, обвязки
+  нет (воспроизведение структуры obra/superpowers).
 - [ ] **Шаг 2: убедиться, что падает** (команды нет)
 - [ ] **Шаг 3: реализовать** — `shutil.copytree` (dirs_exist_ok=False), скан
   копии, диагностики в отчёт; `index rebuild` НЕ вызывается автоматически —
@@ -692,7 +723,7 @@ git commit -m "feat(skills): todoc skills import — офлайн-импорт �
   `skills attach` — диспетчер для платформ с нативными скилами (в контексте
   ровно один скил `todoc`), строка в AGENTS.md — для остальных (README
   описывает установку и работу агентов).
-- [ ] **Шаг 2: HOME** — линия карты со счётчиками (10 скилов, 3 раздела).
+- [ ] **Шаг 2: HOME** — линия карты со счётчиками (11 скилов, 3 раздела).
 - [ ] **Шаг 3: финал** — `todoc validate --root demo --all` (0 диагностик),
   `tools/linkcheck.py` (0 битых), полный pytest; счётчики в этом плане
   согласованы с фактом; §8 — запись с датой и числом задач.
@@ -709,7 +740,7 @@ git commit -m "docs(skills): README/HOME/план — документирова
 - [ ] pytest зелёный (988 + новые); coverage 100% на `skills.py` и новых
       ветках `cli.py`/`search.py`/`validator.py`.
 - [ ] `validate --root demo --all` — 0 диагностик; `tools/linkcheck.py` — 0 битых.
-- [ ] `skills tree --root demo` < 1 c, **10 скилов**, мьют и `--all` работают;
+- [ ] `skills tree --root demo` < 1 c, **11 скилов**, мьют и `--all` работают;
       `skills read` читает по пути с confinement; E2E-сценарий Задачи 4 выполнен.
 - [ ] Диспетчер: `skills attach` кладёт единственный скил `todoc` в платформенный
       каталог с вшитым root; vault НЕ монтируется (0 L1-описаний под-скилов);
@@ -734,6 +765,7 @@ git commit -m "docs(skills): README/HOME/план — документирова
 | Перекрытие описаний скилов снижает точность выбора (OpenAI guidance) | Н×Н | house-стандарт описаний: WHAT+WHEN+NOT-WHEN, ≤120 симв.; границы доменов разведены по разделам Задачи 4 | агент |
 | coverage 100% недостижим на CLI-обвязке | Н×С | тесты на каждый флаг tree/read/attach/import (§4 — детерминированные ветки); fallback: `# pragma: no cover` с комментарием-обоснованием в §8 | агент |
 | Кириллица в разделе `--query` не матчится | Н×Н | решение §4: lowercase-подстрока; тест с кириллическим описанием в Задаче 2 | агент |
+| Целый пакет (15+ скилов как superpowers) в один раздел → свалка | С×Н | агент выбирает `--into` по дереву доменов; отчёт imported/skipped; `--skill` для выборочного; обвязка не переносится (§2); реальная проба: 15/15 валидны, конфликтов имён нет | агент |
 
 ## 8. Прогресс и отклонения
 
@@ -771,6 +803,27 @@ git commit -m "docs(skills): README/HOME/план — документирова
   возникает; (5) doc_type `skill` подтверждён с 5 required_sections,
   `glob-skill` = `skill/**` (singular) — с `skills/**` не пересекается.
   Отклонений при исполнении нет.
+- 2026-11-25 — проба реальным пакетом и сверка с концепцией `.research`:
+  (1) obra/superpowers склонирован shallow, все 15 SKILL.md прогнаны реальным
+  парсером движка против правил планируемого валидатора: 15/15 valid
+  (name=папка, regex, description ≤1024, дубликатов нет, все внутри skills/),
+  обвязка (hooks/=4, scripts/=5, index.js, package.json,
+  gemini-extension.json) отделена от скилов → «целый пакет встаёт одной
+  командой import из локального клона; вмешательство агента: выбор --into,
+  аудит scripts/ (audit_note), разбор отчёта» — семантика пакета и pack-тест
+  добавлены (§2, Задача 6); сам пакет подтверждает dispatcher-паттерн — в нём
+  есть свой «using-superpowers» (индексный скил, 7 references); (2)
+  microsoft/playwright-cli — активный CLI-тул («Record and generate Playwright
+  code…»), не скил-пак: идея «скил по установке пакетов, помогающий CLI» принята
+  как 11-й демо-скил coding/env/package-install (Задача 4; мотив — наш реальный
+  инцидент PEP 668: глобальный pip заблокирован, только .venv); (3) границы
+  ответственности зафиксированы в §4 по mcp-cli-agents-research.md:62/:27,
+  comparative-audit.md:19, engineering-plan.md:859: CLI — детерминированный
+  исполнитель, мыслительные процессы — агенту; скил — процедурная память, не
+  логика CLI; attach не нарушает «init не устанавливает Skill» (отдельная
+  явная команда). Счётчики демо 10 → 11.
+
+Отклонений при исполнении нет.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
