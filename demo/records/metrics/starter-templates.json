@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "metric:starter-templates",
+  "entity_type": "metric",
+  "name": "Стартовых шаблонов типов",
+  "aspect": "types",
+  "value": {
+    "value": 31,
+    "unit": "count"
+  },
+  "source": "Счёт .todoc/*_types/*/template.*"
+}

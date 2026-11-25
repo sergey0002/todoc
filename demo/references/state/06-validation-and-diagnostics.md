@@ -48,7 +48,13 @@ copied: true
 | `config.unknown_type` | правило присваивает несуществующий тип |
 | `config.already_initialized` | `init` в уже инициализированный корень |
 | `config.ambiguous_rule` | ничья правил с разными результатами (warning) |
-| `types.unknown` | `types show` для несуществующего типа |
+| `config.unknown_field` | поле описателя не входит в список допустимых для вида типа |
+| `config.template_missing` | объявлен `template`, файла в папке типа нет |
+| `config.prompt_missing` | объявлен CRUD-промпт, файла нет |
+| `types.unknown` | `types show`/`docs new --type` для несуществующего типа |
+| `types.template_missing` | `docs new` не нашёл шаблон (файл или объявленный шаблоном) |
+| `types.template_invalid` | шаблон нарушает структуру своего типа — файл не создаётся |
+| `types.prompt_missing` | `types prompt` для отсутствующего файла промпта |
 
 ### Файлы
 
@@ -64,6 +70,14 @@ copied: true
 | Код | Когда |
 |---|---|
 | `markdown.link.target_missing` | локальная цель ссылки не найдена в датасете |
+| `markdown.front_matter.yaml_unsafe` | front matter не разбирается строгим YAML-парсером (warning) |
+| `markdown.section.missing` | нет раздела из `required_sections` типа документа |
+| `markdown.section.empty` | у заголовка меньше подразделов, чем требует `section_rules` |
+
+Правила структуры применяются только к документам, у которых resolved `doc_type` объявил
+`required_sections`/`section_rules` (см. [04-config-and-types.md](04-config-and-types.md)).
+Локация `markdown.section.missing` — начало документа (`line: 1`): указывать не на что,
+раздела нет. Локация `markdown.section.empty` — строка самого заголовка.
 
 Локация содержит `line`, `column`, `end_column`, `is_wikilink`.Wikilinks резолвятся по имени
 файла в любом месте датасета; обычные ссылки — относительно файла-источника.

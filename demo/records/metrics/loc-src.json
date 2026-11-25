@@ -5,7 +5,7 @@
   "name": "Строк в src/todoc",
   "aspect": "code",
   "value": {
-    "value": 3239,
+    "value": 4032,
     "unit": "count"
   },
   "source": "Итог wc -l по модулям пакета"

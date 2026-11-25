@@ -4,5 +4,6 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Типизированная JSON-запись как документ.",
-  "format": "json"
+  "format": "json",
+  "template": "template.md"
 }

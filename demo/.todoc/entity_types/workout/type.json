@@ -3,5 +3,6 @@
   "type_id": "workout",
   "version": "0.1",
   "description": "Entity type workout.",
-  "format": "json"
+  "format": "json",
+  "template": "template.json"
 }

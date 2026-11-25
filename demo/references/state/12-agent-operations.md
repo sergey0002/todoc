@@ -40,6 +40,29 @@ todoc docs read --root KB --id <id> --section "<заголовок>"
 
 Код выхода важнее текста: 0 успех, 2 использование, 3 валидация, 4 доступ, 5 конфликт, 6 неполнота.
 
+## Стартовые промпты и шаблоны типа
+
+У каждого типа документа и записи в его папке лежат четыре промпта — по одному на операцию.
+Берите промпт той операции, которую собираетесь выполнить, а не один общий текст:
+
+```bash
+todoc types prompt --root KB guide --op read      # как читать документ этого типа
+todoc types prompt --root KB guide --op create    # как создать
+todoc types prompt --root KB guide --op edit      # как править (hash-предусловие)
+todoc types prompt --root KB guide --op delete    # как снять с публикации
+todoc types show --root KB guide                  # пути template/prompts + exists
+```
+
+Создание документа — из шаблона типа, а не «с чистого листа»:
+
+```bash
+todoc docs new --root KB --type guide --title "Как читать конверт" --dir guides
+```
+
+Шаблон подставляет `{title}`, `{slug}`, `{date}`, `{type_id}`, `{id}`, `{format}` как текст.
+Если шаблон нарушает структуру своего типа (`required_sections`/`section_rules`), команда
+откажет кодом `types.template_invalid` и ничего не запишет — чините шаблон, не обходите проверку.
+
 ## Запись: только через предпросмотр
 
 ```bash

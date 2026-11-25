@@ -1,17 +1,17 @@
 {
   "meta": {
-    "date": "2026-11-25 05:57:48",
+    "date": "2026-11-25 07:28:26",
     "corpus": "/tmp/todoc-bench-corpus",
-    "documents": 254,
-    "records": 157,
+    "documents": 256,
+    "records": 159,
     "relations": 140,
     "latency_ms": {
-      "status": 147,
-      "types list": 142,
-      "docs search": 1409,
-      "docs read": 977,
-      "records list": 995,
-      "validate": 935
+      "status": 156,
+      "types list": 150,
+      "docs search": 1435,
+      "docs read": 987,
+      "records list": 987,
+      "validate": 970
     },
     "seeded_defects": 9
   },
@@ -98,7 +98,7 @@
       "name": "Валидация записей: схема, тип, целостность отношений",
       "status": "pass",
       "score": 1.0,
-      "detail": "отказы записи: [('missing_field', 'record.missing_field'), ('unknown_type', 'record.unknown_entity_type')]; файл не создан: True; коды отношений: ['relation.dangling_target', 'relation.unknown_type']"
+      "detail": "отказы записи: [('missing_field', 'record.schema_violation'), ('unknown_type', 'record.unknown_entity_type')]; файл не создан: True; коды отношений: ['relation.dangling_target', 'relation.unknown_type']"
     },
     {
       "id": "K11",
@@ -130,7 +130,7 @@
       "name": "preview не пишет файлы и показывает план",
       "status": "pass",
       "score": 1.0,
-      "detail": "target=records/note/note:bench-safety-c4d79c59.json, файлов изменено: 0"
+      "detail": "target=records/note/note:bench-safety-c04c1510.json, файлов изменено: 0"
     },
     {
       "id": "K15",
@@ -234,7 +234,7 @@
       "name": "Латентность команд в пределах бюджета",
       "status": "pass",
       "score": 1.0,
-      "detail": "команд вне бюджета: 0 из 6; медианы: status=147мс, types list=142мс, docs search=1409мс, docs read=977мс, records list=995мс, validate=935мс"
+      "detail": "команд вне бюджета: 0 из 6; медианы: status=156мс, types list=150мс, docs search=1435мс, docs read=987мс, records list=987мс, validate=970мс"
     },
     {
       "id": "K28",
@@ -242,7 +242,7 @@
       "name": "Тестовый набор проходит",
       "status": "pass",
       "score": 1.0,
-      "detail": "332 passed"
+      "detail": "403 passed"
     },
     {
       "id": "K29",
@@ -483,7 +483,7 @@
         },
         {
           "query": "front matter",
-          "relevant_total": 22,
+          "relevant_total": 23,
           "top3": [
             "competitor:okf",
             "doc:after-mcp-adapter",
@@ -496,37 +496,37 @@
     "K27": [
       {
         "command": "status",
-        "median_ms": 147,
+        "median_ms": 156,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "types list",
-        "median_ms": 142,
+        "median_ms": 150,
         "limit_ms": 1500,
         "within": true
       },
       {
         "command": "docs search",
-        "median_ms": 1409,
+        "median_ms": 1435,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "docs read",
-        "median_ms": 977,
+        "median_ms": 987,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "records list",
-        "median_ms": 995,
+        "median_ms": 987,
         "limit_ms": 2500,
         "within": true
       },
       {
         "command": "validate",
-        "median_ms": 935,
+        "median_ms": 970,
         "limit_ms": 4000,
         "within": true
       }
@@ -556,7 +556,7 @@
       "front_matter_index": 88,
       "available": true,
       "front_matter_warnings": 3,
-      "reused_from": "/tmp/prev-benchmark.json"
+      "reused_from": "bench/results/benchmark.json"
     },
     "open-knowledge": {
       "available": true,
@@ -586,7 +586,7 @@
       "version": "0.28.2",
       "subcommands": 12,
       "writes_into_corpus": [],
-      "reused_from": "/tmp/prev-benchmark.json"
+      "reused_from": "bench/results/benchmark.json"
     },
     "open-knowledge-capabilities": {
       "validate": false,
@@ -599,7 +599,7 @@
       "graph": false,
       "types": false,
       "records": false,
-      "reused_from": "/tmp/prev-benchmark.json"
+      "reused_from": "bench/results/benchmark.json"
     }
   }
 }

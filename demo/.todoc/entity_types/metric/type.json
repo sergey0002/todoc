@@ -25,5 +25,6 @@
       "name",
       "value"
     ]
-  }
+  },
+  "template": "template.json"
 }

@@ -15,8 +15,8 @@ copied: true
 `bench/results/benchmark.json` и
 `bench/results/benchmark.md`.
 
-Корпус: копия демо-датасета в `/tmp/todoc-bench-corpus` — **254 документа, 157 записей,
-140 отношений** (246 документов демо: 90 md + 1 csv + 155 json; плюс 8 файлов с намеренно
+Корпус: копия демо-датасета в `/tmp/todoc-bench-corpus` — **256 документов, 159 записей,
+140 отношений** (248 документов демо: 90 md + 1 csv + 157 json; плюс 8 файлов с намеренно
 внесёнными дефектами как ground truth).
 `demo/` при прогоне не изменяется; входные файлы для проверок записи лежат вне DATA_ROOT.
 
@@ -41,9 +41,9 @@ copied: true
 
 - **Детекция дефектов:** precision 1.00, recall 1.00, **F1 1.00** (TP=9, FN=0, FP=0) на 9 внесённых дефектах.
 - **Поиск:** Recall@3 0.94, Precision@3 0.94, **MRR 1.00** на 12 запросах с независимой разметкой.
-- **Латентность (медианы):** `status` 147 мс, `types list` 142 мс, `validate` 935 мс, `records list` 995 мс,
-  `docs read` 977 мс, `docs search` 1409 мс — все в бюджете, но чтение/поиск упираются в пересборку индекса (см. §5).
-- **Тесты:** 332 passed, покрытие **100 %** (2138 инструкций, 698 веток, 0 пропущенных).
+- **Латентность (медианы):** `status` 156 мс, `types list` 150 мс, `validate` 970 мс, `records list` 987 мс,
+  `docs read` 987 мс, `docs search` 1435 мс — все в бюджете, но чтение/поиск упираются в пересборку индекса (см. §5).
+- **Тесты:** 403 passed, покрытие **100 %** (2455 инструкций, 854 ветки, 0 пропущенных).
 - **Портабельность:** 8 из 8 подкритериев; front matter всех 89 md-файлов разбирается внешним PyYAML.
 
 ## 2. Дефекты, которые нашёл бенчмарк, и что сделано
@@ -65,7 +65,10 @@ copied: true
 | 11 | `records create` проверял только `required_fields`: значение вне `enum` схемы записывалось в файл | схема сущности применяется при создании → `record.schema_violation`, exit 3, файл не создаётся | K10, тест `test_records_create_enforces_the_entity_schema` |
 | 12 | `records aggregate` сверял единицы **до** группировки: любой разнородный набор метрик давал `query.unit_mismatch`, даже с `--group-by` | проверка на группу, в ответе `group_units`; смешение единиц внутри одной группы по-прежнему ошибка | тест `test_aggregate_mixed_units_across_groups_is_allowed` |
 | 13 | `docs edit --patch-file` с JSON не той формы (`[...]` вместо `{"ops": [...]}`) падал с `AttributeError` и traceback | проверка формы патча → `edit.invalid_patch`, exit 3, конверт | тест `test_docs_edit_patch_shape_is_validated_in_process` |
-| 14 | У JSON-диагностик и диагностик записей не было локаций | `JsonError` (подкласс `str`, чтобы не ломать существующие потребители) несёт `line`/`column` из `JSONDecodeError`; у записей — строка ключа; у отношений — RFC 6901 pointer `/relations/N` | K7 (частично, см. §3) |
+| 14 | `docs new --template` принимал значение и возвращал его в ответе, но содержимое всегда было `# <заголовок>` | флаг принимает id типа или путь к шаблону; `create_document_plan()` подставляет плейсхолдеры и проверяет структуру типа до записи (`types.template_invalid`) | тест `test_docs_new_uses_the_type_template` |
+| 15 | Неизвестные поля в `type.json` принимались молча: `required_sections` проходило `check-config`, отображалось в `types show` и никогда не применялось | `KIND_FIELDS` — список допустимых полей на вид типа; `check-config` даёт `config.unknown_field`, `config.invalid_schema`, `config.template_missing`, `config.prompt_missing`, exit 3 | тест `test_check_config_reports_unknown_field_and_missing_template` |
+| 16 | `id` диагностик `config.ambiguous_rule` для папок всё ещё считался через `hash()` (остаток дефекта №1) | тот же `stable_id()`; проверено четырьмя запусками — id совпадают | тест `test_ambiguous_rule_ids_are_stable` |
+| 17 | У JSON-диагностик и диагностик записей не было локаций | `JsonError` (подкласс `str`, чтобы не ломать существующие потребители) несёт `line`/`column` из `JSONDecodeError`; у записей — строка ключа; у отношений — RFC 6901 pointer `/relations/N` | K7 (частично, см. §3) |
 
 Побочно найденное и исправленное в демо: 46 из 144 записей имели `title` в литеральных кавычках
 (генератор копировал сырую строку front matter) — исправлено, `validate --all` даёт 0 диагностик.
@@ -94,8 +97,8 @@ copied: true
 | Показатель | **todoc** | `obsidiantools` 0.11.0 | `open-knowledge` (`ok`) 0.28.2 |
 |---|---|---|---|
 | Интерфейс | CLI, 25 команд, JSON-конверт | Python API (нет CLI) | CLI, 12 подкоманд + сервер |
-| Время на корпусе 254 док. | `validate` 0.94 с | `gather().connect()` **7.11 с** | `status` 0.61 с, `diagnose` 0.52 с |
-| Заметок/документов распознано | 254 (md 90 + csv 1 + json 155 + дефекты) | 90 (только `.md`) | не применимо (не индексатор) |
+| Время на корпусе 256 док. | `validate` 0.97 с | `gather().connect()` **7.11 с** | `status` 0.61 с, `diagnose` 0.52 с |
+| Заметок/документов распознано | 256 (md 90 + csv 1 + json 157 + дефекты) | 90 (только `.md`) | не применимо (не индексатор) |
 | Битые ссылки | 1 (внесённая) | **1** — та же (`broken-link -> does-not-exist.md`) | не проверяет |
 | Front matter | 89/89 разбираются, 0 предупреждений | 88 записей, **3 предупреждения** о неразобранном YAML | не проверяет |
 | Backlinks / граф | `relations graph` по типизированным рёбрам (127 отношений) | `backlinks_index` 88, `isolated_notes` 86 | нет |

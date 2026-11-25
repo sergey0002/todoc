@@ -5,8 +5,8 @@
   "name": "Листовых команд CLI",
   "aspect": "cli",
   "value": {
-    "value": 25,
+    "value": 26,
     "unit": "count"
   },
-  "source": "Обход дерева Click"
+  "source": "Обход дерева команд Click"
 }

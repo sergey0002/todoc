@@ -4,5 +4,13 @@
   "version": "0.1",
   "kind": "doc_type",
   "description": "Карточка одного конкурента/Skill.",
-  "format": "markdown"
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Что это",
+    "## Сильные стороны",
+    "## Пробел относительно `todoc`",
+    "## Вердикт",
+    "## Источник"
+  ]
 }

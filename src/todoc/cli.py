@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +18,14 @@ from todoc.adapters.formats.markdown import heading_path_for, parse_markdown
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.search import search_documents
 from todoc.application.validator import _load_record_schemas, stable_id
-from todoc.application.write import apply_edit_ops, apply_fix, apply_write_plan, create_record_plan, load_input_record
+from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
+                                   create_record_plan, load_input_record)
 from todoc.config import init_dataset
-from todoc.errors import EXIT_USAGE, AccessError, TodocError, ValidationError
+from todoc.errors import EXIT_USAGE, AccessError, ConflictError, TodocError, ValidationError
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
+from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics, prompt_files,
+                                             template_file, type_kind_dir)
 
 
 def _emit_ok(data: dict[str, Any], output: str, out: str | None, diagnostics: list[dict[str, Any]] | None = None,
@@ -153,13 +157,38 @@ def init(root: str, output: str, no_input: bool) -> None:
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
-    """Validate dataset configs before use."""
+    """Validate dataset configs before use.
+
+    Reports unknown descriptor fields, malformed structure rules and declared
+    template/prompt files that are missing on disk — a config that silently accepts
+    a rule it never enforces is worse than one that refuses it.
+    """
     results = []
+    collected: list[dict[str, Any]] = []
+    failed = False
     for ctx in _contexts(roots):
-        results.append({"dataset_id": ctx.dataset_id, "ok": True, "dir_types": len(ctx.registry_types.dir_types),
-                        "doc_types": len(ctx.registry_types.doc_types), "entity_types": len(ctx.registry_types.entity_types),
-                        "relation_types": len(ctx.registry_types.relation_types)})
-    _emit_ok({"datasets": results}, output, None)
+        findings: list[dict[str, Any]] = []
+        for kind, store in (("dir_type", ctx.registry_types.dir_types), ("doc_type", ctx.registry_types.doc_types),
+                            ("entity_type", ctx.registry_types.entity_types),
+                            ("relation_type", ctx.registry_types.relation_types)):
+            for type_id in sorted(store):
+                rel = f".todoc/{type_kind_dir(ctx.dataset, kind)}/{type_id}/type.json"
+                for item in descriptor_diagnostics(ctx.root, ctx.dataset, kind, store[type_id], rel):
+                    findings.append({
+                        "dataset_id": ctx.dataset_id, "id": stable_id(rel, item["code"], item["message"]),
+                        "code": item["code"], "severity": "error", "path": item["path"], "location": {},
+                        "evidence": f"type_id: {type_id}", "message": item["message"], "suggested_fixes": [],
+                    })
+        collected.extend(findings)
+        if findings:
+            failed = True
+        results.append({"dataset_id": ctx.dataset_id, "ok": not findings,
+                        "dir_types": len(ctx.registry_types.dir_types),
+                        "doc_types": len(ctx.registry_types.doc_types),
+                        "entity_types": len(ctx.registry_types.entity_types),
+                        "relation_types": len(ctx.registry_types.relation_types),
+                        "issues": len(findings)})
+    _emit_result({"datasets": results}, output, collected, failed)
 
 
 @cli.command()
@@ -269,26 +298,80 @@ def docs(ctx: click.Context) -> None:
     """Document operations."""
 
 
+def _slugify(title: str) -> str:
+    """Filesystem-safe slug from a title (letters, digits, dash, underscore)."""
+    return "".join(c if c.isalnum() or c in "-_" else "-" for c in title.lower()).strip("-") or "untitled"
+
+
+def _utc_date() -> str:
+    """UTC calendar date for the ``{date}`` template placeholder (deterministic per day)."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _resolve_document_template(ctx: DatasetContext, doc_type: str | None,
+                               template: str | None) -> tuple[str | None, str | None, str]:
+    """Resolve (doc_type_id, template_text, source) for `docs new`.
+
+    ``--template`` accepts either a doc_type id (uses that type's ``template.<ext>``)
+    or a path inside DATA_ROOT. A type that declares no template yields no text: the
+    document starts as a bare title heading. A type that declares a template which is
+    missing on disk is refused rather than silently degraded.
+    """
+    type_id = doc_type
+    if template:
+        if template in ctx.registry_types.doc_types:
+            type_id = template
+        else:
+            path = _contained_out(ctx.root, template)
+            if not path.is_file():
+                raise ValidationError(f"Template not found: {template}", "types.template_missing")
+            return type_id, path.read_text(encoding="utf-8"), template
+    if type_id is not None and type_id not in ctx.registry_types.doc_types:
+        raise ValidationError(f"Unknown doc_type: {type_id!r}", "types.unknown")
+    if type_id is None:
+        return None, None, "none"
+    descriptor = ctx.registry_types.doc_types[type_id]
+    declared = template_file(ctx.root, ctx.dataset, "doc_type", descriptor)
+    if declared is None:
+        return type_id, None, "type-without-template"
+    if not declared.is_file():
+        raise ValidationError(
+            f"doc_type {type_id!r} declares template {declared.name}, which is missing",
+            "types.template_missing")
+    return type_id, declared.read_text(encoding="utf-8"), f".todoc/{type_kind_dir(ctx.dataset, 'doc_type')}/{type_id}/{declared.name}"
+
+
 @docs.command("new")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--title", required=True)
 @click.option("--dir", "dir_", default="inbox")
-@click.option("--template", default="note")
-def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, dir_: str, template: str) -> None:
-    """Create a new Markdown draft (create-only, no-overwrite)."""
+@click.option("--path", "path_", default=None, help="Явный относительный путь вместо --dir + slug.")
+@click.option("--type", "doc_type", default=None, help="Тип документа: шаблон и структура из папки типа.")
+@click.option("--template", default=None, help="Тип документа или путь к файлу шаблона.")
+def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, dir_: str, path_: str | None,
+             doc_type: str | None, template: str | None) -> None:
+    """Create a document from its type's starter template (create-only, no-overwrite)."""
     ctx = _contexts(roots)[0]
-    slug = "".join(c if c.isalnum() or c in "-_" else "-" for c in title.lower()).strip("-") or "untitled"
-    rel = f"{dir_.strip('/')}/{slug}.md"
-    target = _contained_out(ctx.root, rel)  # --dir may not escape DATA_ROOT
+    slug = _slugify(title)
+    rel = path_ or f"{dir_.strip('/')}/{slug}.md"
+    target = _contained_out(ctx.root, rel)  # neither --dir nor --path may escape DATA_ROOT
     if target.exists():
-        from todoc.errors import ConflictError
         raise ConflictError(f"Target already exists: {rel}", "docs.target_exists")
-    content = f"# {title}\n\n"
-    atomic_write(target, content)
+    type_id, template_text, source = _resolve_document_template(ctx, doc_type, template)
+    values = {"title": title, "slug": slug, "date": _utc_date(), "type_id": type_id or "",
+              "id": f"doc:{rel}", "format": "markdown"}
+    plan = create_document_plan(ctx.dataset, ctx.registry_types.doc_types, type_id, title, rel,
+                                template_text, values)
+    apply_write_plan(ctx.root, plan)
     ctx.rebuild_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": rel, "title": title, "template": template}, output, None)
+    _emit_ok({"dataset_id": ctx.dataset_id, "path": rel, "title": title, "doc_type": type_id,
+              "template": source, "hash": plan.new_hash}, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", f"doc:{rel}"],
+                            "purpose": "Прочитать созданный документ"},
+                           {"argv": _root_argv(roots) + ["types", "prompt", type_id or "note", "--op", "edit"],
+                            "purpose": "Взять стартовый промпт правки для этого типа"}])
 
 
 @docs.command("search")
@@ -634,6 +717,32 @@ def types_list(roots: tuple[str, ...], output: str, no_input: bool) -> None:
               "relation_types": sorted(ctx.registry_types.relation_types)}, output, None)
 
 
+def _type_bundle(ctx: DatasetContext, kind: str, descriptor: dict[str, Any]) -> dict[str, Any]:
+    """Template + CRUD prompt locations of a type, with existence flags.
+
+    A path the agent cannot open is reported as ``exists: false`` instead of being
+    omitted, so a caller can tell "type has no prompts" from "prompts are missing".
+    """
+    if kind not in ("doc_type", "entity_type"):
+        return {"template": None, "prompts": {}}
+    kind_dir = type_kind_dir(ctx.dataset, kind)
+    type_id = str(descriptor.get("type_id", ""))
+    declared = template_file(ctx.root, ctx.dataset, kind, descriptor)
+    template = None
+    if declared is not None:
+        template = {"path": f".todoc/{kind_dir}/{type_id}/{declared.name}", "exists": declared.is_file()}
+    prompts = {
+        operation: {"path": f".todoc/{kind_dir}/{type_id}/{path.relative_to(_type_base(ctx, kind, type_id)).as_posix()}",
+                            "exists": path.is_file()}
+        for operation, path in prompt_files(ctx.root, ctx.dataset, kind, descriptor).items()
+    }
+    return {"template": template, "prompts": prompts}
+
+
+def _type_base(ctx: DatasetContext, kind: str, type_id: str) -> Path:
+    return ctx.root / ".todoc" / type_kind_dir(ctx.dataset, kind) / type_id
+
+
 @types.command("show")
 @click.argument("type_id")
 @click.option("--root", "roots", multiple=True)
@@ -641,10 +750,42 @@ def types_list(roots: tuple[str, ...], output: str, no_input: bool) -> None:
 @click.option("--no-input", is_flag=True)
 def types_show(type_id: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
     ctx = _contexts(roots)[0]
-    for store in (ctx.registry_types.dir_types, ctx.registry_types.doc_types,
-                  ctx.registry_types.entity_types, ctx.registry_types.relation_types):
+    for kind, store in (("dir_type", ctx.registry_types.dir_types), ("doc_type", ctx.registry_types.doc_types),
+                        ("entity_type", ctx.registry_types.entity_types),
+                        ("relation_type", ctx.registry_types.relation_types)):
         if type_id in store:
-            _emit_ok({"dataset_id": ctx.dataset_id, "type": store[type_id]}, output, None)
+            bundle = _type_bundle(ctx, kind, store[type_id])
+            _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "type": store[type_id],
+                      "template": bundle["template"], "prompts": bundle["prompts"]}, output, None,
+                     next_actions=[{"argv": _root_argv(roots) + ["types", "prompt", type_id, "--op", "create"],
+                                    "purpose": "Взять стартовый промпт создания документа этого типа"}]
+                     if bundle["prompts"] else [])
+            return
+    raise ValidationError(f"Unknown type: {type_id}", "types.unknown")
+
+
+@types.command("prompt")
+@click.argument("type_id")
+@click.option("--op", "operation", type=click.Choice(list(PROMPT_OPERATIONS)), default="create", show_default=True)
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+def types_prompt(type_id: str, operation: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
+    """Starter prompt of a type for one CRUD operation (read/create/edit/delete)."""
+    ctx = _contexts(roots)[0]
+    for kind, store in (("doc_type", ctx.registry_types.doc_types), ("entity_type", ctx.registry_types.entity_types)):
+        if type_id in store:
+            paths = prompt_files(ctx.root, ctx.dataset, kind, store[type_id])
+            path = paths.get(operation)
+            if path is None or not path.is_file():
+                raise ValidationError(
+                    f"No {operation!r} prompt for type {type_id!r} "
+                    f"(expected {path.name if path is not None else 'prompts/'}",
+                    "types.prompt_missing")
+            text = path.read_text(encoding="utf-8")
+            _emit_ok({"dataset_id": ctx.dataset_id, "type_id": type_id, "kind": kind, "operation": operation,
+                      "path": f".todoc/{type_kind_dir(ctx.dataset, kind)}/{type_id}/prompts/{operation}.md",
+                      "prompt": text, "chars": len(text)}, output, None)
             return
     raise ValidationError(f"Unknown type: {type_id}", "types.unknown")
 

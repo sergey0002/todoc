@@ -31,5 +31,6 @@
       "origin",
       "relations"
     ]
-  }
+  },
+  "template": "template.json"
 }

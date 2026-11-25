@@ -62,7 +62,7 @@ todoc validate --root ./knowledge --all
 
 | Команда | Назначение |
 |---|---|
-| `docs new --title T [--dir D] [--template N]` | создать черновик (create-only) |
+| `docs new --title T [--dir D\|--path P] [--type T] [--template T\|FILE]` | создать документ из шаблона типа (create-only) |
 | `docs search --query Q [--type T] [--limit N] [--within P] [--budget B]` | лексический поиск с фрагментами |
 | `docs read --id ID [--section S\|--anchor A\|--line-range N-M\|--pointer P\|--columns C --rows R --where K=V]` | чтение с проекцией |
 | `docs tree [--within P] [--max-depth N]` | дерево папок и документов с типами |
@@ -84,7 +84,8 @@ todoc validate --root ./knowledge --all
 | Команда | Назначение |
 |---|---|
 | `types list` | все типы датасета |
-| `types show TYPE_ID` | описатель типа |
+| `types show TYPE_ID` | описатель типа + пути шаблона и CRUD-промптов |
+| `types prompt TYPE_ID [--op read\|create\|edit\|delete]` | стартовый промпт типа под операцию |
 | `types guide [--format markdown\|json] [--out PATH]` | сгенерированное описание типовой системы |
 | `fix --diagnostic ID [--preview\|--apply] [--if-hash H]` | применить один предложенный фикс |
 
@@ -126,6 +127,11 @@ todoc validate --root KB --all
 todoc fix --root KB --diagnostic diag_0042 --preview
 todoc fix --root KB --diagnostic diag_0042 --apply
 
+# Документ из шаблона типа: промпт операции → создание → проверка структуры
+todoc types prompt --root KB guide --op create
+todoc docs new --root KB --type guide --title "Как читать конверт" --dir guides
+todoc validate --root KB --all
+
 # Запись с предпросмотром
 todoc records create --root KB --type note --input-file note.json --preview
 todoc records create --root KB --type note --input-file note.json --apply
@@ -155,7 +161,7 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 
 ```
 src/todoc/            код: cli, application, domain, adapters, typing_system, output
-tests/                332 теста: unit, cli, integration (покрытие 100%)
+tests/                403 теста: unit, cli, integration (покрытие 100%)
 bench/                бенчмарк качества: 30 критериев, скрипт, результаты
 demo/                 демо-датасет (DATA_ROOT) — живой пример всех возможностей
 .doc/
@@ -204,7 +210,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **29.5 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-332 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+403 теста и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`.doc/state/15-benchmark.md`](.doc/state/15-benchmark.md).
 

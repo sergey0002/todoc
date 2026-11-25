@@ -5,7 +5,7 @@
   "name": "Пройдено тестов",
   "aspect": "tests",
   "value": {
-    "value": 332,
+    "value": 403,
     "unit": "count"
   },
   "source": "pytest tests"

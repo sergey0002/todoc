@@ -3,5 +3,6 @@
   "type_id": "person",
   "version": "0.1",
   "description": "Entity type person.",
-  "format": "json"
+  "format": "json",
+  "template": "template.json"
 }

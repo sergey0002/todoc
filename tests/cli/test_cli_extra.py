@@ -247,8 +247,10 @@ def test_records_create_enforces_the_entity_schema(root):
     assert not list((root / "records").rglob("note:bad-mood.json"))
 
     good = root.parent / "good-note.json"
-    good.write_text(json.dumps({"record_id": "note:good-mood", "entity_type": "note", "mood": "calm"}),
-                    encoding="utf-8")
+    # `title` is required by the default `note` entity type that `init` now ships,
+    # so a valid record carries it alongside the schema-checked `mood`.
+    good.write_text(json.dumps({"record_id": "note:good-mood", "entity_type": "note", "title": "Mood",
+                                "mood": "calm"}), encoding="utf-8")
     proc = _run_cli(root, ["records", "create", "--type", "note", "--input-file", str(good), "--apply",
                            "--output", "json"])
     assert proc.returncode == 0, proc.stderr
