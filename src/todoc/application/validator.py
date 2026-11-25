@@ -14,6 +14,7 @@ from todoc.adapters.filesystem.scanner import ScannedFile
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.adapters.formats.markdown import parse_markdown, resolve_link_target
+from todoc.application import temporal
 from todoc.domain.models import Diagnostic, SuggestedFix
 from todoc.errors import ValidationError
 from todoc.typing_system.descriptors import load_json_file, parse_heading_selector, schema_file
@@ -459,6 +460,12 @@ def _validate_records(
                     dataset_id, scanned.rel_path, "record.schema_violation", rest or message,
                     location=location, evidence=evidence,
                 ))
+        defect = temporal.interval_defect(value)
+        if defect:
+            code, message, field = defect
+            location = {"pointer": f"/{field}", "entity_type": entity_type}
+            location.update(_key_location(text, field))
+            diags.append(_diag(dataset_id, scanned.rel_path, code, message, location=location))
         records.append({
             "record_id": record_id, "entity_type": entity_type, "dataset_id": dataset_id,
             "path": scanned.rel_path, "hash": scanned.hash, "data": value,
@@ -507,4 +514,9 @@ def validate_relations(
                 diags.append(_diag(dataset_id, record["path"], "relation.missing_target",
                                    f"Relation {type_id or '<empty>'} has no target.id.",
                                    location={**where, "pointer": f"/relations/{index}/target/id"}))
+            defect = temporal.interval_defect(rel)
+            if defect:
+                code, message, field = defect
+                diags.append(_diag(dataset_id, record["path"], code, message,
+                                   location={**where, "pointer": f"/relations/{index}/{field}"}))
     return diags

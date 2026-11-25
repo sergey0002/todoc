@@ -14,10 +14,10 @@
 | Показатель | Значение | Как проверено |
 |---|---|---|
 | Версия пакета | `0.1.0` | `todoc --version` |
-| Листовых команд CLI | 45 (24 верхнеуровневых) | обход дерева Click |
-| Строк в `src/todoc` | 7033 | `wc -l` по модулям |
-| Тестов | 883 проходят, 17 пропущено | `pytest tests` |
-| Покрытие | 100% — 4203 инструкции, 1514 веток, 0 пропусков | `coverage run --branch` + `coverage report -m` |
+| Листовых команд CLI | 46 (25 верхнеуровневых) | обход дерева Click |
+| Строк в `src/todoc` | 7329 | `wc -l` по модулям |
+| Тестов | 932 проходят, 18 пропущено | `pytest tests` |
+| Покрытие | 100% — 4357 инструкций, 1566 веток, 0 пропусков | `coverage run --branch` + `coverage report -m` |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` | `pyproject.toml` |
 | Python | 3.11.2 | `todoc doctor` |
 | Демо-датасет | 248 документов, 157 записей, 0 диагностик | `todoc validate --root demo --all` |
@@ -41,6 +41,8 @@
 - **Изменения**: `entity_type: change`, дельты `ADDED`/`MODIFIED`/`REMOVED`,
   `change open/show/validate/verify/apply/archive/revert`, атомарное применение «всё или ничего».
 - **Контекст**: `context --change|--tag` — весь контекст задачи одним вызовом, в пределах бюджета байт.
+- **Би-темпоральность**: `valid_from`/`valid_to` и `observed_at`/`superseded_at` у записей и
+  отношений, `records query --as-of`, `timeline`; инвалидация вместо удаления.
 
 ## Что сознательно НЕ реализовано в MVP
 

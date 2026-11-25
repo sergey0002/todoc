@@ -1,6 +1,6 @@
 # Бенчмарк todoc
 
-Дата: 2026-11-25 15:08:53 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
+Дата: 2026-11-25 15:37:19 · датасет: `/tmp/todoc-bench-corpus` · документов: 256 · записей: 159
 
 **Итоговый балл: 29.5 из 30** (98%)
 
@@ -36,7 +36,7 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note-bench-safety-f2e9c540.json, файлов изменено: 0 |
+| K14 | preview не пишет файлы и показывает план | pass | 1.0 | target=records/note/note-bench-safety-1a5742fa.json, файлов изменено: 0 |
 | K15 | create-only: повторная запись → конфликт (exit 5) | pass | 1.0 | первая запись exit=0, повторная exit=5 |
 | K16 | Containment: --out не пишет вне DATA_ROOT | pass | 1.0 | файл вне корня создан: False, exit=4 |
 
@@ -69,13 +69,13 @@
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=156мс, types list=150мс, docs search=646мс, docs read=232мс, records list=256мс, validate=1046мс |
+| K27 | Латентность команд в пределах бюджета | pass | 1.0 | команд вне бюджета: 0 из 6; медианы: status=162мс, types list=188мс, docs search=607мс, docs read=172мс, records list=159мс, validate=1040мс |
 
 ## Качество кода
 
 | ID | Критерий | Статус | Балл | Детали |
 |---|---|---|---|---|
-| K28 | Тестовый набор проходит | pass | 1.0 | 883 passed |
+| K28 | Тестовый набор проходит | pass | 1.0 | 932 passed |
 | K29 | Покрытие кода тестами | pass | 1.0 | покрытие 100%, пропущено инструкций: 0, веток: 0 |
 
 ## Портабельность
@@ -89,7 +89,7 @@
 ```json
 {
   "obsidiantools": {
-    "elapsed_s": 7.231,
+    "elapsed_s": 6.666,
     "notes": 91,
     "local_md_links": 286,
     "broken_links_detected": 1,
@@ -107,21 +107,21 @@
     "commands": {
       "help": {
         "exit_code": 0,
-        "elapsed_s": 0.553,
+        "elapsed_s": 0.488,
         "stdout_bytes": 4967,
         "stderr_bytes": 0,
         "first_line": "Usage: open-knowledge [options] [file | command]"
       },
       "status": {
         "exit_code": 0,
-        "elapsed_s": 0.611,
+        "elapsed_s": 0.599,
         "stdout_bytes": 40,
         "stderr_bytes": 0,
         "first_line": "server  not running"
       },
       "diagnose": {
         "exit_code": 1,
-        "elapsed_s": 0.543,
+        "elapsed_s": 0.523,
         "stdout_bytes": 0,
         "stderr_bytes": 714,
         "first_line": ""
