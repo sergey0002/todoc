@@ -17,6 +17,33 @@ lang: ru
 - [Конкурентный анализ](plan/competitive-analysis.md) — ландшафт и C01–C60.
 - [Аудит реализации](plan/audit-implementation.md) — что найдено в коде MVP.
 
+### Активные планы (не начаты, 25.11.2026)
+
+- [Документирование софта: типовой профиль — типы, стартовые промпты, скилы](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — Фаза 1 идеи documentation-system: 4 doc_types, 6 entity_types, 4 dir_types, 4 relation_types, CRUD-промпты, 5 скилов и приёмочный флоу-документ.
+- [Агентский стейт: state.json в движке](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — `todoc state set/get/list/unset`, файл вне данных.
+- [Скилы взаимодействия: захват, план, исполнение, переходы](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — статусы в документах/записях, 4 скила, relation `implements`.
+- [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
+
+### Баг-репорты (`bugs/`, doc_type `bug-report`)
+
+Дефекты и недочёты, найденные при эксплуатации системы, **включая фрикцию
+агента**: всё, что потребовало повторных вызовов, обходных путей или перерасхода
+токенов против прямого взаимодействия с файлами без CLI. Один файл = один баг;
+`status`, `severity` и `agent_impact` (`none|friction|token_overrun`) во front
+matter; репорты не удаляются. Создание: `todoc docs new --type bug-report
+--title "BUG-NNN: суть" --dir bugs` (промпт: `todoc types prompt bug-report
+--op create`).
+
+Фильтрация: `todoc records query --root demo --query-file demo/.todoc/queries/bugs-agent-friction.json`
+(фрикция) · `…/bugs-token-overrun.json` (перерасход токенов) ·
+`docs search --type bug-report --query "agent_impact friction"` (ранжирующе).
+
+- [BUG-001: Явный doc_type без fm-правила резолвится в unknown](bugs/bug-001--явный-doc_type-без-fm-правила-резолвится-в-unknown.md) — `major`, triaged, friction
+- [BUG-002: change open создаёт файлы с doc_type note без правила](bugs/bug-002--change-open-создаёт-файлы-с-doc_type-note-без-правила---резолвится-в-unknown.md) — `major`, triaged, friction
+- [BUG-003: Счётчики демо в README разошлись с фактом](bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md) — `major`, triaged, friction
+- [BUG-004: docs edit не умеет вставку и удаление строк](bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md) — `major`, open, friction + token_overrun
+- [BUG-005: docs read --section игнорирует --budget](bugs/bug-005--docs-read---section-игнорирует---budget.md) — `minor`, open, friction + token_overrun
+
 ## Пост-MVP направления (`plan/after/`)
 
 - [MCP-адаптер](plan/after/mcp-adapter.after.md)

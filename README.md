@@ -47,6 +47,24 @@ todoc validate --root ./knowledge --all
 
 Корень можно задать один раз через переменную окружения: `export TODOC_ROOT=./knowledge`.
 
+## Работа агентов с системой
+
+Инструкции для кодинг-агентов — в [AGENTS.md](AGENTS.md): железные правила
+сессии (работа только через CLI, перепроверка каждого шага, фиксация багов
+через тип `bug-report`), шпаргалка команд и границы. Кратко:
+
+```bash
+todoc docs search --root demo --query "…" --limit 5          # найти
+todoc docs read --root demo --id doc:… --section "…"          # прочитать (bounded)
+todoc records create --root demo --type … --input-file F --preview  # записать (review-first)
+todoc types prompt <тип> --op create --root demo              # стартовый промпт типа
+todoc validate --root demo --all                              # 0 диагностик — обязательный гейт
+```
+
+Дефекты и недочёты, найденные при эксплуатации, фиксируются баг-репортами
+в `demo/bugs/` (один документ = один баг, статус и критичность во front matter,
+репорты не удаляются): `todoc docs new --type bug-report --title "BUG-NNN: суть" --dir bugs`.
+
 ## Все команды
 
 ### Датасет и проверка

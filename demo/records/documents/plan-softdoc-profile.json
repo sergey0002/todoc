@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "record_id": "document:plan-softdoc-profile",
+  "entity_type": "document",
+  "title": "Документирование софта: типовой профиль — типы, стартовые промпты, скилы (план)",
+  "source_path": "plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md",
+  "doc_type": "plan",
+  "lang": "ru",
+  "origin": "authored",
+  "lines": 781,
+  "tags": [
+    "api-contract",
+    "asyncapi",
+    "ddd",
+    "documentation",
+    "domain-event",
+    "openapi",
+    "openspec",
+    "postmortem",
+    "prompts",
+    "runbook",
+    "skills",
+    "types",
+    "wave-2"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    },
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:implementation-plan"
+      }
+    }
+  ]
+}
