@@ -193,7 +193,7 @@ Fail-open: конфиг с error-диагностикой не участвуе�
   `folder.*` (сам читает файлы), включая cross-папочные (duplicate/
   alias_collision — warning); локация поля — собственный `_key_line`.
 
-- [ ] **Шаг 1: падающие тесты парсера** (tmp_path, без демо)
+- [x] **Шаг 1: падающие тесты парсера** (tmp_path, без демо)
 
 ```python
 # tests/unit/test_folder_config.py — минимум; дополнить по §3
@@ -214,31 +214,31 @@ def test_parse_ok_and_alias_normalization(tmp_path):
     assert cfgs["ideas/repair"].order == 10
     assert diags == []
 
-def test_missing_config_is_ok_and_unknown_field_fails_open(tmp_path):
+def test_missing_config_is_ok_and_unknown_field_ignored(tmp_path):
     (tmp_path / "plain").mkdir()
     _cfg(tmp_path, "broken", '{"schema_version": 1, "title": "X", "color": "red"}')
     cfgs, diags = load_folder_configs(tmp_path)
-    assert cfgs == {}  # fail-open: не участвует
+    assert cfgs["broken"].title == "X"  # unknown-поле игнорируется, конфиг работает (сценарий идеи)
     assert {d["code"] for d in diags} == {"folder.config.unknown_field"}
     assert diags[0]["location"].get("line") == 1
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (`ModuleNotFoundError: todoc.application.folder_config`)
-- [ ] **Шаг 3: реализовать `folder_config.py`** — walk с `HARD_EXCLUDE_DIRS`,
+- [x] **Шаг 2: убедиться, что падает** (`ModuleNotFoundError: todoc.application.folder_config`)
+- [x] **Шаг 3: реализовать `folder_config.py`** — walk с `HARD_EXCLUDE_DIRS`,
   только верхний уровень каждой папки (не рекурсивно внутрь чужих типов —
   rglob запрещён: конфиг ищется как `<dir>/.config.json` при обходе), лимиты
   полей §3, нормализация aliases, диагностики-словари.
-- [ ] **Шаг 4: тесты валидатора** — все 7 кодов `folder.*` с локациями
+- [x] **Шаг 4: тесты валидатора** — все 7 кодов `folder.*` с локациями
   (свой `_key_line` для unknown_field/bad_type; line/column от parse_json для
   invalid_json); `duplicate_alias` и `alias_collision` — severity warning;
   интеграция: `validate_dataset` вызывает `validate_folder_configs(root, raw)`
   (raw-тексты читает там же) и мержит с dataset_id/стабильным id — по образцу
   `_skills_diagnostics`.
-- [ ] **Шаг 5: убедиться, что падает; реализовать**
-- [ ] **Шаг 6: сканер-исключение** — scanner.py:96: `(".todoc.json",)` →
+- [x] **Шаг 5: убедиться, что падает; реализовать**
+- [x] **Шаг 6: сканер-исключение** — scanner.py:96: `(".todoc.json",)` →
   `(".todoc.json", ".config.json")`; тест: датасет с `.config.json` → его нет
   в `scan`/`validate`-счётчиках документов, `docs search` его не находит.
-- [ ] **Шаг 7: полный прогон и коммит**
+- [x] **Шаг 7: полный прогон и коммит**
 
 ```bash
 .venv/bin/python -m pytest tests/unit/test_folder_config.py tests/unit/test_validator_folder_config.py -v
@@ -490,6 +490,12 @@ git commit -m "docs(folder-config): демо-конфиги 5 папок + до�
   (поля null, прежние поля целы), папочного explain-path и отрицательного
   кейса; (7) DoD дополнен байт-детерминизмом suggest и explain-path-кейсами.
   Отклонений нет.
+- 2026-11-25 — задача 1, шаг 1/3: сниппет теста unknown_field в плане
+  предполагал исключение конфига из вывода — при реализации уточнено по
+  сценарию идеи («дерево работает, поле игнорируется»): unknown-поле
+  репортуется, конфиг остаётся рабочим; исключение — только для
+  invalid_json/bad_type/bad_order/bad_alias. Сниппет в плане поправлен в этом
+  же коммите.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
