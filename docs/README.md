@@ -103,4 +103,6 @@
 4. Изменение контракта CLI отражается в [state/03-cli-reference.md](state/03-cli-reference.md).
 5. Копии разделов `state/` в демо-датасете пересобираются скриптом
    [`tools/refresh_demo_state.py`](../tools/refresh_demo_state.py), а не правятся вручную.
-6. Ссылки проверяются скриптом [`tools/linkcheck.py`](../tools/linkcheck.py).
+6. Ссылки проверяются скриптом [`tools/linkcheck.py`](../tools/linkcheck.py): он считает
+   только те ссылки, которые реально обходит рендерер, — примеры внутри блоков кода,
+   inline-кода и снимки сторонних репозиториев в `research/skills-audit/` не проверяются.
