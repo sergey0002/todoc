@@ -29,8 +29,9 @@ related: ["[[folder-config]]", "[[skills-engine]]", "[[plan-skills-vault]]"]
 
 1. В демо лежат 5 валидных `.config.json` (3 раздела скилов + plan/ + bugs/);
    `validate --root demo --all` — 0 диагностик; папка без конфига — тоже 0.
-2. `docs tree --root demo` печатает рядом с путём русские заголовки и обрезанные
-   описания из конфигов; JSON-вывод содержит `folder_meta` на папку.
+2. `docs tree --root demo` (JSON) показывает на каждой папке плоские поля
+   `title`/`description`/`order` из конфига (`null` без конфига — вывод прочих
+   полей прежний); table-режим — generic `emit` (key: value), те же данные.
 3. `todoc docs suggest --root demo --query "идея про релиз"` возвращает
    `process/` сверху со `score` и `reason` (alias «процессы|…|релиз|…»);
    несовпавшие папки — в `discarded`; ниже порога 0.25 — ничего не навязывается.
@@ -90,6 +91,17 @@ related: ["[[folder-config]]", "[[skills-engine]]", "[[plan-skills-vault]]"]
   order → путь. Токенизация — существующий `tokenize()` (search.py, кириллица
   работает). Никаких порогов «уверенности»: CLI отдаёт ranked+discarded,
   выбор — за агентом/человеком.
+- **Папки объяснимы (новое):** `explain-path` сейчас обрабатывает ТОЛЬКО
+  документы (цикл по `documents`, cli.py:1090-1106; папочный путь →
+  `explain.path_not_found`) — Задача 2 добавляет папочные пути: `dir_type`,
+  `rule_source` из payload-папок (`_f` того же `scan_and_validate()`) + плоские
+  поля конфига ближайшего предка.
+- **Плоские поля, не вложенный объект:** мета папки — `title`/`description`/
+  `order` прямо на dict папки (generic `emit`/table-режимы печатают данные
+  без спец-рендереров; pretty-ASCII уже есть у `skills tree` и не дублируется).
+- **Локации полей:** `_key_location` — приватный метод validator.py:471; в
+  `folder_config.py` заводится свой маленький `_key_line` (копия логики,
+  10 строк), кросс-модульный импорт приватного не делается.
 - **House-стиль CLI:** `--output json|table|markdown`, `_emit_ok`/`_emit_error`,
   `next_actions`; тесты — house-паттерн (`_run`+`_json`, `TodocError`),
   CLI-тесты поднимают tmp-датасет `init --root` (урок skills-vault §8).
@@ -112,6 +124,10 @@ related: ["[[folder-config]]", "[[skills-engine]]", "[[plan-skills-vault]]"]
 (по образцу `_skills_diagnostics` плана skills-vault) — диагностикам
 проставляется dataset_id/стабильный id; параллельно сканер перестает видеть
 `.config.json` как документ (исключение из индекса и счётчиков).
+Аудит 25.11.2026 (якоря сверены): generic table-режим `emit` печатает
+`key: value` без колонок (envelope.py:44-46) — мета плоскими полями; `docs
+tree` режет `folders[:50]` (cli.py:1058) — лимит не трогаем; `explain-path`
+не знает папок (§3) — расширение вошло в Задачу 2.
 
 **Решения открытых вопросов идеи (закрыты здесь):**
 
@@ -125,6 +141,9 @@ related: ["[[folder-config]]", "[[skills-engine]]", "[[plan-skills-vault]]"]
 | Смешанные ru/en aliases | Существующий `tokenize()` юникодный (`[a-zA-Z0-9_\u0400-\u04ff]+`) — не ломает смешанные строки; alias целиком матчится подстрокой без токенизации |
 | Лимит числа псевдонимов | Ограничение длиной строки 500 — достаточно; отдельного лимита нет |
 | `version` для миграций | `schema_version` достаточен; отдельного `version` нет |
+| Корневой `.config.json` (в корне DATA_ROOT) | Нет в v1: только вложенные папки (ключ = rel-путь ≠ `.`); корневое самоописание — позже, отдельным решением |
+| Формат меты в выводе | Плоские поля `title`/`description`/`order` на dict папки (JSON и generic-table совместимы); вложенный `folder_meta` — не вводится |
+| Table-режим `docs tree` | Generic `emit` (key: value); кастомный ASCII-рендерер не дублируется — он есть у `skills tree` |
 
 **Коды диагностики** (`folder.*`; локация — файл:строка через `parse_json`/
 `_key_location`): `folder.config.invalid_json` (error), `folder.config.unknown_field`
@@ -141,7 +160,7 @@ Fail-open: конфиг с error-диагностикой не участвуе�
 | `src/todoc/application/folder_config.py` | Create | `FolderConfig`, `load_folder_configs`, `validate_folder_configs`, `score_folder_configs` (Фаза A) |
 | `src/todoc/adapters/filesystem/scanner.py` | Modify (:96) | исключение `.config.json` из скана документов |
 | `src/todoc/application/validator.py` | Modify (рядом с `_skills_diagnostics`) | `_folder_configs_diagnostics` → коды `folder.*` в `validate --all` |
-| `src/todoc/cli.py` | Modify (docs tree:1041, explain-path:1090, новые команды) | `folder_meta` в tree/explain-path; `docs suggest`; skills tree разделы |
+| `src/todoc/cli.py` | Modify (docs tree:1041, explain-path:1090, новые команды) | плоские поля папок в tree; explain-path для папок; `docs suggest`; skills tree разделы |
 | `src/todoc/application/skills.py` | Modify (нет — читает конфиги через CLI-слой) | — разделы берут мету в cli.py, модуль скилов не меняется |
 | `src/todoc/application/search.py` | Modify (после candidates, рядом с :146-148) | буст +2 по title/aliases/tags конфигов папок-предков |
 | `demo/skills/{coding,docs,process}/.config.json`, `demo/plan/.config.json`, `demo/bugs/.config.json` | Create | 5 демо-конфигов (order: process=1, docs=2, coding=3) |
@@ -149,7 +168,7 @@ Fail-open: конфиг с error-диагностикой не участвуе�
 | `tests/unit/test_folder_config.py` | Test | парсер: поля, лимиты, нормализация aliases, fail-open |
 | `tests/unit/test_validator_folder_config.py` | Test | все коды `folder.*`, локации, интеграция в validate_dataset |
 | `tests/unit/test_search_muted.py` (расширить) или `tests/unit/test_search_folder_boost.py` | Test | буст docs search |
-| `tests/cli/test_cli_folder_meta.py` | Test | docs tree folder_meta (json/table), explain-path, --match |
+| `tests/cli/test_cli_folder_meta.py` | Test | docs tree плоские поля (json), explain-path папок, --match |
 | `tests/cli/test_cli_docs_suggest.py` | Test | скоринг: сценарий «релиз», порог, discarded, tie-break |
 | `tests/cli/test_cli_skills_tree.py` (расширить) | Test | разделы из конфигов, query по тексту конфига |
 
@@ -170,9 +189,9 @@ Fail-open: конфиг с error-диагностикой не участвуе�
 - Produces: `FolderConfig(path, title, aliases: list[str], description, order,
   icon, lang, tags)`; `load_folder_configs(root: Path) ->
   tuple[dict[str, FolderConfig], list[dict]]` (ключ — rel-путь папки; конфиг с
-  error-диагностикой не попадает в словарь — fail-open); `validate_folder_configs(
-  root: Path, raw: dict[str, str]) -> list[dict]` — полный набор кодов `folder.*`
-  включая cross-папочные (duplicate/alias_collision — warning).
+  error-диагностикой не попадает в словарь — fail-open); `validate_folder_configs(root: Path) -> list[dict]` — полный набор кодов
+  `folder.*` (сам читает файлы), включая cross-папочные (duplicate/
+  alias_collision — warning); локация поля — собственный `_key_line`.
 
 - [ ] **Шаг 1: падающие тесты парсера** (tmp_path, без демо)
 
@@ -210,7 +229,7 @@ def test_missing_config_is_ok_and_unknown_field_fails_open(tmp_path):
   rglob запрещён: конфиг ищется как `<dir>/.config.json` при обходе), лимиты
   полей §3, нормализация aliases, диагностики-словари.
 - [ ] **Шаг 4: тесты валидатора** — все 7 кодов `folder.*` с локациями
-  (`_key_location` для unknown_field/bad_type; line/column от parse_json для
+  (свой `_key_line` для unknown_field/bad_type; line/column от parse_json для
   invalid_json); `duplicate_alias` и `alias_collision` — severity warning;
   интеграция: `validate_dataset` вызывает `validate_folder_configs(root, raw)`
   (raw-тексты читает там же) и мержит с dataset_id/стабильным id — по образцу
@@ -228,7 +247,7 @@ git add src/todoc/application/folder_config.py src/todoc/adapters/filesystem/sca
 git commit -m "feat(folder-config): парсер+валидация folder.* и исключение .config.json из индекса"
 ```
 
-### Задача 2: `docs tree` и `explain-path` с `folder_meta`
+### Задача 2: `docs tree` и `explain-path` с плоскими полями папок
 
 **Файлы:**
 - Modify: `src/todoc/cli.py` (docs tree:1041, explain-path:1090)
@@ -236,13 +255,14 @@ git commit -m "feat(folder-config): парсер+валидация folder.* и 
 
 **Интерфейсы:**
 - Consumes: `load_folder_configs` (Задача 1).
-- Produces: `docs tree [--meta/--no-meta] [--match Q]` — в JSON каждая папка
-  получает `"folder_meta": {"title": …, "description": …, "order": …}` (или
-  `null`); в table путь печатается как `path — Title: описание(обрезано по 60)`;
-  `--match Q` фильтрует папки Фазой A скоринга (score ≥ 0.25, сортировка
-  score → order → путь). `explain-path PATH` добавляет блок `folder_meta`
-  ближайшей папки из цепочки предков, у которой есть конфиг (сам путь →
-  родители → корень).
+- Produces: `docs tree [--within] [--max-depth] [--match Q]` — на каждый dict
+  папки добавляются плоские `title`/`description`/`order` (`null` без конфига;
+  существующие поля folder_id/path/dir_type не меняются); `--match Q` фильтрует
+  папки Фазой A скоринга (score ≥ 0.25, порядок score → order → путь; работает
+  поверх `--within`). `explain-path PATH` принимает и папочные пути (сейчас —
+  `explain.path_not_found`): для папки отдаёт `folder: true`, `dir_type`,
+  `rule_source` и плоские поля ближайшего предка с конфигом; для документа —
+  прежний вывод + те же поля предка.
 
 - [ ] **Шаг 1: падающие CLI-тесты** (house: `init --root` в фикстуре)
 
@@ -251,15 +271,16 @@ git commit -m "feat(folder-config): парсер+валидация folder.* и 
 def _init(tmp_path):
     _run(CliRunner(), ["init", "--root", str(tmp_path)])
 
-def test_tree_json_folder_meta(tmp_path):
+def test_tree_flat_fields_and_absence(tmp_path):
     _init(tmp_path)
     (tmp_path / "notes").mkdir()
     (tmp_path / "notes/.config.json").write_text(
         '{"schema_version": 1, "title": "Заметки", "description": "Рабочие записи", "order": 5}',
         encoding="utf-8")
-    d = _json(_run(runner, ["docs", "tree", "--root", str(tmp_path)]))["data"]
-    meta = {f["path"]: f.get("folder_meta") for f in d["folders"]}
-    assert meta["notes"]["title"] == "Заметки" and meta["notes"]["order"] == 5
+    (tmp_path / "misc").mkdir()  # без конфига
+    folders = {f["path"]: f for f in _json(_run(runner, ["docs", "tree", "--root", str(tmp_path)]))["data"]["folders"]}
+    assert folders["notes"]["title"] == "Заметки" and folders["notes"]["order"] == 5
+    assert folders["misc"]["title"] is None and folders["misc"]["dir_type"]  # прежние поля целы
 
 def test_tree_match_filters_by_score(tmp_path):
     _init(tmp_path)
@@ -270,20 +291,30 @@ def test_tree_match_filters_by_score(tmp_path):
     d = _json(_run(runner, ["docs", "tree", "--root", str(tmp_path), "--match", "ремонт ванной"]))["data"]
     paths = [f["path"] for f in d["folders"]]
     assert "ideas/repair" in paths and "misc" not in paths
+
+def test_explain_path_for_folder(tmp_path):
+    _init(tmp_path)
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes/.config.json").write_text(
+        '{"schema_version": 1, "title": "Заметки"}', encoding="utf-8")
+    d = _json(_run(runner, ["explain-path", "notes", "--root", str(tmp_path)]))["data"]
+    assert d["folder"] is True and d["title"] == "Заметки" and "dir_type" in d
+    bad = _run(runner, ["explain-path", "nope", "--root", str(tmp_path)])
+    assert bad.exit_code != 0  # прежняя семантика для несуществующих
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (нет folder_meta/--match)
-- [ ] **Шаг 3: реализовать** — tree: мета из `load_folder_configs`, без
-  рекурсивного чтения на каждую папку (один проход на вызов); table-строка с
-  тире и обрезкой; `--match` вызывает `score_folder_configs` и оставляет
-  только папки-кандидаты; explain-path: подъем по предкам до первого конфига.
+- [ ] **Шаг 2: убедиться, что падает** (нет плоских полей/--match/папочных путей в explain-path)
+- [ ] **Шаг 3: реализовать** — tree: один `load_folder_configs` на вызов,
+  поля мержатся в dicts папок; `--match` через `score_folder_configs`
+  (после `--within`); explain-path: ветка папки (`_f` payload) с подъемом по
+  предкам до первого конфига; для документа — прежние поля + поля предка.
 - [ ] **Шаг 4: проходят** + существующие tree-тесты не сломались
       (без конфигов вывод прежний).
 - [ ] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_folder_meta.py
-git commit -m "feat(folder-config): docs tree/explain-path с folder_meta и --match (Фаза A)"
+git commit -m "feat(folder-config): docs tree/explain-path — плоские поля папок, --match, папочные пути (Фаза A)"
 ```
 
 ### Задача 3: команда `docs suggest` (Фаза A скоринга)
@@ -327,8 +358,8 @@ git commit -m "feat(folder-config): docs suggest — Фаза A скоринга
 
 **Интерфейсы:**
 - Produces: в table строка раздела печатается `имя/ — Title: описание`;
-  в JSON навыcx уровня добавляется `"section_meta": {path: {title, description,
-  order}}` (только для папок с конфигом); сортировка разделов — `order` → имя;
+  в JSON на верхнем уровне добавляется `"section_meta": {path: {title,
+  description, order}}` (только для папок с конфигом); сортировка разделов — `order` → имя;
   `--query` дополнительно матчит title/aliases/description/tags конфига раздела
   (substring, как остальной query).
 
@@ -384,9 +415,11 @@ git commit -m "feat(folder-config): docs search — низковесный бу�
   (счётчики + упоминание), `README.md` (команда `docs suggest`, формат конфига),
   `demo/plan/folder-config-implementation.md` (§8)
 
-- [ ] **Шаг 1: 5 демо-конфигов** — русские `title` (конвенция), description,
-  order (process=1, docs=2, coding=3); план/bugs — без aliases; один конфиг
-  намеренно с tags (для буста search).
+- [ ] **Шаг 1: 5 демо-конфигов** — русские `title` (конвенция): coding →
+  «Скилы кодинга», docs → «Документы и KB», process → «Процессы» (aliases
+  `"процессы|workflow|релиз|инцидент"`, order 1), plan → «Планы реализации»
+  (tags `[планирование, задачи]` — для буста search), bugs → «Баг-репорты»;
+  description у каждого; order: process=1, docs=2, coding=3.
 - [ ] **Шаг 2: сквозная проверка** — `skills tree` печатает разделы с русскими
   заголовками в порядке order; `docs tree` показывает `— Title:`; `docs suggest
   --query "идея про релиз"` → process сверху; `docs search` по тегу даёт буст;
@@ -410,9 +443,11 @@ git commit -m "docs(folder-config): демо-конфиги 5 папок + до�
 - [ ] pytest зелёный (1006 + новые); coverage 100% на `folder_config.py` и
       новых ветках cli.py/search.py/validator.py/scanner.py.
 - [ ] `validate --root demo --all` — 0 диагностик с 5 конфигами; linkcheck 0.
-- [ ] Сценарии идеи воспроизведены: дерево с описаниями; папка без конфига
-      как раньше; битый конфиг — диагностика + работа; «релиз» → process
-      через alias; коллизия alias — предупреждение и обе папки.
+- [ ] Сценарии идеи воспроизведены: дерево с описаниями (плоские поля в JSON);
+      папка без конфига как раньше; битый конфиг — диагностика + работа;
+      «релиз» → process через alias; коллизия alias — предупреждение и обе
+      папки; `docs suggest` — байт-в-байт детерминизм двух вызовов;
+      `explain-path` для папки и документа.
 - [ ] `.config.json` не в индексе/поиске/счётчиках (тест).
 - [ ] Счётчики README/HOME согласованы с фактом; статусы `done` — только по
       явной фразе пользователя.
@@ -440,6 +475,21 @@ git commit -m "docs(folder-config): демо-конфиги 5 папок + до�
   `docs tree` лимитирует 50 папок (cli.py:1058) — конфиги читаются одним
   проходом на вызов. Фаза B вынесена за скоуп с gate-условием; открытые вопросы
   идеи закрыты (§4). Отклонений нет.
+- 2026-11-25 — финальный аудит перед реализацией (якоря сверены с кодом):
+  (1) generic table-режим `emit` печатает `key: value` без колонок
+  (envelope.py:44-46) — вложенный `folder_meta` заменён плоскими полями
+  `title`/`description`/`order` на dict папки; кастомный ASCII-рендерер для
+  docs tree не вводится (уже есть у skills tree); (2) `explain-path`
+  обрабатывает ТОЛЬКО документы — папочный путь даёт `explain.path_not_found`
+  (cli.py:1090-1106); Задача 2 расширена: папки объяснимы (`folder: true`,
+  dir_type, rule_source, поля предка); (3) `validate_folder_configs(root)`
+  упрощён (сам читает файлы), локации полей — собственный `_key_line` (не
+  импорт приватного `_key_location`, validator.py:471); (4) корневой
+  `.config.json` — нет в v1 (решение §4); (5) `--match` работает поверх
+  `--within`; (6) тест-каркас Задачи 2 дополнен кейсами отсутствия конфига
+  (поля null, прежние поля целы), папочного explain-path и отрицательного
+  кейса; (7) DoD дополнен байт-детерминизмом suggest и explain-path-кейсами.
+  Отклонений нет.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
