@@ -29,10 +29,20 @@ jobs:
         run: python -m pytest
 
       # 100% покрытия — гейт проекта, а не отчёт: падение ниже останавливает сборку.
+      # Отчёт выводится с -m (номера недостающих строк) и при падении дублируется
+      # аннотацией: лог job'а доступен только с отдельного хоста, а аннотацию видно
+      # через обычный API. Без этого падение гейта на другой версии Python остаётся
+      # непроверяемым извне.
       - name: Coverage (100% gate)
         run: |
           python -m coverage run --branch --source=src/todoc -m pytest -q
-          python -m coverage report --fail-under=100
+          status=0
+          python -m coverage report -m --fail-under=100 > /tmp/cov.txt || status=$?
+          cat /tmp/cov.txt
+          if [ "$status" -ne 0 ]; then
+            grep -v ' 100%$' /tmp/cov.txt | sed 's/^/::error title=coverage::/' || true
+          fi
+          exit "$status"
 
       - name: Linkcheck
         run: python tools/linkcheck.py
