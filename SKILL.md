@@ -23,6 +23,10 @@ description: Use this skill when an agent must find, validate, or read documents
 2. Read: `todoc --root <PATH> docs read --id <document_id> --section "..." --output json` (or `--pointer`/`--columns`).
 3. Use `docs tree` for the compact outline. Follow `next_actions` only as hints; verify them against the user goal.
 
+## Skills routing
+
+Before any non-trivial task run `todoc skills tree --root <PATH>`; pick a skill by its description (section = domain), read its body with `todoc skills read --root <PATH> --path <path from the tree>`, and follow that SKILL.md (references/ and scripts/ as needed). If nothing matches, work without a skill; never modify third-party skills. The skills vault itself is never mounted into platform skill directories — only the `todoc` dispatcher skill is (`todoc skills attach --to <platform skills dir> --root <PATH>`).
+
 ## Records: query and aggregate
 
 1. List/query: `todoc --root <PATH> records list --type <entity_type> --output json`.

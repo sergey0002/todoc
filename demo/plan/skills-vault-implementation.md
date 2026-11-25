@@ -517,7 +517,7 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
 - Consumes: `skills tree`/`skills read` (Задача 2), конвенция именования.
 - Produces: работающий роутинг: одна императивная строка с готовым argv.
 
-- [ ] **Шаг 1: создать 10 SKILL.md** — front matter в ОДНОМ YAML-блоке
+- [x] **Шаг 1: создать 10 SKILL.md** — front matter в ОДНОМ YAML-блоке
   (образец структуры — `demo/skill/SKILL.md`): todoc-поля `id: doc:skill-<name>`,
   `title` (русский — конвенция именования), `doc_type: agent-skill` (явно →
   работает fm-правило 200; glob-правило 60 — страховка для чужих без fm),
@@ -539,12 +539,12 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
   (10+ строк). Русский H1 в теле, `name` латиницей — конвенция. Один скил несёт
   расширенное поле Claude Code (`when_to_use`) — тест совместимости «парсится,
   не ломается».
-- [ ] **Шаг 2: сквозная проверка** — `todoc skills tree --root demo` печатает
+- [x] **Шаг 2: сквозная проверка** — `todoc skills tree --root demo` печатает
   11 скилов/3 раздела, `[!]` без `--all` не видно, `--all` видно; `todoc validate
   --root demo --all` — 0 диагностик (в т.ч. `skills.*` и `markdown.*` на
   SKILL.md); `docs search "commit message"` находит `commit-message`,
   но НЕ `!legacy-deploy` (после `index rebuild`).
-- [ ] **Шаг 3: роутинг-правило** — канон в системе: `demo/notes/agent-contract.md`
+- [x] **Шаг 3: роутинг-правило** — канон в системе: `demo/notes/agent-contract.md`
   новый раздел «Скилы: хранилище, диспетчер, мьют, импорт» (правило ниже +
   два способа подключения + ссылки); строка-правило в `SKILL.md` движка (1:1
   через `docs edit`); указатель в `AGENTS.md` (временный файл — только
@@ -560,10 +560,10 @@ git commit -m "feat(skills): мьют !-папки исключён из docs se
 Подходящего нет — работай без него; чужие скилы не модифицируй.
 ```
 
-- [ ] **Шаг 4: E2E-приёмка** — по правилу: tree → выбрать `todoc-docs` →
+- [x] **Шаг 4: E2E-приёмка** — по правилу: tree → выбрать `todoc-docs` →
   `skills read` → выполнить его инструкцию (найти ответ в KB через CLI) — без
   промежуточных файлов и без ручного обхода папок.
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add demo/skills SKILL.md demo/notes/agent-contract.md AGENTS.md
