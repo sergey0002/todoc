@@ -6,7 +6,7 @@ lang: ru
 source: docs/state/03-cli-reference.md
 copied: true
 ---
-# 03. Справочник CLI: 26 команд
+# 03. Справочник CLI: 36 команд
 
 Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`
 (или `python -m todoc`).
@@ -89,6 +89,39 @@ Exit 3, если есть ошибки.
 не пишет, с `--apply` — дописывает во front matter `stale_acknowledged_at`,
 `stale_ack_reason`, `stale_ack_hashes`. Подтверждение хранит хеши на момент подтверждения и
 сбрасывается, когда любой из них меняется снова.
+
+### История: `log` / `show` / `diff` / `blame` / `revert` / `tag` / `history …`
+
+Журнал живёт в `.todoc/history/` и пишется **по одному событию на запись файла**, а не на
+запуск команды: команда чтения на неизменном корпусе не добавляет в него ничего. Событие
+несёт `rev` (первые 12 знаков SHA-256 от строки журнала), `kind`, `actor`, `change_id`,
+`basis` и по каждому пути `{path, before, after, git_head, ranges}`. `ranges` —
+1-based включительные диапазоны изменённых строк, из них собирается лента по разделу.
+
+`kind` — один из `doc.create`, `doc.edit`, `doc.fix`, `record.create`, `record.edit`,
+`snapshot` (базовая линия `history adopt`) и `external.change` (правка мимо todoc,
+обнаруженная сканированием в режиме `observed`).
+
+| Команда | Что возвращает |
+|---|---|
+| `log [--path P] [--section S] [--kind K] [--change C] [--tag T] [--since D] [--until D] [--limit N] [--cursor C]` | `{events[], total, truncated, next_cursor}`, свежие первыми. `--section` требует `--path` |
+| `show [REV] --path P [--budget B]` | содержимое файла **на** ревизии (без REV — текущее): `{path, rev, content}` |
+| `diff REV_A [REV_B] --path P [--context N] [--budget B]` | `{changed, lines, diff[]}`; без `REV_B` — против текущего состояния |
+| `blame --path P [--section S]` | кто и когда менял файл или раздел: `{entries[]}` с `rev`, `at`, `kind`, `actor`, `ranges` |
+| `revert REV --path P [--apply] [--expected-hash H]` | без `--apply` — план `{applied: false, current_hash, new_hash}`; с `--apply` пишет файл и своё событие |
+| `tag NAME [--rev R] [--message M]` | метка на событие (по умолчанию последнее); имя разрешается вместо `rev` |
+| `history gc [--keep-objects N] [--purge-before D] [--dry-run]` | `{removed_events, kept_events, objects_before, objects_referenced, orphans_removed, dry_run}` |
+| `history adopt` | снимает текущее состояние как базовую линию: `{rev, paths}` |
+| `history export --to PATH` | копирует `.todoc/history/` целиком: `{exported, to}`. Путь только внутри DATA_ROOT |
+
+Семантика `show` и `revert` намеренно расходится на один шаг и повторяет git: `show REV` —
+состояние **после** события (как `git show <c>:<path>`), а `revert REV` — образ **до** него
+(как `git revert <c>`). Откат события создания файла или базовой линии невозможен: состояния
+«до» не существует, команда отвечает `history.revision_unknown` с объяснением.
+
+Хранится только образ «до», поэтому `history gc` удаляет сирот и лишние снимки, не трогая
+события, на которые есть ссылки. `--purge-before` стирает события старше даты: «удалил» в
+истории не равно «удалил» на диске.
 
 ### `explain-path PATH`
 Объясняет типизацию пути: `{dataset_id, path, doc_type, format, rule_source, document_id}`.

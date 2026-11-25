@@ -104,8 +104,13 @@ def create_record_plan(dataset: dict[str, Any], entity_types: dict[str, Any], re
     )
 
 
-def apply_write_plan(root: Path, plan: WritePlan, expected_hash: str | None = None) -> str:
-    """Apply a WritePlan atomically. Returns new hash."""
+def apply_write_plan(root: Path, plan: WritePlan, expected_hash: str | None = None,
+                     history: Any | None = None) -> str:
+    """Apply a WritePlan atomically. Returns new hash.
+
+    ``history`` (a ``HistoryRecorder``) receives one journal event when given; passing None
+    keeps the previous behaviour and is what tests that do not care about history use.
+    """
     target = root / plan.target_path
     if plan.expected_hash is None:
         if target.exists():
@@ -119,11 +124,20 @@ def apply_write_plan(root: Path, plan: WritePlan, expected_hash: str | None = No
                                 "write.hash_mismatch")
         if expected_hash is not None and expected_hash != plan.expected_hash:
             raise ConflictError("Caller expected_hash does not match plan", "write.hash_mismatch")
+    before = target.read_bytes() if target.is_file() else None
     atomic_write(target, plan.new_content)
+    if history is not None:
+        # kind различает документ и запись по расширению цели: у WritePlan нет отдельного
+        # флага формата, а список видов зафиксирован в плане (docs/plan/history-and-changes.md).
+        prefix = "doc" if Path(plan.target_path).suffix.lower() == ".md" else "record"
+        history.record(plan.target_path, before, plan.new_content.encode("utf-8"),
+                       f"{prefix}.create" if before is None else f"{prefix}.edit",
+                       plan.basis or f"WritePlan {plan.target_path}")
     return plan.new_hash
 
 
-def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expected_hash: str | None = None) -> str:
+def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expected_hash: str | None = None,
+              history: Any | None = None) -> str:
     """Replace one link target in a Markdown file (review-first fix)."""
     target = root / rel_path
     if not target.is_file():
@@ -135,11 +149,16 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
     if old_target not in text:
         raise ValidationError(f"Target {old_target!r} not found in {rel_path}", "fix.target_not_found")
     new_text = text.replace(old_target, new_target, 1)
+    before = target.read_bytes()
     atomic_write(target, new_text)
+    if history is not None:
+        history.record(rel_path, before, new_text.encode("utf-8"), "doc.fix",
+                       f"fix link {old_target!r} -> {new_target!r}")
     return _sha(new_text)
 
 
-def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None) -> str:
+def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
+                   history: Any | None = None) -> str:
     """Apply line-based edit ops: [{line: 1-based, text: new line}]."""
     target = root / rel_path
     if not target.is_file():
@@ -154,7 +173,11 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
             raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
         lines[line_no - 1] = str(op.get("text", ""))
     new_text = "\n".join(lines) + "\n"
+    before = target.read_bytes()
     atomic_write(target, new_text)
+    if history is not None:
+        history.record(rel_path, before, new_text.encode("utf-8"), "doc.edit",
+                       f"docs edit {len(ops)} ops")
     return _sha(new_text)
 
 
