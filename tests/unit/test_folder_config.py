@@ -107,3 +107,95 @@ def test_config_excluded_from_index_and_search(tmp_path):
     r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "Уникальный-маркер-конфига"])
     assert r.exit_code == 0, r.output
     assert _jsonlib.loads(r.output)["data"]["items"] == []
+
+
+def test_non_utf8_and_non_object_configs(tmp_path):
+    """Битые носители: не-UTF-8 и JSON не-объект — invalid_json, конфиг исключён."""
+    d = tmp_path / "a"
+    d.mkdir(parents=True)
+    (d / ".config.json").write_bytes(b"\xff\xfe\x00\xff")
+    d2 = tmp_path / "b"
+    d2.mkdir()
+    (d2 / ".config.json").write_text("[1, 2]", encoding="utf-8")
+    cfgs, diags = load_folder_configs(tmp_path)
+    assert cfgs == {}
+    codes = [x["code"] for x in diags]
+    assert codes.count("folder.config.invalid_json") == 2
+    assert "не читается как UTF-8" in diags[0]["message"] or "не читается как UTF-8" in diags[1]["message"]
+
+
+def test_schema_version_and_field_types_pretty_printed(tmp_path):
+    """Многострочный конфиг: schema_version != 1, aliases не строка, длинные description/icon/lang."""
+    body = """{
+  "schema_version": 2,
+  "title": "Папка",
+  "aliases": ["не", "строка"],
+  "description": "д" * 1,
+  "order": 1
+}
+"""
+    d = tmp_path / "a"
+    d.mkdir(parents=True)
+    (d / ".config.json").write_text(
+        '{\n  "schema_version": 2,\n  "title": "Папка",\n  "aliases": ["не", "строка"],\n'
+        + '  "description": "' + "д" * 501 + '",\n  "icon": "' + "и" * 51 + '",\n'
+        + '  "lang": "' + "л" * 11 + '",\n  "order": 1\n}\n', encoding="utf-8")
+    cfgs, diags = load_folder_configs(tmp_path)
+    assert cfgs == {}
+    codes = [x["code"] for x in diags]
+    assert codes.count("folder.config.bad_type") == 5  # schema_version, aliases, description, icon, lang
+    assert any("schema_version" in x["message"] for x in diags)
+    # многострочный текст: локация ключа на своей строке (loop continue в _key_line)
+    lang_diag = [x for x in diags if "lang" in x["message"]][0]
+    assert lang_diag["location"]["line"] == 7
+
+
+def test_bad_order_key_line_missing(tmp_path):
+    """Ключ, записанный unicode-escape: ошибка order ловится, литерал «order» в тексте нет → location без line."""
+    d = tmp_path / "a"
+    d.mkdir(parents=True)
+    (d / ".config.json").write_text(
+        '{"schema_version": 1, "title": "Папка", "\\u006frder": true}', encoding="utf-8")
+    cfgs, diags = load_folder_configs(tmp_path)
+    assert cfgs == {}
+    assert [x["code"] for x in diags] == ["folder.config.bad_order"]
+    assert diags[0]["location"] == {}  # _key_line вернул None
+
+
+def test_score_alias_words_reason(tmp_path):
+    """Многословный alias без точного совпадения: слово запроса даёт 0.3 и reason «words: … (aliases)»."""
+    _cfg(tmp_path, "design/bath",
+         '{"schema_version": 1, "title": "Проекты", "aliases": "дизайн ванны", "order": 5}')
+    _cfg(tmp_path, "misc/other",
+         '{"schema_version": 1, "title": "Сантехника", "aliases": "ванны"}')
+    cfgs, _ = load_folder_configs(tmp_path)
+    cands, _disc = score_folder_configs(cfgs, "ванны дизайн")
+    assert [c["path"] for c in cands] == ["misc/other", "design/bath"]
+    assert cands[0]["score"] == 1.0  # точный alias «ванны» (1.0 + слово 0.3 → max=1.3, нормировка к 1.0)
+    assert cands[1]["score"] == round(0.6 / 1.3, 4)  # два слова alias-а (0.3+0.3) без точного совпадения
+    assert "words: дизайн, ванны (aliases)" in cands[1]["reason"]  # порядок — по токенам alias
+
+
+def test_folders_under_edge_cases(tmp_path, monkeypatch):
+    """Не-каталог → пусто; OSError при обходе — ветка пропускается, остальное читается."""
+    import os as _os
+
+    from todoc.application import folder_config as fc
+
+    assert fc.load_folder_configs(tmp_path / "нет-такой") == ({}, [])
+
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    good = tmp_path / "good"
+    good.mkdir()
+    (good / ".config.json").write_text('{"schema_version": 1, "title": "Гуд"}', encoding="utf-8")
+    real = _os.scandir
+
+    def flaky(path, *args, **kwargs):
+        if str(path).endswith("locked"):
+            raise OSError("заперто")
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(fc.os, "scandir", flaky)
+    cfgs, diags = fc.load_folder_configs(tmp_path)
+    assert list(cfgs) == ["good"] and diags == []

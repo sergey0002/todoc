@@ -119,3 +119,14 @@ def test_tree_query_matches_section_config(tmp_path):
     assert "commit-message" in q.output and "skill-x" not in q.output
     q2 = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--query", "dev-work"])
     assert "commit-message" in q2.output and "skill-x" not in q2.output
+
+
+def test_tree_max_depth_cuts_recursion(tmp_path):
+    """--max-depth отсекает рекурсию рендера: вложенный скил не печатается."""
+    runner = CliRunner()
+    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
+    t = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "table",
+                      "--max-depth", "1"])
+    assert t.exit_code == 0
+    assert "commit-message" not in t.output

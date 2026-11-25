@@ -393,8 +393,8 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
         return (order if isinstance(order, int) else 10**9, section)
 
     def _render(node: str, depth: int) -> None:
-        if depth >= max_depth:
-            return
+        # глубина ограничена пре-фильтром shown (_depth < max_depth, P7):
+        # узлы строятся только из префиксов показанных секций — отсечка не нужна
         own = sorted(sections.get(node, []), key=lambda x: x["path"].lstrip("!"))
         meta = sec_meta.get(node) or {}
         if node and (own or meta):  # узел печатаем, если в нём есть скилы или у папки есть конфиг

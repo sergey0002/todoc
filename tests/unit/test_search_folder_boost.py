@@ -17,7 +17,8 @@ def _setup(tmp_path: Path) -> list[dict]:
     d = tmp_path / "notes"
     d.mkdir(parents=True)
     (d / ".config.json").write_text(
-        '{"schema_version": 1, "title": "Встречи", "tags": ["созвон"]}', encoding="utf-8")
+        '{"schema_version": 1, "title": "Встречи", "aliases": "созвоны|созвон", "tags": ["созвон"]}',
+        encoding="utf-8")
     return [_doc(tmp_path, "notes/a.md"), _doc(tmp_path, "misc/b.md")]
 
 
@@ -33,3 +34,11 @@ def test_query_miss_keeps_plain_order(tmp_path):
     docs = _setup(tmp_path)
     hits, _, _ = search_documents(tmp_path, docs, "релиз")
     assert [h.path for h in hits] == ["misc/b.md", "notes/a.md"]  # буст = 0, tie-break по id
+
+
+def test_query_alias_token_boosts_config_child(tmp_path):
+    """Токен alias конфига-предка тоже даёт буст (ветка aliases в cfg_tokens)."""
+    docs = _setup(tmp_path)
+    hits, total, _ = search_documents(tmp_path, docs, "созвон созвоны")
+    assert total == 2  # «созвон» матчит тело, «созвоны» — токен alias конфига
+    assert hits[0].path == "notes/a.md"
