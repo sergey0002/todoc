@@ -377,7 +377,7 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
         here = sections[section]
         own = [s for s in here if s["section"] == section]
         if section:
-            lines.append("  " * depth + f"{section}/ ({len(own)})")
+            lines.append("  " * depth + f"{section.split('/')[-1]}/ ({len(own)})")
         for s in sorted(own, key=lambda x: x["path"].lstrip("!")):
             label = f"[!] {s['name']}" if s["muted"] else s["name"]
             lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
