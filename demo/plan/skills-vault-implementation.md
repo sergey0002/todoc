@@ -375,7 +375,7 @@ git commit -m "feat(skills): сканер хранилища скилов + ва
   description, muted, content, truncated}`. Ошибка вне vault/несуществующий →
   `skills.not_found` + suggested путь.
 
-- [ ] **Шаг 1: падающие CLI-тесты** (CliRunner, fixtures — tmp_path с 4 скилами)
+- [x] **Шаг 1: падающие CLI-тесты** (CliRunner, fixtures — tmp_path с 4 скилами)
 
 ```python
 # tests/cli/test_cli_skills_tree.py — house-паттерн tests/cli/test_cli.py
@@ -452,17 +452,17 @@ def test_read_by_dir_and_file(tmp_path):
     assert bad.exit_code != 0 and "skills.not_found" in bad.output
 ```
 
-- [ ] **Шаг 2: убедиться, что падает** (`skills` — нет такой команды)
-- [ ] **Шаг 3: реализовать группу и команды** — thin wrapper: scan → фильтры
+- [x] **Шаг 2: убедиться, что падает** (`skills` — нет такой команды)
+- [x] **Шаг 3: реализовать группу и команды** — thin wrapper: scan → фильтры
   (`--query` lowercase-подстрока по name+description+пути; `--within` — префикс
   section; мьют: исключить из выдачи без `--all`) → сортировка по пути →
   `--limit`/`--max-depth`/truncated → `--output` (table = ASCII-дерево, json =
   `_emit_ok`; ошибки — `_emit_error`/`TodocError`). Warning при
   `len(skills) > 500`. `read` — через сканер: найти SkillInfo по пути,
   прочитать файл, применить budget.
-- [ ] **Шаг 4: тесты проходят** + ограничение времени: дерево из 50 скилов
+- [x] **Шаг 4: тесты проходят** + ограничение времени: дерево из 50 скилов
   в tmp_path печатается < 1 c (`time.monotonic()` в тесте, порог 1.0 с).
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_skills_tree.py
