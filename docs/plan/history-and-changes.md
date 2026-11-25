@@ -71,19 +71,25 @@
 | **P1** Файлы — истина | Журнал и снимки не заменяют файлы; источник истины не меняется |
 | **P2** Портабельность | Только relative paths; `dataset_id` переживает move; `history/` переносится вместе с папкой |
 | **P3** Декларативность | Дельты и `derived_from` — JSON/Markdown-данные, никакого кода в DATA_ROOT |
+| **P4** Разделение измерений | План использует все четыре оси по назначению: `doc_type: delta` — семантика документа, `dir_type` для `changes/` — роль папки, `entity_type: change` — запись, `relation_type: blocked_by` — связь. Ничто не выводится из расширения или имени папки |
 | **P5** Детерминированное ядро | Никакого LLM в поиске противоречий; инвалидация факта только явная |
 | **P6** Review-first | `revert`, `change apply` — preview по умолчанию, `--apply` + `expected_hash` |
 | **P7** Bounded context | `log`/`diff`/`stale` отдают `truncated`, `cursor`, `--limit` |
 | **P8** Точные locations | Каждая запись журнала несёт path + изменённые диапазоны строк |
 | **P9** Явные связи | `blocked_by`, `derived_from` — данные в источнике, граф производный |
 | **P10** Только установленный код | Дельты не исполняются; применяется только разрешённый набор операций |
+| **P11** CLI — контракт, MCP — адаптер | Вся логика истории живёт в application-слое и доступна через CLI. MCP, если появится, будет тонким адаптером (§16). Именно этот принцип делает решение «MCP позже» не отступлением, а следованием конституции |
+| **P12** Offline-first | Бэкенд `git` вызывает локальный бинарник, не сеть и не модель. Автоопределение не создаёт сетевых обращений; при отсутствии git — деградация в `embedded` |
+| **P13** Объяснимость | Каждая новая команда возвращает `next_actions` argv-массивом; `history.backend_unavailable` и `staleness.dependency_changed` называют причину, а не факт |
+| **P14** Совместимость без зависимости | `changes/` — обычный Markdown с YAML front matter, открывается в Obsidian как остальной DATA_ROOT; ни git, ни Obsidian не становятся runtime-зависимостью |
 
-**Требуется поправка в конституцию (отдельная задача, до Фазы 1).** Таблица в
+**Поправка в конституцию нужна только для бэкенда `embedded`.** Таблица в
 [`09-storage-and-index.md`](../state/09-storage-and-index.md) делит всё на «истина» и
-«производное, удаляемое». Появляется третья категория — **необратимое производное**:
-`.todoc/history/` нельзя пересобрать из файлов. Значит этот каталог должен отслеживаться
-git'ом или явно бэкапиться. Решение принято (подтверждено 2026-11-25), но в документах
-ещё не зафиксировано.
+«производное, удаляемое». В бэкенде `embedded` появляется третья категория —
+**необратимое производное**: `.todoc/history/` нельзя пересобрать из файлов, значит
+каталог должен явно бэкапиться. В бэкенде `git` третьей категории нет: история
+восстанавливается из репозитория (§18). Решение принято 2026-11-25; в
+`09-storage-and-index.md` оно ещё не зафиксировано — это отдельная задача до Фазы 1.
 
 ---
 
@@ -126,7 +132,7 @@ DATA_ROOT/
  "kind":"doc.edit","actor":"cli","change_id":"change:fix-p1-10",
  "paths":[{"path":"docs/state/09-storage-and-index.md",
            "before":"sha256:aa…","after":"sha256:bb…","ranges":[[31,58]]}],
- "basis":"docs edit --patch-file patch.json","generation_id":"04c087be9380"}
+ "basis":"docs edit --patch-file patch.json","git_head":"ac96060…"}
 ```
 
 - `rev` = SHA-256 строки журнала (12 hex) — стабилен, не требует счётчика.
@@ -135,6 +141,13 @@ DATA_ROOT/
   | `change.open` | `change.apply` | `change.archive` | `change.revert`
   | `external.change` | `snapshot` | `gc`.
 - `ranges` — изменённые диапазоны строк; без них невозможна лента по разделу.
+- `git_head` — HEAD на момент записи, то есть состояние **до** изменения. Нужен бэкенду
+  `git` (§18): по нему восстанавливается содержимое «до» и решается, нужен ли свой
+  снимок. В бэкенде `embedded` поле отсутствует, а не пусто.
+
+Поля `generation_id` в схеме нет намеренно. Оно было бы унаследовано от текущего
+механизма, но Фаза 0 (§6) убирает серию поколений: остаётся один `.todoc/index/current/`.
+Ссылаться на несуществующее после Фазы 0 понятие журнал не должен.
 
 Формат JSONL выбран потому, что дописка атомарна одним `write`+`fsync` без
 read-modify-write, файл грепается и диффится в git, и не нужна БД.
@@ -237,7 +250,7 @@ base_hash: sha256:aa…        # опционально, для строгой �
    без перечитывания содержимого неизменённых файлов.
 4. **`created_at` в `CURRENT.json`** — сейчас времени нет нигде.
 
-Закрывает: P1-1, P1-2. Убирает 26 МБ производного в демо.
+Закрывает: P1-1, P1-2. Убирает 27 МБ производного в демо (замер 2026-11-25).
 
 ---
 
@@ -261,13 +274,21 @@ todoc change list [--status S]
 todoc change open --title T [--blocked-by ID] [--artifact P]
 todoc change show <id>
 todoc change validate <id>          # применимость дельт к живому состоянию
+todoc change verify <id>            # completeness/correctness/coherence, детерминированно
 todoc change apply <id> [--apply]   # bundle-транзакция
 todoc change archive <id> [--tag T]
 todoc change revert <id> [--apply]
 
+todoc context --change <id> [--budget N] [--with-diff]   # один вызов — весь контекст задачи
+todoc context --tag <name>  [--budget N] [--with-diff]
+
 todoc stale [--path P] [--severity S]
+todoc stale --ack <path> --reason R  # признание устаревания нерелевантным
 todoc timeline [--as-of D] [--path P]
 todoc records query --as-of D
+
+todoc history adopt                  # миграция: снимок текущего состояния, rev=baseline
+todoc history export [--to DIR]      # бэкап для бэкенда embedded
 todoc history gc [--keep-objects N] [--purge-before ISO] [--dry-run]
 ```
 
@@ -313,6 +334,12 @@ todoc history gc [--keep-objects N] [--purge-before ISO] [--dry-run]
 | `temporal.invalid_interval` | `valid_to <= valid_from` |
 | `staleness.dependency_changed` | хеш зависимости разошёлся |
 | `staleness.dependency_missing` | файл зависимости удалён |
+| `history.backend_unavailable` | бэкенд `git` выбран, но git недоступен; деградация в `embedded` (severity `warning`) |
+| `change.apply_order_ambiguous` | порядок применения артефактов неоднозначен, нужен явный `order` |
+
+Полнота таблицы проверена скриптом: все коды, упомянутые где-либо в плане, перечислены
+здесь. Конфликтов с 81 существующим кодом в `src/todoc` нет — префиксы `history.`,
+`change.`, `temporal.`, `staleness.` в текущем коде не используются.
 
 Лимиты в `dataset.json` (по образцу `DEFAULT_LIMITS` в `config.py`):
 `max_journal_bytes`, `max_history_objects`, `max_diff_lines`.
@@ -370,6 +397,20 @@ todoc history gc [--keep-objects N] [--purge-before ISO] [--dry-run]
 - Поля из §5.5, `--as-of`, инвалидация вместо удаления.
 - **K40**: point-in-time запрос корректен на засеянных интервалах (точно, без допусков).
 - **K41**: противоречащий факт закрывает старый, старый остаётся читаемым.
+
+### Привязка критериев §17 к фазам
+
+K42–K48 введены в §17 как дополнения и раньше не имели фазы. Распределение:
+
+| Критерий | Фаза | Почему туда |
+|---|---|---|
+| **K44**, **K45** (якоря `derived_from`, `stale --ack`) | **4** | Это и есть механизм устаревания |
+| **K42**, **K43** (`todoc context`) | **2** | `--change` требует записей изменений; `--tag` доступен уже после Фазы 1 |
+| **K46** (`change verify`) | **2** | Проверяет артефакты изменения |
+| **K47**, **K48** (нет TTY при `--no-input`; `ok:false` + ненулевой exit) | **сквозные** | Проверяются на каждой новой команде в каждой фазе, а не один раз |
+
+K47 и K48 — сквозные: их тест должен вызываться для каждой добавленной команды, иначе
+команда, добавленная в Фазе 3, пройдёт мимо проверки, написанной в Фазе 1.
 
 ---
 
@@ -825,7 +866,113 @@ subprocess-тестом с закрытым stdin.
 
 ---
 
-## 20. Источники
+## 20. Карта реализации
+
+Раздел добавлен финальным аудитом 2026-11-25. Все пути и размеры — фактические, сняты с
+рабочего дерева: `src/todoc` — 31 `.py`-файл (19 без учёта `__init__.py`), `tests/` —
+18 тестовых файлов и `conftest.py` в `cli/`, `integration/`, `unit/`.
+
+### Что уже зарезервировано под будущий код
+
+Проверено: `src/todoc/ports/__init__.py` пуст, `adapters/cache/`, `adapters/indexes/`,
+`adapters/search/` — пустые пакеты-заглушки. Слои ports/adapters объявлены, но не
+используются. Бэкенд истории ложится в эту схему без изобретения новой: порт —
+в `ports/`, две реализации — в `adapters/history/`.
+
+### Фаза 0 — редизайн индекса
+
+| Файл | Размер | Что меняется |
+|---|---|---|
+| `application/registry.py` | 123 | `publish()` пишет в `current/` на месте; `corpus_digest` и `created_at` в `CURRENT.json`; серия поколений не создаётся |
+| `adapters/filesystem/scanner.py` | 123 | `stats.json` (path → hash, mtime, size) для дайджеста через `stat()` |
+| `service.py` | 124 | `rebuild_index()`/`load_index()` — инвалидация по дайджесту, а не по факту вызова |
+| `cli.py` | 951 | `index rebuild --force` |
+| `tests/unit/test_scanner_registry.py` | существующий | K31, K32 — сюда же, где уже живут тесты реестра |
+
+Главная работа здесь не в новых файлах, а в 15 точках вызова `rebuild_index()` против 10
+`load_index()`: их надо свести к одной точке инвалидации. Это же закрывает P1-1.
+
+### Фаза 4 — устаревание
+
+| Файл | Размер | Что меняется |
+|---|---|---|
+| `domain/models.py` | 205 | `derived_from` в модели документа и записи |
+| `application/staleness.py` | новый | сравнение якорей, `stale_acknowledged_at` |
+| `application/validator.py` | 474 | диагностики `staleness.dependency_changed`, `staleness.dependency_missing` |
+| `cli.py` | 951 | `stale`, `stale --ack --reason` |
+
+Переиспользуется существующее: `adapters/formats/jsonfmt.py` (142) уже умеет JSON Pointer,
+`adapters/formats/markdown.py` (351) — секции. Новый парсер не нужен.
+
+### Фаза 1 — журнал и откат
+
+| Файл | Размер | Что меняется |
+|---|---|---|
+| `ports/history.py` | новый | протокол бэкенда: `read_before`, `write_snapshot`, `available` |
+| `adapters/history/journal.py` | новый | append-only JSONL, `rev` = SHA-256 строки |
+| `adapters/history/objects.py` | новый | zlib-снапшоты «до», имя = SHA-256 |
+| `adapters/history/git_backend.py` | новый | `subprocess` только здесь; `gap-filling` |
+| `application/history.py` | новый | события, `log`/`show`/`diff`/`blame`/`revert` |
+| `application/write.py` | 228 | **единственный хук**: `apply_write_plan` :107, `apply_fix` :126, `apply_edit_ops` :142 |
+| `cli.py` | 951 | `log`, `show`, `diff`, `blame`, `revert`, `tag`, `history gc/adopt/export` |
+
+Все записи уже проходят через три функции `write.py` и все три принимают `expected_hash`,
+поэтому одна точка хука покрывает весь ввод. Проверено аудитом.
+
+### Фаза 2 — изменения и дельты
+
+| Файл | Размер | Что меняется |
+|---|---|---|
+| `typing_system/descriptors.py` | 279 | `any_of_sections` и `schema` в `KIND_FIELDS["doc_type"]` |
+| `application/validator.py` | 474 | ветка «хотя бы один из» в `_check_structure`; проверка front matter по схеме |
+| `config.py` | 197 | `entity_type: change`, `relation_type: blocked_by`, `doc_type: delta`, правило по glob |
+| `application/changes.py` | новый | жизненный цикл, `validate`/`verify`/`apply`/`archive` |
+| `application/context.py` | новый | `todoc context` — один вызов, bounded |
+| `cli.py` | 951 | `change *`, `context` |
+
+Префиксное совпадение заголовков уже работает (`validator.py:179`), поэтому формат
+`## MODIFIED: <цель>` не требует парсера.
+
+### Фаза 3 — би-темпоральность
+
+| Файл | Размер | Что меняется |
+|---|---|---|
+| `domain/models.py` | 205 | `valid_from`, `valid_to`, `observed_at`, `superseded_at` |
+| `application/query.py` | 123 | `--as-of` |
+| `cli.py` | 951 | `timeline`, `records query --as-of` |
+
+### Тестовая матрица
+
+| Критерий | Уровень | Как измеряется |
+|---|---|---|
+| K31, K32 | `tests/unit/` | счётчик изданных снимков на серии чтений |
+| K33, K34, K44, K45 | `tests/unit/` + `tests/integration/` | засеянный дрейф: 10 расхождений, recall и ложные срабатывания |
+| K35, K36, K37 | `tests/unit/` | 20 засеянных правок, байт-в-байт; объём после `gc` |
+| K38, K39 | `tests/integration/` | атомарность `change apply` при injected-ошибке |
+| K40, K41 | `tests/unit/` | точные интервалы, без допусков |
+| K42, K43 | `tests/cli/` | полнота 1.0 на задаче из 5 документов; объём ≤ бюджета |
+| K46 | `tests/unit/` | два запуска — идентичный результат |
+| K47, K48 | `tests/cli/` | **сквозные**: параметризованный тест по списку всех команд |
+
+K47 и K48 должны быть параметризованы по перечню команд, а не написаны на одну: иначе
+команда, добавленная позже, пройдёт мимо проверки.
+
+### Определение готовности набора
+
+1. `pytest` — все тесты зелёные, branch-coverage не ниже текущих 100 %.
+2. `linkcheck` — 0 битых ссылок.
+3. `demo validate --all` → `ok: true`, 0 диагностик.
+4. `demo` после 5 команд чтения — **один** снимок индекса, а не пять.
+5. Зеркало `demo/plan/competitive-analysis.md` пересобрано, если анализ менялся.
+6. Ни одна существующая команда CLI не изменила поведение (регрессионные тесты в
+   `tests/cli/` проходят без правок ожиданий).
+
+Пункт 6 — отдельная проверка: правка ожиданий в существующих тестах означает изменение
+контракта и требует явного решения, а не молчаливого принятия.
+
+---
+
+## 21. Источники
 
 - OpenSpec — структура `specs/` + `changes/`, формат дельт, семантика архива:
   [concepts](https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md),
