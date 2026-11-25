@@ -16,19 +16,19 @@ copied: true
 
 | Показатель | Значение |
 |---|---|
-| Документов | 248 |
-| Записей | 157 |
+| Документов | 258 |
+| Записей | 159 |
 | Отношений | 138 |
-| Папок | 20 |
+| Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 14 / 19 / 12 / 9 |
-| Стартовых шаблонов типов | 31 (19 doc + 12 entity) |
-| CRUD-промптов типов | 124 (31 × 4) |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 17 / 21 / 13 / 9 |
+| Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
+| CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 90 Markdown + 1 CSV + 157 JSON-записей.
-Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3.
+Состав документов: 98 Markdown + 1 CSV + 159 JSON-записей.
+Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3, `task` 2.
 
-У 11 из 19 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
+У 13 из 21 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
 уровня 2, общие для всех документов типа), поэтому валидация датасета остаётся чистой.
 
 ## Структура
@@ -46,7 +46,7 @@ copied: true
 | `records/` | `records` | типизированные JSON-записи по подпапкам |
 | `notes/` | `notes` | 3 заметки: навигация, token economy, контракт CLI |
 | `inbox/` | `inbox` | очередь разборки входящих |
-| `attachments/` | `attachments` | `docs-inventory.csv` — инвентарь из 91 строки |
+| `attachments/` | `attachments` | `docs-inventory.csv` — инвентарь из 98 строк |
 | `skill/` | `skill` | копия `SKILL.md` |
 
 Корневые файлы: `README.md` (`doc_type: demo-readme`) и `HOME.md` (`doc_type: moc`).
@@ -60,7 +60,7 @@ copied: true
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 157 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 159 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.
@@ -82,8 +82,8 @@ copied: true
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 14/19/12/9
-todoc index rebuild --root demo                         # 20 папок, 248 документов, 157 записей, 138 отношений
-todoc docs tree --root demo --max-depth 1               # 20 папок, у 14 назначен dir_type
+todoc index rebuild --root demo                         # 22 папки, 258 документов, 159 записей, 138 отношений
+todoc docs tree --root demo --max-depth 1               # 22 папки, у 16 назначен dir_type
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
 todoc records list --root demo --type decision --limit 3           # total 10
@@ -100,7 +100,7 @@ todoc doctor --root demo                                # config/index/python: 3
 
 | Источник | Куда скопировано |
 |---|---|
-| `docs/plan/*.md` | `demo/plan/` (4 документа) |
+| `docs/plan/*.md` | `demo/plan/` (5 документов) |
 | `docs/plan/*.after.md` | `demo/plan/after/` (6 документов) |
 | `docs/plan/engineering-draft.md`, `docs/research/mcp-cli-agents.md`, `docs/research/knowledge-base-comparative-audit.md` | `demo/.research/` |
 | `docs/guides/*.md` | `demo/guides/` |
