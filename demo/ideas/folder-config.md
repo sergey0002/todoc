@@ -3,8 +3,8 @@ id: doc:folder-config-idea
 title: "Идея: .config.json — самоописание папок (заголовок, описание, порядок) для CLI и дерева скилов"
 doc_type: idea
 lang: ru
-status: planned
-updated: 2026-11-25
+status: done
+updated: 2026-11-26
 related: ["[[folder-config-implementation]]", "[[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]"]
 created: 2026-11-26
 tags: [ideas, idea, самоописание, заголовок]
@@ -18,6 +18,9 @@ tags: [ideas, idea, самоописание, заголовок]
 Фаза 3b (стемминг+BM25) — вне скоупа плана с gate-условием (fixture-набор);
 открытые вопросы закрыты в §4 плана. Продолжение линии «скилы как dir_type»
 ([skills-engine](skills-engine.md)) и общей модели типов todoc.
+
+**Реализация:** выполнена (2026-11-26) — план [folder-config-implementation](../plan/folder-config-implementation.md)
+(doc:plan-folder-config, 38/38) исполнен и закрыт (`done`); Фаза 3b (стемминг+BM25) — вне скоупа с gate-условием.
 
 ## Суть
 

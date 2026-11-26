@@ -3,9 +3,9 @@ id: doc:plan-skills-vault
 title: "Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер (план)"
 doc_type: plan
 lang: ru
-status: active
+status: done
 tags: [skills, agent-skills, cli, validation, import, routing, dispatcher]
-updated: 2026-11-25
+updated: 2026-11-26
 related: ["[[skills-engine]]", "[[documentation-system]]", "[[constitution]]"]
 created: 2026-11-26
 ---
@@ -771,6 +771,7 @@ git commit -m "docs(skills): README/HOME/план — документирова
 ## 8. Прогресс и отклонения
 
 - Статус: задачи 1–7 исполнены 25.11.2026 (см. записи ниже; единственный оставшийся
+- fm `status: done` — явная фраза пользователя «закрой все планы и в идеях пометку сделай» (2026-11-26).
   `- [ ]` — строка-инструкция в шапке, не задача). Front-matter `status: active` →
   `done` — по явной фразе пользователя (правило DoD).
 - 2026-11-25 — уточнение статуса: строка «не начат» выше устарела после исполнения;

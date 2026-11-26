@@ -3,8 +3,8 @@ id: doc:skills-engine-idea
 title: "Идея: хранилище-движок скилов на todoc (skills vault + CLI-оглавление на лету)"
 doc_type: idea
 lang: ru
-status: planned
-updated: 2026-11-25
+status: done
+updated: 2026-11-26
 related: ["[[plan-skills-vault]]"]
 created: 2026-11-26
 tags: [ideas, idea, оглавление, хранилище]
@@ -18,6 +18,10 @@ tags: [ideas, idea, оглавление, хранилище]
 `todoc`; открытые вопросы закрыты в §4 плана. Ресёрч стандартов скилов
 (25.11.2026): открытый стандарт Agent Skills, механики Claude Code и OpenAI
 Codex, skills CLI (Vercel); дополнение — Hermes Agent и router-паттерны (§ниже).
+
+**Реализация:** выполнена (2026-11-26) — планы [skills-vault-implementation](../plan/skills-vault-implementation.md)
+(44/44) и [скилы-взаимодействия](../plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md)
+(35/35) исполнены и закрыты (`done`): vault + tree/read/attach/import + жизненный цикл через скилы.
 
 ## Суть
 
