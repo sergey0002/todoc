@@ -1664,7 +1664,11 @@ def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id:
         fields = (descriptor.get("views") or {}).get(view)
         if fields:
             data = {k: data[k] for k in fields if k in data}
-    _emit_ok({"dataset_id": ctx.dataset_id, "record_id": record_id, "path": record["path"], "data": data}, output, None)
+    mentioned_in = [{"file": m.get("source_file"), "line": m.get("source_line"),
+                     "fragment": m.get("source_fragment", "")}
+                    for m in payload.get("mentions") or [] if m.get("target") == record_id]
+    _emit_ok({"dataset_id": ctx.dataset_id, "record_id": record_id, "path": record["path"], "data": data,
+              "mentioned_in": mentioned_in}, output, None)
 
 
 @cli.group()
@@ -1686,7 +1690,8 @@ def relations_graph(roots: tuple[str, ...], output: str, no_input: bool, from_id
     """Typed edges + brief neighbours (BFS, bounded)."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
-    edges = graph_neighbors(payload["relations"], from_id, type_id, depth, limit)
+    edges = graph_neighbors(payload["relations"], from_id, type_id, depth, limit,
+                            mentions=payload.get("mentions"))
     _emit_ok({"dataset_id": ctx.dataset_id, "from": from_id, "edges": edges, "total": len(edges)}, output, None)
 
 

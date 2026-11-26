@@ -153,6 +153,49 @@ def _markdown_doc(root: Path, scanned: ScannedFile) -> Any:
         return None
 
 
+def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[dict[str, Any]],
+                   all_paths: set[str]) -> list[dict[str, Any]]:
+    """Плоский индекс упоминаний md → цели (план entity-catalog З2, T8).
+
+    Источник — кеш парсинга (P1-3): validate_dataset уже разобрал md и положил
+    payload'ы; здесь они читаются без повторного парсинга. Цель: существующий
+    record_id → target_kind "record"; существующий файл → "doc"; неоднозначные
+    wikilink-цели пропускаются (нет ложных mention'ов).
+    """
+    by_basename, _ = _basename_index(all_paths)
+    record_ids = {r["record_id"] for r in records}
+    mentions: list[dict[str, Any]] = []
+    for scanned in sorted(scanned_files, key=lambda f: f.rel_path):
+        if scanned.format != "markdown":
+            continue
+        doc = _markdown_doc(root, scanned)
+        if doc is None:
+            try:
+                doc = parse_markdown(scanned.abs_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError):
+                continue
+        for link in doc.links:
+            target_kind: str | None = None
+            target: str | None = None
+            if link.target in record_ids:
+                target_kind, target = "record", link.target
+            elif link.is_wikilink:
+                candidates = [c for c in _wikilink_candidates(link.target, by_basename) if c in all_paths]
+                if len(candidates) == 1:
+                    target_kind, target = "doc", candidates[0]
+            else:
+                normalized = resolve_link_target(scanned.rel_path, link.target)
+                if normalized is not None and normalized in all_paths:
+                    target_kind, target = "doc", normalized
+            if target is None:
+                continue
+            mentions.append({
+                "source_file": scanned.rel_path, "source_line": link.line,
+                "source_fragment": link.fragment, "target": target, "target_kind": target_kind,
+            })
+    return mentions
+
+
 def _collect_record_ids(scanned_files: list[ScannedFile]) -> set[str]:
     """record_id всех json-записей прогона — дёшево, по regexp по тексту (план entity-catalog З1).
 

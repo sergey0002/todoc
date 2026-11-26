@@ -226,19 +226,19 @@ Run: `.venv/bin/python -m pytest tests/unit/test_link_fragments.py -q` — вс�
   `records read` → `mentioned_in: [{file, section?, line}]`; graph-edges с
   `via: "mention"` для md-вершин.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — rebuild публикует mentions (tmp-датасет:
+- [x] **Шаг 1 (TDD, красные): тесты** — rebuild публикует mentions (tmp-датасет:
   md со `[[document:x]]` и `[y.md#sec]`); mentioned_in в records read;
   graph от record-вершины включает md-вершину; reuse-путь (digest не изменился)
   отдаёт те же mentions без пересборки.
-- [ ] **Шаг 2: store** — mentions.json в publish/load_current/meta (тот же
+- [x] **Шаг 2: store** — mentions.json в publish/load_current/meta (тот же
   lifecycle; снапшот атомарный, derived).
-- [ ] **Шаг 3: построение** — при rebuild из parsed docs: body-ссылки с
+- [x] **Шаг 3: построение** — при rebuild из parsed docs: body-ссылки с
   record-целями (записи) и doc-целями (файлы) → плоский список упоминаний;
   fragment сохраняется.
-- [ ] **Шаг 4: вывод** — records read: `mentioned_in` из payload (обратный
+- [x] **Шаг 4: вывод** — records read: `mentioned_in` из payload (обратный
   индекс по target); relations graph: mention-рёбра с `via: "mention"`
   (вершины `{kind: "doc"|"record"|"fragment", id, fragment?}`).
-- [ ] **Шаг 5: проверить**
+- [x] **Шаг 5: проверить**
 
 Run: `.venv/bin/todoc index rebuild --root demo && todoc records read --root demo --id document:constitution` —
 mentioned_in (после З5/З7 непусто; сейчас — пусто, ключ есть);

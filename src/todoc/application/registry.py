@@ -109,7 +109,7 @@ class RegistryStore:
         payload: dict[str, Any] = {"generation_id": gen_id,
                                    "corpus_digest": meta.get("corpus_digest"),
                                    "created_at": meta.get("created_at")}
-        for name in ("folders", "documents", "records", "relations", "diagnostics"):
+        for name in ("folders", "documents", "records", "relations", "diagnostics", "mentions"):
             path = self.current_dir / f"{name}.json"
             if not path.is_file():
                 return None
@@ -121,7 +121,7 @@ class RegistryStore:
 
     def publish(self, dataset: dict[str, Any], folders: list[dict[str, Any]], documents: list[dict[str, Any]],
                 records: list[dict[str, Any]], relations: list[dict[str, Any]], diagnostics: list[dict[str, Any]],
-                digest: str | None = None) -> str:
+                digest: str | None = None, mentions: list[dict[str, Any]] | None = None) -> str:
         """Atomically (re)publish the single snapshot. On error, the old one stays."""
         gen_id = uuid.uuid4().hex[:12]
         tmp_dir = self.index_dir / ".tmp-current"
@@ -138,11 +138,12 @@ class RegistryStore:
         }
         try:
             for name, payload in (("folders", folders), ("documents", documents), ("records", records),
-                                  ("relations", relations), ("diagnostics", diagnostics)):
+                                  ("relations", relations), ("diagnostics", diagnostics),
+                                  ("mentions", mentions if mentions is not None else [])):
                 (tmp_dir / f"{name}.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             (tmp_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             # Validate: all JSON parse + meta present.
-            for name in ("folders", "documents", "records", "relations", "diagnostics", "meta"):
+            for name in ("folders", "documents", "records", "relations", "diagnostics", "mentions", "meta"):
                 json.loads((tmp_dir / f"{name}.json").read_text(encoding="utf-8"))
             if self.current_dir.exists():
                 shutil.rmtree(self.current_dir)

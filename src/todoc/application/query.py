@@ -114,11 +114,29 @@ def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_fi
 
 
 def graph_neighbors(relations: list[dict[str, Any]], from_id: str, type_id: str | None = None,
-                    depth: int = 1, limit: int = 100) -> list[dict[str, Any]]:
-    """BFS over typed edges up to depth, bounded by limit."""
+                    depth: int = 1, limit: int = 100,
+                    mentions: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """BFS over typed edges up to depth, bounded by limit.
+
+    ``mentions`` (план entity-catalog З2/T6): md-упоминания цели добавляются
+    рёбрами ``via: "mention"`` у корня — вершины-md в обход BFS не вовлекаются.
+    """
     visited = {from_id}
     frontier = [from_id]
     result: list[dict[str, Any]] = []
+    for m in mentions or []:
+        if type_id not in (None, "mention"):
+            continue
+        if m.get("target") == from_id and m.get("source_file") not in visited:
+            visited.add(str(m.get("source_file")))
+            result.append({"type_id": "mention", "via": "mention", "from": from_id,
+                           "to": m.get("source_file"), "fragment": m.get("source_fragment", "")})
+        elif m.get("source_file") == from_id and m.get("target") not in visited:
+            visited.add(str(m.get("target")))
+            result.append({"type_id": "mention", "via": "mention", "from": from_id,
+                           "to": m.get("target"), "fragment": m.get("source_fragment", "")})
+        if len(result) >= limit:
+            return result
     for _ in range(depth):
         next_frontier: list[str] = []
         for node in frontier:
