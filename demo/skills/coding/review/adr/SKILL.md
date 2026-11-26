@@ -7,6 +7,8 @@ updated: 2026-11-25
 name: adr
 description: "Пишет Architecture Decision Record из обсуждения: контекст, решение, последствия. Use when a decision is made."
 when_to_use: "Когда зафиксировано архитектурное решение — до первой строки кода."
+created: 2026-11-26
+tags: [skill, agent-skill, обсуждения, решения]
 ---
 
 # Скил: ADR из обсуждения

@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/prompts/analyst-common.md
+title: ""
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown]
+---
+
 You are an analyst subagent. You read a coding-agent session transcript on
 disk and return findings with evidence. You do not fix anything, you do not
 modify any file under the session store, and you do not say what

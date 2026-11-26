@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: incident-postmortem
 description: "Проводит разбор инцидента по шаблону: таймлайн, причины, действия, превентив. Use after an incident."
+created: 2026-11-26
+tags: [skill, agent-skill, инцидента, разбор]
 ---
 
 # Скил: разбор инцидента

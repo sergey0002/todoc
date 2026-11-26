@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/systematic-debugging/condition-based-waiting.md
+title: "Condition-Based Waiting"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, condition, waiting]
+---
+
 # Condition-Based Waiting
 
 ## Overview

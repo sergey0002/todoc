@@ -7,6 +7,7 @@ status: active
 tags: [tags, front-matter, search, metadata, obsidian]
 updated: 2026-11-25
 related: ["[[folder-config]]", "[[agent-state]]"]
+created: 2026-11-26
 ---
 
 # Теги документов как aliases поиска — план реализации
@@ -145,20 +146,20 @@ tags, related-wikilinks) во front matter; даты поддерживает м
   `markdown.related_invalid` (не список строк `[[имя]]` — wikilink-форма).
   Все — только при наличии поля; пустой список допустим.
 
-- [ ] **Шаг 1: падающий тест** — fixture-датасет: `tags: ["OK-tag", "ПЛОХОЙ!!"]` →
+- [x] **Шаг 1: падающий тест** — fixture-датасет: `tags: ["OK-tag", "ПЛОХОЙ!!"]` →
   `markdown.tags_invalid`; `updated: "25.11.2026"` → `markdown.updated_invalid`;
   `created: "25.11.2026"` → `markdown.created_invalid`;
   `related: ["[[ok]]"]` → формат ок (существование цели v1 не проверяется);
   `related: ["ok.md"]` → `markdown.related_invalid`; нет полей → 0 диагностик.
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `python -m pytest tests/unit/test_meta_tags.py -v`
 Expected: FAIL — кодов нет
 
-- [ ] **Шаг 3: реализовать четыре проверки** в validator.py (паттерны из Produces выше)
+- [x] **Шаг 3: реализовать четыре проверки** в validator.py (паттерны из Produces выше)
 
-- [ ] **Шаг 4: прогнать валидатор на демо**
+- [x] **Шаг 4: прогнать валидатор на демо**
 
 Run: `todoc validate --root demo --all`
 Expected: 0 диагностик — в демо уже есть md с полями (замер 2026-11-26: 5 с
@@ -166,7 +167,7 @@ Expected: 0 диагностик — в демо уже есть md с поля�
 softdoc/doc-tags, все ≤8 тегов; 5+ с `related`-wikilinks), формы валидны,
 остальные поля отсутствуют
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/validator.py tests/unit/test_meta_tags.py
@@ -190,25 +191,25 @@ git commit -m "feat(tags): валидация tags/updated/related во front ma
   post-фильтр по точному тегу; read-вывод дополняется `tags`/`updated`/`related`
   из `MarkdownDoc.front_matter`.
 
-- [ ] **Шаг 1: падающие тесты** — doc A с тегом `search`, doc B без: запрос «search»
+- [x] **Шаг 1: падающие тесты** — doc A с тегом `search`, doc B без: запрос «search»
   → A выше B; `--tag search` → только A; score A строго больше score B.
 
-- [ ] **Шаг 2: убедиться, что тесты падают**
+- [x] **Шаг 2: убедиться, что тесты падают**
 
 Run: `python -m pytest tests/unit/test_meta_tags.py -v -k search`
 Expected: FAIL — теги не матчаются
 
-- [ ] **Шаг 3: реализовать** — search.py: теги извлекаются из front matter файла
+- [x] **Шаг 3: реализовать** — search.py: теги извлекаются из front matter файла
   (второй раз парсить нельзя → вынести extraction в общую функцию markdown-модуля,
   реюз в validator и search); кли: опция `--tag` у `docs search`, поля в выводе
   `docs read`.
 
-- [ ] **Шаг 4: полный прогон поиска**
+- [x] **Шаг 4: полный прогон поиска**
 
 Run: `python -m pytest tests/unit tests/cli -v`
 Expected: PASS — все существующие поисковые тесты не сломаны (score без тегов прежний)
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/search.py src/todoc/cli.py tests/unit/test_meta_tags.py \
@@ -239,26 +240,26 @@ git commit -m "feat(tags): теги в лексическом поиске (exac
   движок — руками не заполнять», edit — «updated бампит движок; связал документ —
   добавь/обнови related-wikilink».
 
-- [ ] **Шаг 1: падающие тесты** — `docs new` → created==updated==сегодня в файле;
+- [x] **Шаг 1: падающие тесты** — `docs new` → created==updated==сегодня в файле;
   `docs edit --apply` (правка одной строки) → `updated` = сегодня, `created` не
   изменился, ответ содержит `updated_bumped`; `--preview` — файл байт-в-байт прежний.
 
-- [ ] **Шаг 2: убедиться, что тесты падают**
+- [x] **Шаг 2: убедиться, что тесты падают**
 
 Run: `python -m pytest tests/unit/test_meta_tags.py -v -k dates`
 Expected: FAIL — полей created/updated нет, бампа нет
 
-- [ ] **Шаг 3: реализовать** — cli.py (docs new: два поля; docs edit: бамп в
+- [x] **Шаг 3: реализовать** — cli.py (docs new: два поля; docs edit: бамп в
   apply-ветке), .gitignore: `.obsidian/`, промпты: строки про даты в каждом
   create.md/edit.md.
 
-- [ ] **Шаг 4: полный прогон**
+- [x] **Шаг 4: полный прогон**
 
 Run: `python -m pytest tests/unit tests/cli -v`
 Expected: PASS — включая существующие тесты docs new/edit (обновить фикстуры с
 точными сравнениями front matter на два новых поля)
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/write.py src/todoc/cli.py .gitignore demo/.todoc \
@@ -296,26 +297,26 @@ git commit -m "feat(meta): created/updated в docs new, бамп updated в docs
 - copied-доки (docs-mirror) → не заполняются (связь видна в `source`);
 - связей нет → поле опускается.
 
-- [ ] **Шаг 1: батч plan/ + ideas/** (related заполняется здесь)
+- [x] **Шаг 1: батч plan/ + ideas/** (related заполняется здесь)
   → `todoc validate --root demo --all` = 0 → коммит
 
-- [ ] **Шаг 2: батчи architecture/, glossary/, guides/, research/** → validate = 0 → коммит
+- [x] **Шаг 2: батчи architecture/, glossary/, guides/, research/** → validate = 0 → коммит
 
-- [ ] **Шаг 3: батчи references/, notes/, inbox/, skill/, competitors/, прочие md** →
+- [x] **Шаг 3: батчи references/, notes/, inbox/, skill/, competitors/, прочие md** →
   validate = 0 → коммит
 
-- [ ] **Шаг 4: сквозная проверка**
+- [x] **Шаг 4: сквозная проверка**
 
 Run: `todoc docs search --root demo --query "state" --tag tags` и
 `todoc docs search --root demo --query "aliases"`
 Expected: тег-буст виден в выдаче; 0 диагностик
 
-- [ ] **Шаг 5: Obsidian-чек** — агент проверяет структурно (sandbox: fm каждого
+- [x] **Шаг 5: Obsidian-чек** — агент проверяет структурно (sandbox: fm каждого
   md парсится движком, related-формы wikilink, `.obsidian/` вне `git status`);
   визуальную часть (properties/граф/tag pane) выполняет пользователь вне сессии —
   Obsidian в sandbox недоступен.
 
-- [ ] **Шаг 6: коммиты по батчам** (см. шаги 1–3; последний: `demo(tags): миграция демо — полный набор полей во всех md`)
+- [x] **Шаг 6: коммиты по батчам** (см. шаги 1–3; последний: `demo(tags): миграция демо — полный набор полей во всех md`)
 
 ### Задача 5: синхронизация документации и счётчиков
 
@@ -333,13 +334,13 @@ Expected: тег-буст виден в выдаче; 0 диагностик
 - Consumes: фактические числа после миграции.
 - Produces: согласованные счётчики; упоминание тегов в гайдах.
 
-- [ ] **Шаг 1: обновить 5 файлов счётчиков/доков**
-- [ ] **Шаг 2: полный прогон**
+- [x] **Шаг 1: обновить 5 файлов счётчиков/доков**
+- [x] **Шаг 2: полный прогон**
 
 Run: `todoc validate --root demo --all && coverage run -m pytest && coverage report`
 Expected: 0 диагностик, все зелёные, 100%, 0 пропусков
 
-- [ ] **Шаг 3: коммит**
+- [x] **Шаг 3: коммит**
 
 ```bash
 git add README.md demo/references/state demo/ideas/folder-config.md demo/HOME.md \
@@ -349,14 +350,14 @@ git commit -m "docs: счётчики и гайды после введения 
 
 ## 6. Definition of Done
 
-- [ ] Задачи 1–5 выполнены; каждая — отдельные коммиты (миграция — по батчам).
-- [ ] Тег-буст в поиске подтверждён тестами и сквозной проверкой; `--tag` работает.
-- [ ] Все md демо с created/updated/tags; явные пары — с related-wikilinks; validate 0.
-- [ ] Даты ведутся движком: `docs new` ставит, `docs edit --apply` бампит (тест),
+- [x] Задачи 1–5 выполнены; каждая — отдельные коммиты (миграция — по батчам).
+- [x] Тег-буст в поиске подтверждён тестами и сквозной проверкой; `--tag` работает.
+- [x] Все md демо с created/updated/tags; явные пары — с related-wikilinks; validate 0.
+- [x] Даты ведутся движком: `docs new` ставит, `docs edit --apply` бампит (тест),
   промпты запрещают ручное.
 - [ ] Obsidian-чек пройден: properties, граф по related, tag pane; `.obsidian/` вне Git.
-- [ ] pytest 1117+N зелёный; новый код — 100% покрытие; метрики README от замера.
-- [ ] Счётчики согласованы от факта (`check --root demo`; на 26.11.2026 — 376 документов,
+- [x] pytest 1130 зелёный; новый код — 100% покрытие; метрики README от замера (99% — 5350+1958).
+- [x] Счётчики согласованы от факта (`check --root demo`; на 26.11.2026 — 376 документов,
       188 md); folder-config сослался на doc-теги.
 
 ## 7. Риски и митигации
@@ -374,7 +375,8 @@ git commit -m "docs: счётчики и гайды после введения 
 
 ## 8. Прогресс и отклонения
 
-- Статус: не начат (2026-11-25). Первая задача — Задача 1, шаг 1.
+- Статус: задачи 1–5 исполнены 2026-11-26 (коммиты З1–З5; статус документа — active,
+  снятие по явной фразе пользователя).
 - Отклонений нет.
 - 2026-11-25 — план дополнен до начала работ (правка содержания): полный набор
   полей — created/updated ставит механика движка (docs new / бамп в docs edit),
@@ -417,3 +419,26 @@ git commit -m "docs: счётчики и гайды после введения 
   шаг реален. Отклонений семантики нет: 5 задач, DoD полон.
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
+- 2026-11-26 — исполнение, отклонения и уточнения:
+  1) З1: вызов meta-валидации размещён строго в markdown-ветке validator'а — JSON-записи
+  (records) не проверяются на tags/created/updated/related (уточнение скоупа «front matter
+  markdown»); парсер держит значения fm строками — кейс `tags: [42]` заменён
+  на `["UPPER-Case"]` (заглавные вне kebab-правила).
+  2) З3: `apply_edit_ops` возвращает `(new_hash, updated_bumped)` — сигнатура изменена,
+  существующие вызов-тесты обновлены; fm у `docs new` строится движком
+  (id/title/doc_type/lang/created/updated), tags/related остаются агенту и миграции.
+  3) З4: первый проход миграции пропустил 10 файлов с кириллическими именами
+  (`git ls-files` экранирует не-ASCII в кавычки — фильтр `endswith(".md")` их отбрасывал);
+  обнаружено сверкой `grep -L "tags: ["`, добито вторым идемпотентным проходом —
+  все 188 md. Тег `bugs` для bugs/ вне списка правила 1 (сохранён для согласованности).
+  Все 6 after-планов — copied:true: related по правилу не заполняется, добавлен
+  `docs-mirror`. Идеи получили related → их планы (двусторонние пары с планами);
+  устаревший related `[[plan-folder-config]]` идеи folder-config заменён на реальные
+  basename'ы. skills-дерево (SKILL.md + внутренние md) мигрировано как «прочие md».
+  4) З5: bench/results/benchmark.md не менялся — метрик состава не содержит
+  (условие «если упомянуты»); в прозе — 170 записей (файлы records/), поле `records`
+  вывода `index rebuild` — 172 (пример обновлён от фактического вывода команды:
+  67 папок / 376 документов / 152 отношения).
+  5) DoD: структурная часть Obsidian-чека выполнена агентом (fm парсится движком,
+  related-формы валидны, `.obsidian/` вне git status); визуальная часть (properties,
+  граф по related, tag pane) — за пользователем вне сессии.

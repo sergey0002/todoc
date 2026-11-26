@@ -1,6 +1,13 @@
 ---
 name: dispatching-parallel-agents
 description: Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
+id: doc:skills/process/superpowers/dispatching-parallel-agents/SKILL.md
+title: "Dispatching Parallel Agents"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, dispatching, parallel]
 ---
 
 # Dispatching Parallel Agents

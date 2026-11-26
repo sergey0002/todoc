@@ -58,7 +58,10 @@ def test_docs_new_uses_the_type_template(root):
     assert data["doc_type"] == "spec"
     assert data["template"] == ".todoc/doc_types/spec/template.md"
     text = (root / data["path"]).read_text(encoding="utf-8")
-    assert text.startswith("# Оплата\n")
+    # план doc-tags З3: fm-блок сверху, тело шаблона как было
+    assert text.startswith("---\nid: doc:specs/oplata.md\ntitle: \"Оплата\"\ndoc_type: spec\nlang: ru\n")
+    assert "created: " in text and "updated: " in text
+    assert "# Оплата\n" in text
     assert "`spec`" in text and "doc:specs/" in text
     assert "{date}" not in text and "{id}" not in text
 
@@ -111,7 +114,12 @@ def test_docs_new_without_type_stays_a_bare_title(root):
     assert result.exit_code == 0, result.output
     data = _json(result)["data"]
     assert data["doc_type"] is None and data["template"] == "none"
-    assert (root / data["path"]).read_text(encoding="utf-8") == "# Просто\n\n"
+    # план doc-tags З3: fm-блок ставит движок; без типа строки doc_type нет
+    text = (root / data["path"]).read_text(encoding="utf-8")
+    assert text.startswith("---\n")
+    assert 'title: "Просто"' in text and "lang: ru" in text
+    assert "doc_type:" not in text
+    assert text.endswith("# Просто\n\n")
 
 
 def test_docs_new_type_without_declared_template(root):

@@ -3,6 +3,9 @@ id: doc:note-token-economy
 title: Дисциплина token economy
 doc_type: note
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [notes, note, дисциплина, economy]
 ---
 
 # Дисциплина token economy

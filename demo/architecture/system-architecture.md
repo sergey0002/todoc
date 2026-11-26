@@ -3,6 +3,9 @@ id: doc:architecture-system
 title: "Архитектура todoc: слои и адаптеры"
 doc_type: architecture-doc
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [architecture, architecture-doc, архитектура, адаптеры]
 ---
 
 # Архитектура `todoc`: слои и адаптеры

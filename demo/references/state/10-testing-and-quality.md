@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/10-testing-and-quality.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, качество]
 ---
+
 # 10. Тесты и качество
 
 ## Текущие цифры (проверено прогоном 2026-11-25)

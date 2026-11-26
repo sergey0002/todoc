@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/03-cli-reference.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, справочник, состояние]
 ---
+
 # 03. Справочник CLI: 46 листовых команд
 
 Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`

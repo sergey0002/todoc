@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/prompts/scrub-audit.md
+title: ""
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown]
+---
+
 Read and follow `references/redaction-policy.md` before inspecting any file.
 Use its categories and the supplied lists for every audit decision.
 

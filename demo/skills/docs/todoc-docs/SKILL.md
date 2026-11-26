@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: todoc-docs
 description: "Ищет и читает knowledge base датасета todoc через CLI: bounded search/read по конвенции. Use when answering from the KB."
+created: 2026-11-26
+tags: [skill, agent-skill, датасета, чтение]
 ---
 
 # Скил: поиск и чтение KB датасета через CLI

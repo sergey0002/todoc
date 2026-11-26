@@ -10,6 +10,9 @@ component: validator
 agent_impact: friction
 tokens_extra_est: 300
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, диагностика, location]
 ---
 
 # BUG-010: диагностика конфигов без location при unicode-escape ключе

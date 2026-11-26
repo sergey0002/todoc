@@ -3,6 +3,9 @@ id: glossary:diagnostic
 title: Диагностика
 doc_type: glossary-entry
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [glossary, glossary-entry, диагностика]
 ---
 
 # Диагностика

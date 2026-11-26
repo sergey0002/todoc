@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/04-config-and-types.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, конфигурация, состояние]
 ---
+
 # 04. Конфигурация и типовая система
 
 ## `dataset.json`

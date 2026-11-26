@@ -10,6 +10,9 @@ agent_impact: friction, token_overrun
 tokens_extra_est: 4000
 component: engine
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, удаление, вставку]
 ---
 
 # BUG-004: docs edit не умеет вставку и удаление строк

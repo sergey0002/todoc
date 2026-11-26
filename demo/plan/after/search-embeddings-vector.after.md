@@ -5,6 +5,9 @@ doc_type: after-plan
 lang: ru
 source: docs/plan/search-embeddings-vector.after.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, after-plan, эмбеддинги, векторный]
 ---
 
 # Перспектива (НЕ сейчас): Embeddings, vector search, hybrid fusion, reranking

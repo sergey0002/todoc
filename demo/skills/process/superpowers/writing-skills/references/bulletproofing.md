@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/bulletproofing.md
+title: "Bulletproofing Skills Against Rationalization"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, rationalization, bulletproofing]
+---
+
 # Bulletproofing Skills Against Rationalization
 
 Part of superpowers:writing-skills. Use it when the baseline failure is a

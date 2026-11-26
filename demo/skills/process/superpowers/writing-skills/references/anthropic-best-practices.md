@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/anthropic-best-practices.md
+title: "Skill authoring best practices"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, authoring, practices]
+---
+
 # Skill authoring best practices
 
 > Learn how to write effective Skills that agents can discover and use successfully.

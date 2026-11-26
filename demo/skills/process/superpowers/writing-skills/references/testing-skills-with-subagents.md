@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/testing-skills-with-subagents.md
+title: "Testing Skills With Subagents"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, subagents, testing]
+---
+
 # Testing Skills With Subagents
 
 **Load this reference when:** creating or editing skills, before deployment, to verify they work under pressure and resist rationalization.

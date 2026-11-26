@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/using-superpowers/references/antigravity-tools.md
+title: "Antigravity CLI (agy) Tool Mapping"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, antigravity, mapping]
+---
+
 # Antigravity CLI (`agy`) Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On the Antigravity CLI (`agy`) these resolve to the tools below.

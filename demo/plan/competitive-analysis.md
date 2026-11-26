@@ -5,6 +5,9 @@ doc_type: competitive-analysis
 lang: ru
 source: docs/plan/competitive-analysis.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, competitive-analysis, конкурентный, competitive]
 ---
 
 # Конкурентный анализ `todoc`: CLI, возможности, портабельность, аудитория

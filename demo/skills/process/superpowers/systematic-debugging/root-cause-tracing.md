@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/systematic-debugging/root-cause-tracing.md
+title: "Root Cause Tracing"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, tracing, cause]
+---
+
 # Root Cause Tracing
 
 ## Overview

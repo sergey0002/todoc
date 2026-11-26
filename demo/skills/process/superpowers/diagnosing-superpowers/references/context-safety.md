@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/references/context-safety.md
+title: "Context safety for session transcripts"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, transcripts, context]
+---
+
 # Context safety for session transcripts
 
 One transcript record can exceed a megabyte or embed a whole history. Printing

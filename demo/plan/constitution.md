@@ -5,6 +5,9 @@ doc_type: constitution
 lang: ru
 source: docs/plan/constitution.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, constitution, конституция, нормативная]
 ---
 
 # todoc — Конституция: итоговый продукт, требования, концепция и принципы

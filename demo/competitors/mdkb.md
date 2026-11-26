@@ -5,6 +5,9 @@ doc_type: competitor-card
 lang: ru
 category: cli
 portability: files-only
+created: 2026-11-26
+updated: 2026-11-26
+tags: [competitors, competitor-card, mdkb]
 ---
 
 # mdkb

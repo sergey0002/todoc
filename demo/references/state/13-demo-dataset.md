@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/13-demo-dataset.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, датасет]
 ---
+
 # 13. Демо-датасет `demo/`
 
 `demo/` — полноценный DATA_ROOT, созданный командой `todoc init` и расширенный вручную:
@@ -41,7 +45,7 @@ copied: true
 | `architecture/` | `architecture` (reserved) | слои и поток данных, модель данных |
 | `glossary/` | `glossary` (reserved) | 10 определений терминов |
 | `guides/` | `guides` | 3 гайда (CLI, Markdown KB, MCP) |
-| `references/` | `references` | 9 справок по подсистемам + `state/` (16 документов состояния) |
+| `references/` | `references` | 9 справок по подсистемам + `state/` (17 документов состояния) |
 | `competitors/` | `competitors` | 30 карточек конкурентов и Agent Skills |
 | `records/` | `records` | типизированные JSON-записи по подпапкам |
 | `notes/` | `notes` | 3 заметки: навигация, token economy, контракт CLI |
@@ -82,9 +86,10 @@ copied: true
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 14/19/12/9
-todoc index rebuild --root demo                         # 22 папки, 258 документов, 159 записей, 138 отношений
-todoc docs tree --root demo --max-depth 1               # 22 папки, у 16 назначен dir_type
+todoc index rebuild --root demo                         # 67 папок, 376 документов, 172 записи, 152 отношения
+todoc docs tree --root demo --max-depth 1               # 67 папок, 376 документов
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
+todoc docs search --root demo --query "state" --tag plan           # только plan-документы (пост-фильтр по тегу)
 todoc docs read --root demo --id doc:constitution --section "..."
 todoc records list --root demo --type decision --limit 3           # total 10
 todoc records query --root demo --query-file demo/.todoc/queries/competitors-portable.json   # total 21

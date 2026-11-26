@@ -7,6 +7,7 @@ status: active
 tags: [folder-config, cli, tree, suggest, scoring, search]
 updated: 2026-11-25
 related: ["[[folder-config]]", "[[skills-engine]]", "[[plan-skills-vault]]"]
+created: 2026-11-26
 ---
 
 # Конфиг папок: .config.json — самоописание, дерево с описаниями, suggest-скоринг (план) — план реализации

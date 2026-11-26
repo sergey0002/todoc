@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/templates/case.md
+title: "Case:"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, case]
+---
+
 # Case: <session-id>
 
 Workspace: ~/.superpowers/diagnosing-superpowers/<session-id>/

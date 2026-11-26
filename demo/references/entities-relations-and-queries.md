@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/entities-relations-and-queries.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, relations, entities]
 ---
 
 # Entities, relations and queries

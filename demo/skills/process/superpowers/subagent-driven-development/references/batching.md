@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/batching.md
+title: "Batching Small Same-Shape Work"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, batching, shape]
+---
+
 # Batching Small Same-Shape Work
 
 Part of superpowers:subagent-driven-development.

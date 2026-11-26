@@ -9,6 +9,9 @@ severity: major
 agent_impact: friction
 component: engine
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, резолвится, unknown]
 ---
 
 # BUG-001: Явный doc_type без fm-правила резолвится в unknown

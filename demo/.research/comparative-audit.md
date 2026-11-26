@@ -5,6 +5,9 @@ doc_type: research-report
 lang: ru
 source: docs/research/knowledge-base-comparative-audit.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [research, research-report, comparative, статический]
 ---
 
 # Сравнительный аудит: может ли план `todoc` стать переносимой памятью для агентов?

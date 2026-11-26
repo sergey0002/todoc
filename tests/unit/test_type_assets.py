@@ -325,7 +325,9 @@ def test_prompts_mention_declared_structure_and_fields():
 def test_create_document_plan_appends_a_final_newline():
     plan = create_document_plan(DATASET, {"note": {}}, "note", "T", "a/b.md", "# {title}",
                                 {"title": "T"})
-    assert plan.new_content == "# T\n"
+    # план doc-tags З3: fm-блок сверху, тело с финальным \n
+    assert plan.new_content.endswith("\n# T\n")
+    assert plan.new_content.startswith("---\n")
 
 
 def test_create_document_plan_rejects_unknown_type_empty_title_and_bad_path():
@@ -349,8 +351,18 @@ def test_create_document_plan_refuses_existing_target():
 
 
 def test_create_document_plan_without_type_is_a_bare_title():
+    """План doc-tags З3: docs new строит fm-блок сам (created/updated = сегодня)."""
+    import re
+
     plan = create_document_plan(DATASET, {}, None, "Заголовок", "inbox/x.md")
-    assert plan.new_content == "# Заголовок\n\n"
+    assert plan.new_content.endswith("# Заголовок\n\n")
+    assert plan.new_content.startswith("---\n")
+    assert 'title: "Заголовок"' in plan.new_content
+    assert "lang: ru" in plan.new_content
+    m = re.search(r"^created: (\d{4}-\d{2}-\d{2})$", plan.new_content, re.M)
+    n = re.search(r"^updated: (\d{4}-\d{2}-\d{2})$", plan.new_content, re.M)
+    assert m and n and m.group(1) == n.group(1)
+    assert "doc_type:" not in plan.new_content  # тип не задан — строка опускается
     assert plan.validations == ("template", "none", "no-overwrite")
 
 
@@ -358,7 +370,9 @@ def test_create_document_plan_renders_template_and_flags_structure():
     plan = create_document_plan(DATASET, {"note": {"required_sections": ["## Суть"]}}, "note", "T",
                                 "inbox/x.md", "# {title}\n\n## Суть\n\n{date}\n",
                                 {"title": "T", "date": "2026-11-25"})
-    assert plan.new_content == "# T\n\n## Суть\n\n2026-11-25\n"
+    assert plan.new_content.endswith("# T\n\n## Суть\n\n2026-11-25\n")
+    assert plan.new_content.startswith("---\nid: doc:inbox/x.md\ntitle: \"T\"\ndoc_type: note\nlang: ru\n")
+    assert "created: " in plan.new_content and "updated: " in plan.new_content
     assert "structure" in plan.validations
 
 

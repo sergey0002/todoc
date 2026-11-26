@@ -10,6 +10,9 @@ component: cli
 agent_impact: friction, token_overrun
 tokens_extra_est: 1500
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, существует, linkcheck]
 ---
 
 # BUG-007: linkcheck из DoD планов не существует как команда CLI

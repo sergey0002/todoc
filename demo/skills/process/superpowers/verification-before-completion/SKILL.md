@@ -1,6 +1,13 @@
 ---
 name: verification-before-completion
 description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
+id: doc:skills/process/superpowers/verification-before-completion/SKILL.md
+title: "Verification Before Completion"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, verification, completion]
 ---
 
 # Verification Before Completion

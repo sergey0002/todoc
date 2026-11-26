@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/resuming.md
+title: "Resuming From an Existing Ledger"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, existing, resuming]
+---
+
 # Resuming From an Existing Ledger
 
 Part of superpowers:subagent-driven-development. This plan's workspace

@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/16-leftovers-report.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, остаткам]
 ---
+
 # 16. Отчёт по остаткам
 
 Дата: 2026-11-25. Всё ниже проверено запуском команд в рабочем дереве на `master` (`6311b825`).

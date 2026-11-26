@@ -3,6 +3,9 @@ id: doc:note-how-to-read
 title: Как читать этот демо-датасет
 doc_type: note
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [notes, note, датасет, читать]
 ---
 
 # Как читать этот демо-датасет

@@ -4,6 +4,10 @@ title: "Идея: агентский стейт — state.json в движке (
 doc_type: idea
 lang: ru
 status: captured
+created: 2026-11-26
+updated: 2026-11-26
+tags: [ideas, idea, агентский, состояния]
+related: ["[[агентский-стейт--state-json-в-движке--v1---текущий-проект.md]]"]
 ---
 
 # Идея: агентский стейт — `state.json` в движке

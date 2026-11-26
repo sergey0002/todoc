@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/flowcharts.md
+title: "Flowcharts in Skills"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, flowcharts, skills]
+---
+
 # Flowcharts in Skills
 
 Part of superpowers:writing-skills.

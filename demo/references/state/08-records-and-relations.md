@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/08-records-and-relations.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, отношения, состояние]
 ---
+
 # 08. Записи, отношения, запросы
 
 ## Что считается записью

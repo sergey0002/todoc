@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/requesting-code-review/code-reviewer.md
+title: "Code Reviewer Prompt Template"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, reviewer, template]
+---
+
 # Code Reviewer Prompt Template
 
 Use this template when dispatching a code reviewer subagent.

@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/CLAUDE_MD_TESTING.md
+title: "Testing CLAUDE.md Skills Documentation"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, documentation, testing]
+---
+
 # Testing CLAUDE.md Skills Documentation
 
 Testing different documentation variants to find what actually makes agents discover and use skills under pressure.

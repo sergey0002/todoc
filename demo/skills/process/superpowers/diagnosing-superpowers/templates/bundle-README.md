@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/templates/bundle-README.md
+title: "Superpowers session diagnosis bundle"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, superpowers, diagnosis]
+---
+
 # Superpowers session diagnosis bundle
 
 Session: <session-id>

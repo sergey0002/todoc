@@ -3,6 +3,9 @@ id: glossary:write-plan
 title: WritePlan
 doc_type: glossary-entry
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [glossary, glossary-entry, writeplan]
 ---
 
 # WritePlan

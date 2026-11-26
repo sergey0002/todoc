@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/07-search-and-read.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, чтение]
 ---
+
 # 07. Поиск и чтение
 
 ## Лексический поиск (`application/search.py`)

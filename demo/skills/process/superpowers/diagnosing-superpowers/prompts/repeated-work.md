@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/prompts/repeated-work.md
+title: ""
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown]
+---
+
 Read `prompts/analyst-common.md` first; it gives your role, inputs,
 context-safety rules, and the return format. This file adds the dimension.
 

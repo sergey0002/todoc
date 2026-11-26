@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/05-formats.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, адаптеры]
 ---
+
 # 05. Адаптеры форматов
 
 Три формата: Markdown (`.md`, `.markdown`), JSON (`.json`), CSV (`.csv`). Всё остальное —

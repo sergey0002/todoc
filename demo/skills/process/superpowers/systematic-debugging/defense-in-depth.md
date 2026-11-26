@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/systematic-debugging/defense-in-depth.md
+title: "Defense-in-Depth Validation"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, validation, defense]
+---
+
 # Defense-in-Depth Validation
 
 ## Overview

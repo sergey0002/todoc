@@ -5,7 +5,9 @@ doc_type: idea
 lang: ru
 status: planned
 updated: 2026-11-25
-related: ["[[plan-folder-config]]"]
+related: ["[[folder-config-implementation]]", "[[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]"]
+created: 2026-11-26
+tags: [ideas, idea, самоописание, заголовок]
 ---
 
 # Идея: `.config.json` — самоописание папок
@@ -26,6 +28,11 @@ related: ["[[plan-folder-config]]"]
 сопроводительной картой: заголовок по-русски, описание, что здесь лежит и зачем.
 Тот же конфиг — источник описаний для дерева скилов: сканер пробегает папки типа
 `skill`, из `.config.json` берёт описание раздела, из SKILL.md — описание скила.
+
+Кросс-ссылка: [теги документов](../plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md)
+([[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]) — doc-уровень
+той же весовой модели: теги папка+тип+тематика усиливают совпадения лексического поиска
+и дают точный пост-фильтр `--tag`, дополняя папочную самоописание из `.config.json`.
 
 ## Проблема
 

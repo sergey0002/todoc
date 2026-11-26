@@ -1,6 +1,13 @@
 ---
 name: brainstorming
 description: "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation)."
+id: doc:skills/process/superpowers/brainstorming/SKILL.md
+title: "Brainstorming"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, brainstorming]
 ---
 
 # Brainstorming

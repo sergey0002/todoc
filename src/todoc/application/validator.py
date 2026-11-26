@@ -210,6 +210,40 @@ def _heading_matches(heading: Any, level: int | None, title: str) -> bool:
     return actual == wanted
 
 
+_TAG_RE = re.compile(r"^[a-z0-9\u0400-\u04ff]+(-[a-z0-9\u0400-\u04ff]+)*$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_WIKILINK_RE = re.compile(r"^\[\[[^\[\]]+\]\]$")
+
+
+def _check_meta_fields(dataset_id: str, rel_path: str, front_matter: dict[str, Any]) -> list[Diagnostic]:
+    """План doc-tags Задача 1: форма опциональных полей tags/created/updated/related.
+
+    Поля опциональны (absence ≠ ошибка); пустой tags допустим; существование
+    целей related в v1 не проверяется — только wikilink-форма "[[имя]]".
+    """
+    diags: list[Diagnostic] = []
+    tags = front_matter.get("tags")
+    if tags is not None:
+        ok = isinstance(tags, list) and all(
+            isinstance(x, str) and _TAG_RE.match(x) and 2 <= len(x) <= 32 for x in tags)
+        if not ok or len(tags) > 8:
+            diags.append(_diag(dataset_id, rel_path, "markdown.tags_invalid",
+                               "tags: ожидаются 0–8 kebab-тегов (строки 2–32, [a-z0-9-], кириллица допустима)."))
+    for key, code in (("created", "markdown.created_invalid"),
+                      ("updated", "markdown.updated_invalid")):
+        value = front_matter.get(key)
+        if value is not None and (not isinstance(value, str) or not _DATE_RE.match(value)):
+            diags.append(_diag(dataset_id, rel_path, code,
+                               f"{key}: ожидалась дата YYYY-MM-DD, получено {value!r}."))
+    related = front_matter.get("related")
+    if related is not None:
+        if not isinstance(related, list) or not all(
+                isinstance(x, str) and _WIKILINK_RE.match(x) for x in related):
+            diags.append(_diag(dataset_id, rel_path, "markdown.related_invalid",
+                               "related: ожидаются wikilinks формы [[имя]] (существование цели в v1 не проверяется)."))
+    return diags
+
+
 def _check_structure(dataset_id: str, rel_path: str, headings: list[Any],
                      descriptor: dict[str, Any]) -> list[Diagnostic]:
     """Enforce the structure a doc_type declares (required sections, section rules).
@@ -341,6 +375,7 @@ def validate_dataset(
                                    message, severity="warning", location={"line": lineno, "column": 1}))
             # Разбор уже в руках — второй раз файл не читается и не парсится.
             diags.extend(_check_markdown_links(dataset_id, scanned, root, all_paths, by_basename, doc=doc))
+            diags.extend(_check_meta_fields(dataset_id, scanned.rel_path, front_matter))  # план doc-tags З1: только markdown
         elif fmt == "csv":
             csv_doc = parse_csv(text, max_rows=max_rows)
             for err in csv_doc.errors:

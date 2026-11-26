@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/data-roots-and-config.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, config, roots]
 ---
 
 # Data roots and config

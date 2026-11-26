@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/safe-read-write.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, write, read]
 ---
 
 # Safe read/write

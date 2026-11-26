@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/01-overview.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, продукта]
 ---
+
 # 01. Обзор: что такое `todoc` и в каком он состоянии
 
 ## Суть продукта
@@ -28,7 +32,7 @@ copied: true
 | Покрытие | 100% — 4570 инструкций, 1676 веток, 0 пропусков | `coverage run --branch` + `coverage report -m` |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` | `pyproject.toml` |
 | Python | 3.11.2 | `todoc doctor` |
-| Демо-датасет | 258 документов, 159 записей, 0 диагностик | `todoc validate --root demo --all` |
+| Демо-датасет | 376 документов, 170 записей, 0 диагностик | `todoc validate --root demo --all` |
 
 ## Что реализовано (проверено прогоном)
 

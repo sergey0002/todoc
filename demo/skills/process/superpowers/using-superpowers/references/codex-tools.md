@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/using-superpowers/references/codex-tools.md
+title: "Subagent dispatch requires multi-agent support"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, dispatch, requires]
+---
+
 ## Subagent dispatch requires multi-agent support
 
 Add to your Codex config (`~/.codex/config.toml`):

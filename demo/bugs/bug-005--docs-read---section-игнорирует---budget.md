@@ -10,6 +10,9 @@ agent_impact: friction, token_overrun
 tokens_extra_est: 1500
 component: cli
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, игнорирует, section]
 ---
 
 # BUG-005: docs read --section игнорирует --budget

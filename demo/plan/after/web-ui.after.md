@@ -5,6 +5,9 @@ doc_type: after-plan
 lang: ru
 source: docs/plan/web-ui.after.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, after-plan, интерфейс, after]
 ---
 
 # Перспектива (НЕ сейчас): Человеческий веб-интерфейс + публикация

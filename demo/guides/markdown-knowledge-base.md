@@ -5,6 +5,9 @@ doc_type: guide
 lang: ru
 source: docs/guides/markdown-knowledge-for-agents.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [guides, guide, knowledge, markdown]
 ---
 
 # Markdown для агентной памяти и документации: стандарты, архитектура и эксплуатация

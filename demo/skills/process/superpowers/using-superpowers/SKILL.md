@@ -1,6 +1,13 @@
 ---
 name: using-superpowers
 description: Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions
+id: doc:skills/process/superpowers/using-superpowers/SKILL.md
+title: "The Rule"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, rule]
 ---
 
 <SUBAGENT-STOP>

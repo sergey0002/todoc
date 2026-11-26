@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/workflow.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, workflow]
 ---
 
 # Workflow

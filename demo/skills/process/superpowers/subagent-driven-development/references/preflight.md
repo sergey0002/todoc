@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/preflight.md
+title: "The Pre-flight Scan"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, flight, scan]
+---
+
 # The Pre-flight Scan
 
 Part of superpowers:subagent-driven-development. Run it once, before

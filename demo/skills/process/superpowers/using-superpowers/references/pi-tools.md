@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/using-superpowers/references/pi-tools.md
+title: "Pi Tool Mapping"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, mapping, tool]
+---
+
 # Pi Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Pi these resolve to the tools below.

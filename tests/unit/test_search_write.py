@@ -240,7 +240,8 @@ def test_apply_fix_file_missing(root):
 
 
 def test_apply_edit_ops(root, sample_md):
-    new_hash = apply_edit_ops(root, "notes/design.md", [{"line": 1, "text": "# Changed"}])
+    # план doc-tags З3: apply_edit_ops возвращает (new_hash, updated_bumped)
+    new_hash, _bumped = apply_edit_ops(root, "notes/design.md", [{"line": 1, "text": "# Changed"}])
     assert new_hash.startswith("sha256:")
     assert (root / "notes" / "design.md").read_text().splitlines()[0] == "# Changed"
 

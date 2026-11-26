@@ -6,6 +6,8 @@ lang: ru
 status: planned
 updated: 2026-11-25
 related: ["[[plan-skills-vault]]"]
+created: 2026-11-26
+tags: [ideas, idea, оглавление, хранилище]
 ---
 
 # Идея: хранилище-движок скилов на todoc
