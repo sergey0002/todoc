@@ -1255,14 +1255,16 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
 @click.option("--limit", type=int, default=10)
 @click.option("--within", default=None)
 @click.option("--cursor", default=None)
+@click.option("--tag", default=None, help="Точный пост-фильтр по тегу front matter (план doc-tags).")
 def docs_search(roots: tuple[str, ...], output: str, no_input: bool, doc_type: str | None, query: str,
-                budget: int | None, limit: int, within: str | None, cursor: str | None) -> None:
+                budget: int | None, limit: int, within: str | None, cursor: str | None,
+                tag: str | None) -> None:
     """Bounded lexical search with provenance."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
     offset = _parse_offset(cursor)
     hits, total, truncated = search_documents(ctx.root, payload["documents"], query, doc_type, within, limit,
-                                             budget, offset)
+                                             budget, offset, tag=tag)
     next_cursor = str(offset + len(hits)) if truncated else None
     _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "returned": len(hits), "truncated": truncated,
               "cursor": next_cursor, "items": [h.to_dict() for h in hits]}, output, None,
@@ -1297,6 +1299,10 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
                             "format": doc["format"], "doc_type": doc["doc_type"], "hash": doc["hash"]}
     if doc["format"] == "markdown":
         md = parse_markdown(text)
+        fm = md.front_matter
+        data["tags"] = fm.get("tags")
+        data["updated"] = fm.get("updated")
+        data["related"] = fm.get("related")  # план doc-tags З2: meta-поля в read-выводе
         if section or anchor:
             wanted = section or anchor or ""
             selected = None

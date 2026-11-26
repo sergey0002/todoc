@@ -22,22 +22,24 @@ def _terms(query: str) -> list[str]:
     return tokenize(query)
 
 
-def _document_text(root: Path, rel_path: str, fmt: str) -> tuple[str, str]:
-    """Return ``(match_text, source_text)``.
+def _document_text(root: Path, rel_path: str, fmt: str) -> tuple[str, str, dict[str, Any]]:
+    """Return ``(match_text, source_text, front_matter)``.
 
     Markdown is matched against an enriched string (title + headings first) so
     structural terms rank, but provenance (snippet, ``line_start``/``line_end``)
     must point into the real file, so the unmodified text is kept alongside.
+    Front matter возвращается третьим элементом (план doc-tags З2): теги участвуют
+    в score с весами — второй парсинг файла запрещён, читатель один.
     """
     try:
         text = (root / rel_path).read_text(encoding="utf-8")
     except OSError:
-        return "", ""
+        return "", "", {}
     if fmt == "markdown":
         doc = parse_markdown(text)
         headings = " ".join(h.title for h in doc.headings)
-        return f"{doc.title}\n{headings}\n{text}", text
-    return text, text
+        return f"{doc.title}\n{headings}\n{text}", text, doc.front_matter
+    return text, text, {}
 
 
 #: Сколько окон-кандидатов рассматривается. Ограничение нужно, чтобы частый термин
@@ -118,6 +120,7 @@ def search_documents(
     limit: int = 10,
     budget: int | None = None,
     offset: int = 0,
+    tag: str | None = None,
 ) -> tuple[list[SearchHit], int, bool]:
     """Return (hits, total, truncated). Deterministic rank, tie-break by id.
 
@@ -151,7 +154,10 @@ def search_documents(
         # из дефолтной выдачи; мьют — свойство хранилища, не параметр запроса.
         if any(part.startswith("!") for part in Path(str(doc.get("path", ""))).parts):
             continue
-        match_text, source_text = _document_text(root, str(doc.get("path", "")), str(doc.get("format", "")))
+        match_text, source_text, front_matter = _document_text(root, str(doc.get("path", "")), str(doc.get("format", "")))
+        tags = [x for x in (front_matter.get("tags") or []) if isinstance(x, str)]
+        if tag is not None and tag.lower() not in {t.lower() for t in tags}:
+            continue  # план doc-tags З2: --tag — точный пост-фильтр по тегу
         lowered = match_text.lower()
         matched = [t for t in terms if t in lowered]
         if not matched:
@@ -159,6 +165,14 @@ def search_documents(
         title = str(doc.get("title", ""))
         title_hits = sum(1 for t in matched if t in title.lower())
         score = title_hits * 10 + len(matched)
+        # План doc-tags З2: тег exact ×8, пословно внутри kebab-тега ×3 — аддитивно
+        # поверх базового score (title ×10 + len(matched) + cfg-буст folder-config);
+        # документы без тегов — прежний score.
+        lowered_tags = {t.lower() for t in tags}
+        tag_exact = sum(1 for t in lowered_tags if t in set(matched))
+        tag_partial = sum(1 for t in lowered_tags for part in t.split("-")
+                          if part and part in set(matched) and t not in set(matched))
+        score += tag_exact * 8 + tag_partial * 3
         if cfg_tokens:
             rel_path = Path(str(doc.get("path", "")))
             for anc in rel_path.parents:
