@@ -13,17 +13,70 @@
       "priority": 50
     },
     {
-      "id": "glossary-by-front-matter",
+      "id": "demo-doc-api-contract",
       "match": {
         "kind": "file",
-        "front_matter": {
-          "doc_type": "glossary-entry"
-        }
+        "glob": "contracts/**"
       },
       "assign": {
-        "doc_type": "glossary-entry"
+        "doc_type": "api-contract"
       },
-      "priority": 200
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-flow-doc",
+      "match": {
+        "kind": "file",
+        "glob": "flows/**"
+      },
+      "assign": {
+        "doc_type": "flow-doc"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-postmortem",
+      "match": {
+        "kind": "file",
+        "glob": "ops/postmortems/**"
+      },
+      "assign": {
+        "doc_type": "postmortem"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-runbook",
+      "match": {
+        "kind": "file",
+        "glob": "ops/runbooks/**"
+      },
+      "assign": {
+        "doc_type": "runbook"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-spec-doc",
+      "match": {
+        "kind": "file",
+        "glob": "specs/**"
+      },
+      "assign": {
+        "doc_type": "spec-doc"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-task-report",
+      "match": {
+        "kind": "file",
+        "glob": "reports/**"
+      },
+      "assign": {
+        "doc_type": "task-report"
+      },
+      "priority": 100
     },
     {
       "id": "fm-after-plan",
@@ -35,6 +88,19 @@
       },
       "assign": {
         "doc_type": "after-plan"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-agent-skill",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "agent-skill"
+        }
+      },
+      "assign": {
+        "doc_type": "agent-skill"
       },
       "priority": 200
     },
@@ -61,6 +127,19 @@
       },
       "assign": {
         "doc_type": "audit-report"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-bug-report",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "bug-report"
+        }
+      },
+      "assign": {
+        "doc_type": "bug-report"
       },
       "priority": 200
     },
@@ -113,6 +192,19 @@
       },
       "assign": {
         "doc_type": "demo-readme"
+      },
+      "priority": 200
+    },
+    {
+      "id": "fm-export",
+      "match": {
+        "kind": "file",
+        "front_matter": {
+          "doc_type": "export"
+        }
+      },
+      "assign": {
+        "doc_type": "export"
       },
       "priority": 200
     },
@@ -221,24 +313,35 @@
       "priority": 200
     },
     {
-      "id": "glob-guides",
+      "id": "glob-architecture",
       "match": {
         "kind": "file",
-        "glob": "guides/**"
+        "glob": "architecture/**"
       },
       "assign": {
-        "doc_type": "guide"
+        "doc_type": "architecture-doc"
       },
       "priority": 100
     },
     {
-      "id": "glob-references",
+      "id": "glob-attachments",
       "match": {
         "kind": "file",
-        "glob": "references/**"
+        "glob": "attachments/**"
       },
       "assign": {
-        "doc_type": "reference"
+        "doc_type": "inventory"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-bugs",
+      "match": {
+        "kind": "file",
+        "glob": "bugs/**"
+      },
+      "assign": {
+        "doc_type": "bug-report"
       },
       "priority": 100
     },
@@ -265,6 +368,17 @@
       "priority": 100
     },
     {
+      "id": "glob-guides",
+      "match": {
+        "kind": "file",
+        "glob": "guides/**"
+      },
+      "assign": {
+        "doc_type": "guide"
+      },
+      "priority": 100
+    },
+    {
       "id": "glob-notes",
       "match": {
         "kind": "file",
@@ -272,28 +386,6 @@
       },
       "assign": {
         "doc_type": "note"
-      },
-      "priority": 100
-    },
-    {
-      "id": "glob-architecture",
-      "match": {
-        "kind": "file",
-        "glob": "architecture/**"
-      },
-      "assign": {
-        "doc_type": "architecture-doc"
-      },
-      "priority": 100
-    },
-    {
-      "id": "glob-research",
-      "match": {
-        "kind": "file",
-        "glob": ".research/**"
-      },
-      "assign": {
-        "doc_type": "research-report"
       },
       "priority": 100
     },
@@ -320,13 +412,24 @@
       "priority": 100
     },
     {
-      "id": "glob-attachments",
+      "id": "glob-references",
       "match": {
         "kind": "file",
-        "glob": "attachments/**"
+        "glob": "references/**"
       },
       "assign": {
-        "doc_type": "inventory"
+        "doc_type": "reference"
+      },
+      "priority": 100
+    },
+    {
+      "id": "glob-research",
+      "match": {
+        "kind": "file",
+        "glob": ".research/**"
+      },
+      "assign": {
+        "doc_type": "research-report"
       },
       "priority": 100
     },
@@ -342,15 +445,17 @@
       "priority": 100
     },
     {
-      "id": "idea-markdown",
+      "id": "glossary-by-front-matter",
       "match": {
         "kind": "file",
-        "glob": "**/ideas/*.md"
+        "front_matter": {
+          "doc_type": "glossary-entry"
+        }
       },
       "assign": {
-        "doc_type": "idea"
+        "doc_type": "glossary-entry"
       },
-      "priority": 50
+      "priority": 200
     },
     {
       "id": "idea-by-front-matter",
@@ -366,6 +471,17 @@
       "priority": 200
     },
     {
+      "id": "idea-markdown",
+      "match": {
+        "kind": "file",
+        "glob": "**/ideas/*.md"
+      },
+      "assign": {
+        "doc_type": "idea"
+      },
+      "priority": 50
+    },
+    {
       "id": "tasks-by-front-matter",
       "match": {
         "kind": "file",
@@ -379,30 +495,6 @@
       "priority": 150
     },
     {
-      "id": "glob-bugs",
-      "match": {
-        "kind": "file",
-        "glob": "bugs/**"
-      },
-      "assign": {
-        "doc_type": "bug-report"
-      },
-      "priority": 100
-    },
-    {
-      "id": "fm-bug-report",
-      "match": {
-        "kind": "file",
-        "front_matter": {
-          "doc_type": "bug-report"
-        }
-      },
-      "assign": {
-        "doc_type": "bug-report"
-      },
-      "priority": 200
-    },
-    {
       "id": "vault-skills-glob",
       "match": {
         "kind": "file",
@@ -412,85 +504,6 @@
         "doc_type": "agent-skill"
       },
       "priority": 60
-    },
-    {
-      "id": "fm-agent-skill",
-      "match": {
-        "kind": "file",
-        "front_matter": {
-          "doc_type": "agent-skill"
-        }
-      },
-      "assign": {
-        "doc_type": "agent-skill"
-      },
-      "priority": 200
-    },
-    {
-      "id": "demo-doc-flow-doc",
-      "match": {
-        "kind": "file",
-        "glob": "flows/**"
-      },
-      "assign": {
-        "doc_type": "flow-doc"
-      },
-      "priority": 100
-    },
-    {
-      "id": "demo-doc-spec-doc",
-      "match": {
-        "kind": "file",
-        "glob": "specs/**"
-      },
-      "assign": {
-        "doc_type": "spec-doc"
-      },
-      "priority": 100
-    },
-    {
-      "id": "demo-doc-task-report",
-      "match": {
-        "kind": "file",
-        "glob": "reports/**"
-      },
-      "assign": {
-        "doc_type": "task-report"
-      },
-      "priority": 100
-    },
-    {
-      "id": "demo-doc-api-contract",
-      "match": {
-        "kind": "file",
-        "glob": "contracts/**"
-      },
-      "assign": {
-        "doc_type": "api-contract"
-      },
-      "priority": 100
-    },
-    {
-      "id": "demo-doc-runbook",
-      "match": {
-        "kind": "file",
-        "glob": "ops/runbooks/**"
-      },
-      "assign": {
-        "doc_type": "runbook"
-      },
-      "priority": 100
-    },
-    {
-      "id": "demo-doc-postmortem",
-      "match": {
-        "kind": "file",
-        "glob": "ops/postmortems/**"
-      },
-      "assign": {
-        "doc_type": "postmortem"
-      },
-      "priority": 100
     }
   ]
 }

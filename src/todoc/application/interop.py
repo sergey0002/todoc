@@ -87,9 +87,15 @@ def related_flow_id(rule: dict[str, Any]) -> str:
 
 
 def terminal_for_code(tree: dict[str, Any], code: str) -> dict[str, Any]:
-    """Terminal-узел дерева с props.error_code == code — исход отказа правила."""
+    """Узел дерева с props.error_code == code — исход отказа правила.
+
+    Обычно это terminal; компенсационная ветка может быть action-узлом с
+    error_code (например, PAYMENT_RETRY — повтор без списания) — она тоже
+    считается исходом отказа.
+    """
     for node in _nodes(tree):
-        if node.get("type") == "terminal" and (node.get("props") or {}).get("error_code") == code:
+        if node.get("type") in ("terminal", "action") \
+                and (node.get("props") or {}).get("error_code") == code:
             return node
     raise ValidationError(f"No terminal with error_code {code!r} in flow tree.", "interop.no_terminal_for_code")
 
@@ -154,3 +160,163 @@ def definition_examples(term: dict[str, Any]) -> list[str]:
     definition = str(term.get("definition") or "")
     fragments = re.split(r"(?<=[.!?])\s+", definition.replace("\n", " ").strip())
     return [f.strip() for f in fragments if f.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Задача 2: генераторы артефактов (чистые, без I/O) и сборка export-документа.
+# ---------------------------------------------------------------------------
+
+from pathlib import Path  # noqa: E402  (используется anchor_for)
+
+from todoc.application.staleness import format_anchor, fragment_hash  # noqa: E402
+
+DMN_NS = "https://www.omg.org/spec/DMN/20191111/MODEL/"
+
+
+def _xml_escape(text: Any) -> str:
+    from xml.sax.saxutils import escape
+    return escape(str(text or ""), {'"': "&quot;"})
+
+
+def flow_to_asl(flow: dict[str, Any]) -> dict[str, Any]:
+    """Дерево решений flow → структура ASL (States, ветви по when/priority).
+
+    question → Choice (Choices по рёбрам с when, упорядоченным по priority;
+    безусловное ребро → Default); action → Task (todoc:<node>, Next или End);
+    terminal c props.error_code → Fail (Error/Cause), без кода → Succeed.
+    """
+    tree = flow.get("tree") or {}
+    states: dict[str, Any] = {}
+    for node in _nodes(tree):
+        node_id = str(node["id"])
+        node_type = node.get("type")
+        if node_type == "question":
+            choices = []
+            default = None
+            for edge in ordered_branches(tree, node_id):
+                if edge.get("when") is not None:
+                    choices.append({"Variable": f"$.{node_id}",
+                                    "StringEquals": str(edge["when"]),
+                                    "Next": str(edge["to"])})
+                elif default is None:
+                    default = str(edge["to"])
+            state: dict[str, Any] = {"Type": "Choice", "Choices": choices}
+            if default is not None:
+                state["Default"] = default
+        elif node_type == "terminal":
+            code = (node.get("props") or {}).get("error_code")
+            if code:
+                state = {"Type": "Fail", "Error": str(code),
+                         "Cause": str(node.get("prompt") or "")}
+            else:
+                state = {"Type": "Succeed"}
+        else:
+            branches = ordered_branches(tree, node_id)
+            if branches:
+                state = {"Type": "Task", "Resource": f"todoc:{node_id}",
+                         "Next": str(branches[0]["to"])}
+            else:
+                state = {"Type": "Task", "Resource": f"todoc:{node_id}", "End": True}
+        states[node_id] = state
+    return {"Comment": f"{flow.get('record_id')}: {flow.get('title')}",
+            "StartAt": first_node(tree), "States": states}
+
+
+def rule_to_dmn(rule: dict[str, Any], flow: dict[str, Any]) -> str:
+    """Правило + дерево флоу → DMN 1.3 XML: decision table «Ситуация/Условие/Режим» → «Исход».
+
+    Строка на каждый example (→ код отказа) + комплементарная строка бинарной
+    ветви «да» (→ успешный исход); hitPolicy="UNIQUE"; Режим = props.mode вопроса.
+    """
+    code = find_error_code(str(rule.get("statement") or ""))
+    tree = flow.get("tree") or {}
+    terminal = terminal_for_code(tree, code)
+    question = question_before(tree, terminal["id"])
+    outcome_yes = yes_outcome(tree, str(question["id"]))
+    mode = str((question.get("props") or {}).get("mode") or "auto")
+    slug = str(rule.get("record_id") or "").split(":", 1)[-1]
+    ns = DMN_NS
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        f'<definitions xmlns="{ns}" id="definitions-{_xml_escape(slug)}"'
+        f' name="{_xml_escape(rule.get("title"))}" namespace="todoc">',
+        f'  <decision id="decision-{_xml_escape(slug)}" name="{_xml_escape(rule.get("title"))}">',
+        '    <decisionTable hitPolicy="UNIQUE">',
+        '      <input id="input-given" label="Ситуация">'
+        f'<inputExpression id="input-given-expr" typeRef="string"><text>given</text></inputExpression></input>',
+        '      <input id="input-when" label="Условие">'
+        f'<inputExpression id="input-when-expr" typeRef="string"><text>when</text></inputExpression></input>',
+        '      <input id="input-mode" label="Режим">'
+        f'<inputExpression id="input-mode-expr" typeRef="string"><text>mode</text></inputExpression></input>',
+        '      <output id="output-outcome" label="Исход" name="outcome" typeRef="string"/>',
+    ]
+    examples = list(rule.get("examples") or [])
+    for index, example in enumerate(examples, 1):
+        lines.append(f'    <rule id="rule-{index}">')
+        for tag, value in (("inputEntry", example.get("given")),
+                           ("inputEntry", example.get("when")),
+                           ("inputEntry", mode)):
+            lines.append(f'      <{tag} id="rule-{index}-{tag}-{len(lines)}">'
+                         f'<text>{_xml_escape(value)}</text></{tag}>')
+        lines.append(f'      <outputEntry id="rule-{index}-output">'
+                     f'<text>{_xml_escape(code)}</text></outputEntry>')
+        lines.append("    </rule>")
+    lines.append(f'    <rule id="rule-{len(examples) + 1}">')
+    for position, value in enumerate(("", "да", mode), 1):
+        lines.append(f'      <inputEntry id="rule-da-input-{position}">'
+                     f'<text>{_xml_escape(value)}</text></inputEntry>')
+    lines.append(f'      <outputEntry id="rule-da-output"><text>{_xml_escape(outcome_yes)}</text></outputEntry>')
+    lines.append("    </rule>")
+    lines.extend(["    </decisionTable>", "  </decision>", "</definitions>", ""])
+    return "\n".join(lines)
+
+
+def terms_to_rasa(terms: list[dict[str, Any]]) -> str:
+    """Термины глоссария → Rasa NLU YML (интенты по терминам, examples из определений)."""
+    lines = ['version: "3.1"', "nlu:"]
+    for term in sorted(terms, key=lambda t: str(t.get("record_id") or "")):
+        lines.append(f"- intent: {intent_name(str(term.get('record_id') or ''))}")
+        lines.append("  examples: |")
+        for sentence in definition_examples(term):
+            lines.append(f"    - {sentence}")
+    return "\n".join(lines) + "\n"
+
+
+def anchor_for(root: Path, rel_path: str, pointer: str) -> str:
+    """Компактный якорь ``path#/pointer@sha256:…`` на фрагмент JSON-записи."""
+    dep: dict[str, Any] = {"path": rel_path, "pointer": pointer}
+    value, status = fragment_hash(root, dep)
+    if status != "ok" or value is None:
+        raise ValidationError(f"Cannot anchor {rel_path}#{pointer}: {status}", "interop.anchor_failed")
+    dep["hash"] = value
+    return format_anchor(dep)
+
+
+def build_export_doc(*, doc_id: str, title: str, kind: str, anchors: list[str],
+                     artifact: str, lang: str, today: str) -> str:
+    """Markdown-документ экспорта: fm (doc_type export, derived_from-якоря) + артефакт в fenced-блоке."""
+    anchor_list = ", ".join(f'"{a}"' for a in anchors)
+    return "\n".join([
+        "---",
+        f"id: {doc_id}",
+        f'title: "{title}"',
+        "doc_type: export",
+        "lang: ru",
+        f"created: {today}",
+        f"updated: {today}",
+        f"derived_from: [{anchor_list}]",
+        f"tags: [export, interop, {kind}]",
+        "---",
+        "",
+        f"# {title}",
+        "",
+        f"Derived-артефакт: сгенерирован `todoc interop export --kind {kind}` из записи-источника",
+        "(см. `derived_from`). Правка записи-источника сделает этот файл stale (`todoc stale`).",
+        "Перегенерация: та же команда с тем же `--write` — цель перезаписывается поверх CAS-хэша,",
+        "ручные файлы (без `derived_from`) не трогаются. Записи датасета экспорт не меняет.",
+        "",
+        f"```{lang}",
+        artifact.rstrip("\n"),
+        "```",
+        "",
+    ]) + "\n"
