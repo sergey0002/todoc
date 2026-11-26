@@ -209,6 +209,50 @@
         "dir_type": "bugs"
       },
       "priority": 100
+    },
+    {
+      "id": "demo-dir-flows",
+      "match": {
+        "kind": "directory",
+        "basename": "flows"
+      },
+      "assign": {
+        "dir_type": "flows"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-reports",
+      "match": {
+        "kind": "directory",
+        "basename": "reports"
+      },
+      "assign": {
+        "dir_type": "reports"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-specs",
+      "match": {
+        "kind": "directory",
+        "basename": "specs"
+      },
+      "assign": {
+        "dir_type": "specs"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-changes",
+      "match": {
+        "kind": "directory",
+        "basename": "changes"
+      },
+      "assign": {
+        "dir_type": "changes"
+      },
+      "priority": 100
     }
   ]
 }

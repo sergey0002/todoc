@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "changes",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Папки жизненного цикла изменений движка: change.json, proposal.md, tasks.md, deltas/."
+}
