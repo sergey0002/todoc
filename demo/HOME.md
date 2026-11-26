@@ -27,15 +27,16 @@ tags: [moc, содержимого, датасета]
 - [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **исполнена волна 1** (задачи 1–7: dir_types flows/reports/specs/changes, entity flow/rule/incident/release/task-snapshot/change, doc_types flow-doc/spec-doc/task-report/release-note + промпты, relation belongs_to/affects/fixes/blocked_by, пилот «оформление заказа», 5 скилов документирования) **и волна 2** (задачи 8–10: api-endpoint/domain-event/bounded-context/slo/dependency + depends_on, api-contract/runbook/postmortem + contracts/ops, событийный срез пилота). Он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md) — gate закрыт (З6/З8 исполнены).
 - [Конфиг папок](plan/folder-config-implementation.md) — **исполнен** (38/38): `folder.*`, `folder_meta`, `docs suggest`, буст search.
 - [Агентский стейт](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — **исполнен** (20/20): `todoc state set/get/list/unset`, файл вне данных.
-- [Скилы взаимодействия](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — **аудирован 2026-11-26** (§9 плана: якоря сверены, правки внесены — descriptors.py, скилы в skills/process, коды docs/records.status_not_allowed, счётчики 16→18): `docs status`/`records status`, 4 скила, relations `implements`/`subtask_of`; исполнение не начато.
+- [Скилы взаимодействия](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — **исполнен** (35/35): `docs status`/`records status`, allowed_statuses + enum task, 4 скила жизненного цикла в `skills/process/`, relations `implements`/`subtask_of`, сквозной сценарий «идея → план → задачи» на реальном пункте backlog (интероп-экспорты).
 - [Entity-catalog: справочник сущностей](plan/entity-catalog-implementation.md) — **исполнен полностью** (43/43; **done**): фрагменты ссылок, mention-индекс, relations tree, undo-relation, тип `term` + 10 терминов, source_anchor, tree пилотного флоу + uses_term, flow render/walk, DoD закрыт.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
 - [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой).
 
 ### Хранилище скилов (`skills/`)
 
-26 скилов / 3 раздела (coding, docs, process) / 1 мьют (`!legacy-deploy`) —
-открытый стандарт Agent Skills: 11 каноничных демо-скилов + 15 из пакета
+30 скилов / 3 раздела (coding, docs, process) / 1 мьют (`!legacy-deploy`) —
+открытый стандарт Agent Skills: 15 каноничных демо-скилов (в т.ч. жизненный цикл
+`todoc-capture` / `todoc-plan` / `todoc-execute` / `todoc-transitions`) + 15 из пакета
 [obra/superpowers](https://github.com/obra/superpowers) в
 `process/superpowers/` (импорт 25.11.2026 одной командой `todoc skills
 import`, оставлен на постоянку). Разделы описаны файлами `.config.json`

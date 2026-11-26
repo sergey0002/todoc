@@ -11,7 +11,7 @@
 | Тестов | 1191 (все проходят) |
 | Покрытие | 99% — 5748 инструкций, 2156 веток (на новых модулях — 100%) |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
-| Демо-датасет | [`demo/`](demo/README.md): 409 документов, 194 записи, 0 диагностик |
+| Демо-датасет | [`demo/`](demo/README.md): 418 документов, 197 записи, 0 диагностик |
 
 ## Установка
 
@@ -120,6 +120,8 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
 | `docs edit --id ID --patch-file F [--preview\|--apply] [--if-hash H]` | построчная правка после предпросмотра |
 | `docs flow render --id flow:X [--section state\|table\|mermaid\|lineage\|terms] [--write PATH]` | витрина флоу из записи: state machine, таблица решений (колонка «Режим»), mermaid, lineage, термины по `uses_term`; `--write` — материализация с fm `derived_from` (дрейф ловит `stale`; ручной файл без `derived_from` не перезаписывается) |
 | `docs flow walk --id flow:X [--at NODE] [--all-paths]` | проход дерева решений: ветви по приоритету, props развилок (`mode`/`default_branch`), все ациклические пути до терминалов |
+| `docs status --id ID [--set V]` | чтение/смена статуса md-документа: fm `status`, набор — `allowed_statuses` doc_type; set бампает `updated:` и пишет ревизию; документ без поля статуса не получает его молча |
+| `records status --id ID [--set V]` | чтение/смена поля `status` JSON-записи (набор — enum схемы entity_type); меняется только `status`, атомарно, с ревизией |
 
 #### Конфиги папок (`.config.json`)
 

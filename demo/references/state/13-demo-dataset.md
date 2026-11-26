@@ -29,9 +29,9 @@ tags: [references, reference, состояние, датасет]
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 199 Markdown + 1 CSV + 194 JSON (194 записи) + 15 opaque-вложений — всего 409.
-Состав записей: `document` 104, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
-`rule` 3, `dep` 3, `guide` 3, `task` 2, `event` 2, `flow` 1, `change` 1, `context` 1.
+Состав документов: 205 Markdown + 1 CSV + 197 JSON (197 записей) + 15 opaque-вложений — всего 418.
+Состав записей: `document` 105, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
+`rule` 3, `dep` 3, `guide` 3, `task` 4, `event` 2, `flow` 1, `change` 1, `context` 1.
 
 Профиль документирования софта (план softdoc): пилот «оформление заказа» —
 `flow:order-placement` + правила `rule:account-blocked-v1` / `rule:no-funds-v1` /
@@ -93,7 +93,7 @@ todoc relations tree --root demo --from term:dir-type --depth 1 --output markdow
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 194 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 197 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.
