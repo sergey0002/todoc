@@ -5,11 +5,7 @@ doc_type: reference
 lang: ru
 source: docs/state/13-demo-dataset.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, состояние, датасет]
 ---
-
 # 13. Демо-датасет `demo/`
 
 `demo/` — полноценный DATA_ROOT, созданный командой `todoc init` и расширенный вручную:
@@ -29,37 +25,9 @@ tags: [references, reference, состояние, датасет]
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 218 Markdown + 1 CSV + 205 JSON (205 записей) + 15 opaque-вложений — всего 439.
+Состав документов: 221 Markdown + 1 CSV + 205 JSON-записей (205 записей) + 15 opaque-вложений — всего 442 (включая 3 зеркала 17–19).
 Состав записей: `document` 113, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
 `rule` 3, `dep` 3, `guide` 3, `task` 4, `event` 2, `flow` 1, `change` 1, `context` 1.
-
-Профиль документирования софта (план softdoc): пилот «оформление заказа» —
-`flow:order-placement` + правила `rule:account-blocked-v1` / `rule:no-funds-v1` /
-`rule:gateway-down-v1` (рёбра `belongs_to`, examples = строки таблицы решений
-флоу-дока) + `change:pilot-profil-dokumentirovaniya-softa` (команда `change open`);
-Event-storming-срез пилота: `event:order-placed-v1` (OrderPlaced, producer
-orders-api, command PlaceOrder) и `event:payment-failed-v1` → `belongs_to`
-на флоу и `context:orders`; зависимости `dep:billing` / `dep:pricing` /
-`dep:payment-gateway` с рёбрами `depends_on` от флоу. Волна 2 исполнена:
-типы `api-endpoint`/`domain-event`/`bounded-context`/`slo`/`dependency`,
-`depends_on`, doc_types `api-contract`/`runbook`/`postmortem`, dir_types
-`contracts`/`ops`.
-
-Справочник сущностей — `term:<slug>` (10 терминов глоссария: data-root, diagnostic,
-dir-type, doc-type, entity-type, envelope, generation, relation-type, reserved-basename,
-write-plan). У термина `source_path` — витрина `glossary/<slug>.md` (в теле —
-`[[term:<slug>]]`, упоминание видно в `records read` → `mentioned_in`); артефакты
-(`artifacts{path, role}`) — только файлы, названные в определении; иерархия —
-`part_of` по факту: `term:reserved-basename → part_of → term:dir-type`.
-
-Пример дерева (план entity-catalog З3):
-
-```bash
-todoc relations tree --root demo --from term:dir-type --depth 1 --output markdown
-# term:dir-type
-#   mention → glossary/dir-type.md [mention]
-#   part_of ← term:reserved-basename
-```
 
 У 13 из 21 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
 уровня 2, общие для всех документов типа), поэтому валидация датасета остаётся чистой.
@@ -74,7 +42,7 @@ todoc relations tree --root demo --from term:dir-type --depth 1 --output markdow
 | `architecture/` | `architecture` (reserved) | слои и поток данных, модель данных |
 | `glossary/` | `glossary` (reserved) | 10 определений терминов |
 | `guides/` | `guides` | 3 гайда (CLI, Markdown KB, MCP) |
-| `references/` | `references` | 9 справок по подсистемам + `state/` (17 документов состояния) |
+| `references/` | `references` | 9 справок по подсистемам + `state/` (16 документов состояния) |
 | `competitors/` | `competitors` | 30 карточек конкурентов и Agent Skills |
 | `records/` | `records` | типизированные JSON-записи по подпапкам |
 | `notes/` | `notes` | 3 заметки: навигация, token economy, контракт CLI |
@@ -93,7 +61,7 @@ todoc relations tree --root demo --from term:dir-type --depth 1 --output markdow
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 197 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 159 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.
@@ -115,10 +83,9 @@ todoc relations tree --root demo --from term:dir-type --depth 1 --output markdow
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 24/31/25/18
-todoc index rebuild --root demo                         # 67 папок, 376 документов, 172 записи, 152 отношения
-todoc docs tree --root demo --max-depth 1               # 67 папок, 376 документов
+todoc index rebuild --root demo                         # 86 папок, 439 документов, 205 записей, 169 отношений
+todoc docs tree --root demo --max-depth 1               # 86 папок
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
-todoc docs search --root demo --query "state" --tag plan           # только plan-документы (пост-фильтр по тегу)
 todoc docs read --root demo --id doc:constitution --section "..."
 todoc records list --root demo --type decision --limit 3           # total 10
 todoc records query --root demo --query-file demo/.todoc/queries/competitors-portable.json   # total 21
@@ -155,3 +122,31 @@ todoc doctor --root demo                                # config/index/python: 3
 
 - [04-config-and-types.md](04-config-and-types.md) — как устроены правила и типы.
 - [08-records-and-relations.md](08-records-and-relations.md) — записи и отношения.
+
+## Происхождение: планы, задачи, баги (снято 2026-11-26)
+
+Все планы-исполнения исполнены и закрыты (fm done, явные фразы пользователя):
+
+| План | Прогресс | PR |
+|---|---|---|
+| [entity-catalog](../../plan/entity-catalog-implementation.md) | 43/43 | #74–#80 |
+| [скилы-взаимодействия](../../plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) | 35/35 | #82/#83 |
+| [документирование-софта](../../plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) | 60 тиков | #77/#78 |
+| [folder-config](../../plan/folder-config-implementation.md) | 38/38 | #84 |
+| [агентский-стейт v1](../../plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) | 20/20 | #84 |
+| [skills-vault](../../plan/skills-vault-implementation.md) | 44/44 | #84 |
+| [интероп-экспорты](../../plan/interop-exports-dmn-asl-rasa.md) | З1–З2, DoD 3/3 | #85/#86 |
+
+Идеи-источники (fm done + пометка «Реализация»): [entity-catalog](../../ideas/entity-catalog.md),
+[folder-config](../../ideas/folder-config.md), [agent-state](../../ideas/agent-state.md),
+[skills-engine](../../ideas/skills-engine.md), [documentation-system](../../ideas/documentation-system.md),
+[interop-exports](../../ideas/interop-exports.md).
+
+Задачи: `task:interop-formats-revision`, `task:interop-converters-cli` (fm done).
+
+Баг-реестр `demo/bugs/` (17 репортов; open — с синопсисом в [11-known-issues.md](11-known-issues.md)):
+BUG-011 re-anchor derived_from, BUG-012 history→git, BUG-013 id/output-контракты,
+BUG-014 preview без нумерации, BUG-015 YAML-lite escape, BUG-016 query-фильтры не документированы;
+DESIGN-Q01 (guard терминальных статусов), DESIGN-Q02 (цена review-first) — дизайн-вопросы
+(`agent_impact: none`, вне friction-реестра). Исправленные: BUG-001…010, BUG-007 linkcheck,
+BUG-008 skills tree, BUG-009 suggest, BUG-010 unicode-escape.

@@ -5,12 +5,12 @@ doc_type: reference
 lang: ru
 source: docs/state/15-benchmark.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, конкурентами, состояние]
 ---
-
 # 15. Бенчмарк качества и сравнение с конкурентами
+
+> Снимок итерации 2026-11-25 (MVP). Измерения 26.11 не переигрывались; текущие цифры —
+> [01-overview.md](01-overview.md) и [10-testing-and-quality.md](10-testing-and-quality.md),
+> остатки — [16-leftovers-report.md](16-leftovers-report.md).
 
 Дата измерения: **2026-11-25**. Прогон: `python3 bench/run_benchmark.py --venv /tmp/comp`
 (если venv с конкурентами недоступен — `--competitors-from bench/results/benchmark.json`: блок

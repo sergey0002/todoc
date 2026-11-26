@@ -16,26 +16,31 @@ CLI (click)  →  application  →  domain / typing_system
 
 | Модуль | Строк | Ответственность |
 |---|---|---|
-| `cli.py` | 1494 | 46 листовых команд, флаги, конвертация `TodocError` в код выхода |
-| `application/changes.py` | 706 | Жизненный цикл изменения, дельты, `validate`/`verify`/`apply`/`archive`/`revert` |
-| `application/history.py` | 565 | Журнал событий: `log`/`show`/`diff`/`blame`/`revert`/`tag`, `gc`, внешние правки |
-| `application/validator.py` | 543 | Диагностика: синтаксис, типы, ссылки, схемы записей и документов, отношения |
-| `adapters/formats/markdown.py` | 378 | Токены markdown-it-py: заголовки, ссылки, front matter, границы секций |
+| `cli.py` | 2456 | 63 листовые команды, флаги, конвертация `TodocError` в код выхода |
+| `application/validator.py` | 890 | Диагностика: синтаксис, типы, ссылки, схемы, статусы, наборы секций, теги fm |
+| `application/changes.py` | 710 | Жизненный цикл изменения, дельты, `validate`/`verify`/`apply`/`archive`/`revert` |
+| `application/history.py` | 617 | Журнал событий: `log`/`show`/`diff`/`blame`/`revert`/`tag`, `gc`/`adopt`/`export`, внешние правки |
+| `application/write.py` | 455 | WritePlan, create record, фикс ссылки, line-операции правки (insert/delete/replace), undo-relation |
+| `adapters/formats/markdown.py` | 439 | Токены markdown-it-py: заголовки, ссылки, front matter (YAML-lite), границы секций |
+| `application/interop.py` | 322 | Экспорты: flow→ASL, rule→DMN 1.3, term→Rasa NLU, derived-артефакты (план интероп-экспортов) |
+| `typing_system/descriptors.py` | 318 | Описатели типов, `allowed_statuses`, разрешение `template`/`schema`/`prompts`, shape-проверки |
 | `typing_system/prompts.py` | 309 | Генерация стартовых шаблонов и CRUD-промптов типа |
-| `typing_system/descriptors.py` | 282 | Загрузка и проверка описателей типов, разрешение `template`/`schema`/`prompts` |
-| `application/temporal.py` | 243 | Би-темпоральность: `valid_from`/`valid_to`, `--as-of`, лента фактов |
-| `application/staleness.py` | 278 | `derived_from` с якорями, расхождение хешей, `--ack` |
-| `application/write.py` | 251 | WritePlan, create record, фикс ссылки, line-операции правки |
-| `config.py` | 225 | `dataset.json`, правила и типы по умолчанию, `init`, ассеты типов |
-| `service.py` | 218 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация, `HistoryRecorder` |
-| `domain/models.py` | 205 | Document, Folder, Diagnostic, SuggestedFix, SearchHit, WritePlan |
-| `application/registry.py` | 197 | Снимок индекса, `CURRENT.json`, кэш парсинга |
-| `application/context.py` | 164 | `context`: запись → дельты → события → файлы → диффы, в пределах бюджета |
-| `application/search.py` | 146 | Лексический поиск, ранжирование, фрагменты, бюджет |
-| `typing_system/resolver.py` | 143 | Маски, приоритеты, резолв `dir_type`/`doc_type`, конфликты |
 | `adapters/formats/jsonfmt.py` | 286 | Строгий JSON, глубина, позиции токенов, JSON Pointer, JSON Schema |
+| `application/staleness.py` | 278 | `derived_from` с якорями (поинтер/секция), дрейф хешей, `--ack` |
+| `application/folder_config.py` | 277 | `.config.json` папок: метаданные и скоринг Фазы A (план folder-config) |
+| `application/registry.py` | 248 | Снимок индекса, `CURRENT.json`, кэш парсинга |
+| `application/temporal.py` | 243 | Би-темпоральность: `valid_from`/`valid_to`, `--as-of`, лента фактов |
+| `config.py` | 236 | `dataset.json`, правила и типы по умолчанию, `init`, ассеты типов |
+| `service.py` | 228 | `DatasetContext`: скан → валидация → документы/записи/отношения → публикация, `HistoryRecorder` |
+| `application/flow_view.py` | 221 | Витрина флоу: state machine, таблица решений, mermaid, lineage (план entity-catalog) |
+| `application/search.py` | 217 | Лексический поиск, ранжирование, фрагменты, бюджет |
+| `application/query.py` | 217 | Фильтры (`$in`/`$gte`…), агрегация с единицами, BFS по графу |
+| `domain/models.py` | 205 | Document, Folder, Diagnostic, SuggestedFix, SearchHit, WritePlan |
+| `application/context.py` | 164 | `context`: запись → дельты → события → файлы → диффы, в пределах бюджета |
+| `application/skills.py` | 162 | Vault скилов: live-scan дерева, чтение с confinement, attach/import (план skills-vault) |
+| `typing_system/resolver.py` | 157 | Маски, приоритеты, резолв `dir_type`/`doc_type`, конфликты |
 | `adapters/filesystem/scanner.py` | 135 | Обход, hard-excludes, containment, `atomic_write`, хеши |
-| `application/query.py` | 130 | Фильтры, агрегация с единицами, BFS по графу |
+| `application/state.py` | 123 | Агентский стейт: `.todoc/state.json`, белый список ключей v1 (план агентский-стейт) |
 | `adapters/history/journal.py` | 117 | Append-only JSONL, `rev`, чтение, атомарная перезапись |
 | `adapters/history/backends.py` | 110 | `embedded` и `git`; единственный `subprocess` в `src/todoc` |
 | `adapters/history/objects.py` | 79 | Снимки «до»: zlib-6, имя = sha256 содержимого |
@@ -45,7 +50,9 @@ CLI (click)  →  application  →  domain / typing_system
 | `ports/history.py` | 39 | Порт бэкенда истории: ядро от git не зависит |
 | `__main__.py` | 6 | Точка входа `python -m todoc` |
 
-Итого `src/todoc`: 7530 строк.
+Итого `src/todoc`: 10 508 строк (проверено `wc -l`, 2026-11-26). Рост от 7 530 — итерации
+26.11: жизненный цикл (статусы), vault скилов, агентский стейт, скоринг папок, интероп-экспорты,
+каталог сущностей (планы в [13-demo-dataset.md](13-demo-dataset.md)).
 
 Слои: `ports/` объявляет интерфейс бэкенда истории, `adapters/history/backends.py` его
 реализует. Единственный `subprocess` во всём `src/todoc` — в `backends.py`, поэтому ядро

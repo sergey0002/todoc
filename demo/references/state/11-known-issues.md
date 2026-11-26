@@ -5,11 +5,7 @@ doc_type: reference
 lang: ru
 source: docs/state/11-known-issues.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, известные, состояние]
 ---
-
 # 11. Известные проблемы
 
 Каждый пункт проверен запуском команды 2026-11-25; приведено воспроизведение. Полный исторический
@@ -357,3 +353,24 @@ front matter нет — оно работает лишь постольку, п�
 - [03-cli-reference.md](03-cli-reference.md) — ожидаемое поведение команд.
 - [12-agent-operations.md](12-agent-operations.md) — как обходить проблемы сейчас.
 - [15-benchmark.md](15-benchmark.md) — измеренные результаты и план улучшений.
+
+## Обновление 2026-11-26
+
+Реестр агентских фрикций перенесён в датасет (`demo/bugs/`, doc_type bug-report,
+document-записи в реестре `bugs-agent-friction`) и продолжается там; здесь — сводка open:
+
+| ID | Суть | fm |
+|---|---|---|
+| [BUG-011](../../bugs/bug-011-dreyf-derived-from-pri-smene-statusa-tela-ishodnika-trebuet-ruchnogo-re-ankoringa.md) | дрейф derived_from при смене исходника → ручной re-anchor (без готового anchor в diagnostics) | open/minor |
+| [BUG-012](../../bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md) | history-ревизии загрязняют git-статус (очистка перед каждым коммитом) | open/minor |
+| [BUG-013](../../bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | неоднородные id и output-контракты (`docs new` без id; `{}` вместо ошибки) | open/minor |
+| [BUG-014](../../bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | `docs edit --preview` без нумерации; `line_out_of_range` без контекста; молчаливый replace | open/minor |
+| [BUG-015](../../bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md) | YAML-lite fm: `\"`-escape разбирается как буквальные backslash-ы без warning | open/minor |
+| [BUG-016](../../bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | фильтры `records query` (`$in`/`$gte`) не документированы | open/docs |
+| [DESIGN-Q01](../../bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md) | guard терминальных статусов — процедурный (скил), движок молчит — дизайн-вопрос | open/docs |
+| [DESIGN-Q02](../../bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md) | цена review-first двойного вызова — дизайн-вопрос | open/docs |
+
+Из MVP-реестра статус не менялся: P1-9/12/13/15/16 и P2 открыты. Инцидент гейта:
+CI `--fail-under=100` был красным с PR #74 (волны 25.11 оставили 25 инструкций/19 веток
+без покрытия) — восстановлен 26.11 добором `tests/cli/test_cli_coverage_gaps.py`
+(см. [10-testing-and-quality.md](10-testing-and-quality.md)).

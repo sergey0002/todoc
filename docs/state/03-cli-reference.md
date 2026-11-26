@@ -1,4 +1,9 @@
-# 03. Справочник CLI: 46 листовых команд
+# 03. Справочник CLI: 63 листовые команды
+
+Перечень сверен машинным обходом click-групп 2026-11-26 (итерация 26.11 добавила 17 команд:
+статусы, undo-relation, витрины флоу, links/suggest, skills ×4, state ×4, interop export —
+происхождение каждой указано в разделе). Команды итерации 2026-11-25 описаны ниже как есть;
+команды итерации 2026-11-26 собраны в блоке «Команды итерации 26.11».
 
 Все опции и формы ответа сверены с `--help` и реальными запусками. Точка входа: `todoc`
 (или `python -m todoc`).
@@ -231,9 +236,11 @@ files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок з�
 базового хеша сравнивать не с чем, и вместо шума `revision_unknown` путь просто
 пропускается.
 
-### `explain-path PATH`
-Объясняет типизацию пути: `{dataset_id, path, doc_type, format, rule_source, document_id}`.
+### `explain-path PATH [--match Q]`
+Объясняет типизацию пути — документы **и папки** (с `.config.json`-метой предка):
+`{dataset_id, path, doc_type|dir_type, format, rule_source, document_id|folder_id}`.
 `rule_source` показывает, какое правило сработало (`rule:<id>`, `reserved`, `default`, `ambiguous`).
+`--match Q` — как в `docs tree --match`: путь участвует в скоринге Фазы A (план folder-config).
 
 ### `docs new --title T [--dir DIR] [--path P] [--type T] [--template NAME]`
 Создаёт документ из стартового шаблона типа (create-only, без перезаписи).
@@ -270,7 +277,10 @@ containment-проверка слоя команд отвечает раньше
 Общие поля: `{dataset_id, id, path, format, doc_type, hash}`.
 Некорректный `--line-range` — `usage.invalid_line_range` (exit 3).
 
-### `docs tree [--within PATH] [--max-depth N]`
+### `docs tree [--within PATH] [--max-depth N] [--match Q]`
+`--match Q` — фильтр папок скорингом Фазы A (`.config.json`, score ≥ 0.25, порядок
+score → order → путь; план [folder-config](../../demo/plan/folder-config-implementation.md),
+fm done). Папки получают плоские поля `title/description/order` из ближайшего СВОЕГО конфига.
 `data`: `{dataset_id, folders[], documents[], total_folders, total_documents, max_depth}`.
 
 ### `docs edit --id ID --patch-file F [--preview] [--apply] [--if-hash H]`
@@ -347,6 +357,66 @@ ID диагностики — SHA-256 от `path + code + message`, поэтом
 До первой пересборки `index_built: false`, а `documents`/`records` — `null`, не `0`: нули
 читались как «в датасете ничего нет» (P1-6). В этом случае конверт несёт `next_actions`
 с `todoc index rebuild`.
+
+## Команды итерации 26.11 (после MVP-справки 25.11)
+
+Все секции ниже сверены с `--help` и реальными запусками; происхождение — планы
+и задачи из [13-demo-dataset.md](13-demo-dataset.md).
+
+### `docs status --id ID [--set V]`
+Чтение/смена статуса md-документа (план [«скилы-взаимодействия»](../../demo/plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md), З2).
+Набор статуса — `allowed_statuses` doc_type (`docs.status_not_allowed`, exit 3); документ
+без поля `status` не получает его молча (`docs.no_status_field`); set — точечная замена
+строки fm + бамп `updated:` (единый писатель created/updated), CAS + history-ревизия.
+Ошибки: `docs.not_found`, `docs.no_status_field`, `usage.error` (обрамляющие пробелы).
+
+### `records status --id ID [--set V]`
+Чтение/смена статуса JSON-записи; меняется ТОЛЬКО `status` (см. `--help`).
+Набор — enum статуса из schema.json entity_type (`records.status_not_allowed`, pre-check —
+файл не трогается); атомарно поверх CAS, history-ревизия. Ошибки: `records.not_found`,
+`records.status_not_allowed`, `usage.error`.
+
+### `records undo-relation --id ID --pointer /relations/N [--apply] [--expected-hash H]`
+Точечный откат ребра из ревизий журнала (план [entity-catalog](../../demo/plan/entity-catalog-implementation.md),
+u-graph): preview по умолчанию, с `--apply` — CAS-запись. Подходит для отката ошибочного
+`implements`/`subtask_of`/`belongs_to` (план «скилы-взаимодействия» З3 добавил типы).
+
+### `docs flow render --id FLOW_ID [--section state|table|mermaid|lineage|terms] [--write PATH]`
+Витрина флоу из записи (план entity-catalog): state machine, таблица решений («Режим»),
+mermaid, lineage, термины. `--write PATH` материализует витрину в md с fm `derived_from`
+на фрагменты записи (`/states`, `/outcomes`, `/tree`, `/relations`); перезапись — только
+derived-целей (`docs.flow_render_not_derived`), дрейф ловит `stale`.
+
+### `docs flow walk --id FLOW_ID [--at NODE] [--all-paths]`
+Пройти дерево решений: ветви по приоритету, props развилок (`mode`/`default_branch`);
+`--all-paths` — все ациклические пути до терминалов.
+
+### `docs links [--limit N]`
+Инвентаризация локальных ссылок: `{total, broken[]}` (BUG-007 fixed; тот же резолв, что в validate).
+
+### `docs suggest --query Q [--limit N]`
+Куда положить/где искать: скоринг папок по `.config.json` (Фаза A, детерминированно;
+план folder-config). Кирилица работает.
+
+### `relations tree --from ID [--type T] [--depth N] [--limit N]`
+Вложенное дерево связей (группировка по `type_id`, mention помечен) — план entity-catalog.
+
+### `skills tree [--vault V] [--within P] [--query Q] [--all] [--limit N] [--max-depth N]` / `skills read --path P [--line-range A-B] [--budget B]` / `skills attach --to DIR [--force]` / `skills import --src S --into SEC [--skill N] [--dry-run] [--adopt]`
+Хранилище-движок скилов (план [skills-vault](../../demo/plan/skills-vault-implementation.md), идея
+[skills-engine](../../demo/ideas/skills-engine.md)). Полное описание — [17-skills-and-vault.md](17-skills-and-vault.md):
+формат Agent Skills, confinement, диспетчер-скил, мьют через `!`.
+
+### `state get KEY` / `state set KEY VALUE` / `state list [--prefix P]` / `state unset KEY`
+Агентский стейт `.todoc/state.json` (план [агентский-стейт v1](../../demo/plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md)):
+белый список v1 — `context.current_project` (`state.key_not_allowed`); `value/removed: null`
+— не была установлена. Подробнее — [18-agent-state-and-context.md](18-agent-state-and-context.md).
+
+### `interop export --kind dmn|asl|rasa --id ID [--write exports/…md]`
+Экспорт витрин во внешние форматы (план [интероп-экспорты](../../demo/plan/interop-exports-dmn-asl-rasa.md),
+DoD 3/3): flow→ASL, rule→DMN 1.3 (decision table), term→Rasa NLU YML; derived-артефакт
+с fm `derived_from` на записи-источники; `--write` только внутри `exports/`, перезапись
+только derived-целей; записи не трогаются. Контракт маппинга и коды ошибок —
+[19-interop-exports.md](19-interop-exports.md).
 
 ## Типовые последовательности
 

@@ -5,11 +5,7 @@ doc_type: reference
 lang: ru
 source: docs/state/04-config-and-types.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, конфигурация, состояние]
 ---
-
 # 04. Конфигурация и типовая система
 
 ## `dataset.json`
@@ -216,3 +212,20 @@ records/change/{slug}.json`); отношение `blocked_by` связывает
 - [05-formats.md](05-formats.md) — front matter и форматы.
 - [08-records-and-relations.md](08-records-and-relations.md) — записи и отношения.
 - [13-demo-dataset.md](13-demo-dataset.md) — рабочий пример конфигурации.
+
+## Дополнение 2026-11-26: статусы, export, скоринг папок
+
+- **`allowed_statuses`** (doc_type descriptor, план [«скилы-взаимодействия»](../../plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) З1):
+  закрытый набор статусов md-документа; shape-проверка дескриптора (`config.invalid_schema`),
+  нарушение набора — `docs.status_not_allowed`. У idea `[captured, planned, in_progress, done,
+  rejected, superseded]`, у plan `[active, in_progress, done, superseded]`. Статусы JSON-записей —
+  enum в их schema.json. Конвенция датасета: терминальный `done` — по явной фразе пользователя
+  (DESIGN-Q01, guard процедурный в скиле execute).
+- **doc_type `export`** (план [интероп-экспорты](../../plan/interop-exports-dmn-asl-rasa.md)):
+  derived-артефакты `interop export --write` (fm `derived_from` на записи-источники) +
+  правило `fm-export` в document-rules.json (30→31 doc_types).
+- **relation_types `implements` (task→document) и `subtask_of` (task→task)** (там же, З3):
+  16→18; рёбра задач плана «Интероп-экспорты» созданы ими.
+- **`.config.json` папок** (план [folder-config](../../plan/folder-config-implementation.md)):
+  заголовок/описание/порядок разделов + метрики для скоринга Фазы A; резолв — ближайший
+  СВОЙ конфиг (`explain-path` показывает мету предка).

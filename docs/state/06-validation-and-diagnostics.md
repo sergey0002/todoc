@@ -244,3 +244,25 @@
 
 - [05-formats.md](05-formats.md) — откуда берутся ошибки форматов.
 - [03-cli-reference.md](03-cli-reference.md) — `validate`, `fix`, `check`.
+
+## Дополнение 2026-11-26: новые коды
+
+Валидация (validate/check):
+
+| Код | Смысл |
+|---|---|
+| `docs.status_not_allowed` | fm-статус вне `allowed_statuses` doc_type (З1 плана «скилы-взаимодействия») |
+| `record.schema_violation` (/status) | статус JSON-записи вне enum схемы entity_type |
+| `markdown.section.missing` и др. | обязательные секции doc_type (у bug-report — 7 секций) |
+
+CLI-ошибки команд записи/статусов (не validate, коды `TodocError`):
+
+| Код | Команда | Смысл |
+|---|---|---|
+| `docs.no_status_field` | docs status --set | fm без `status` — поле не добавляется молча |
+| `records.status_not_allowed` | records status --set | вне enum схемы (pre-check, файл не тронут) |
+| `records.not_found` / `docs.not_found` | обе | id не найден |
+| `state.key_not_allowed` | state set | ключ вне белого списка v1 (план агентский-стейт) |
+| `skills.not_found` / `skills.path_escape` / `skills.not_a_skill` / `attach.exists` | skills * | confinement vault, существующий диспетчер |
+| `interop.*` (wrong_entity_type, flow_missing, no_error_code, no_terminal_for_code, no_terms, anchor_failed, write_outside_exports, target_not_derived) | interop export | контракт экспорта — [19-interop-exports.md](19-interop-exports.md) |
+| `edit.line_out_of_range` / `edit.op_unknown` / `edit.expect_mismatch` | docs edit | line-операции (BUG-014: диагностика без контекста длины — open) |
