@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "type_id": "bounded-context",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Граница модели DDD + свой повсеместный язык. События и эндпоинты принадлежат контексту ребром belongs_to.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "language",
+    "owner"
+  ],
+  "path_template": "records/contexts/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "title",
+      "owner"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

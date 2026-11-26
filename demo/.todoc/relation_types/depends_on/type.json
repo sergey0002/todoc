@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "type_id": "depends_on",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "X зависит от Y: флоу/эндпоинт/контекст/релиз зависят от внешней зависимости.",
+  "endpoints": {
+    "source": [
+      "flow",
+      "api-endpoint",
+      "bounded-context",
+      "release"
+    ],
+    "target": [
+      "dependency"
+    ]
+  }
+}

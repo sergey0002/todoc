@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "api-endpoint:orders:post:/orders",
+  "entity_type": "api-endpoint",
+  "title": null,
+  "method": null,
+  "path": null,
+  "auth": null,
+  "errors": [
+    {
+      "code": null
+    }
+  ],
+  "relations": []
+}

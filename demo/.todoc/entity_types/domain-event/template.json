@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "event:order-placed-v1",
+  "entity_type": "domain-event",
+  "title": null,
+  "past_tense_name": null,
+  "producer": null,
+  "payload_ref": null,
+  "origin": {
+    "task": null,
+    "project": null,
+    "external_id": null
+  },
+  "relations": []
+}
