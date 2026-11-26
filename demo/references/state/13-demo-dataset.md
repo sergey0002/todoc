@@ -21,11 +21,11 @@ copied: true
 | Отношений | 138 |
 | Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 17 / 21 / 13 / 9 |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 18 / 23 / 13 / 9 |
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 98 Markdown + 1 CSV + 159 JSON-записей.
+Состав документов: 188 Markdown + 1 CSV + 187 JSON (170 записей) + 15 opaque-вложений — всего 376.
 Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3, `task` 2.
 
 У 13 из 21 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки

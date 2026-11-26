@@ -4,7 +4,7 @@ title: "BUG-005: docs read --section игнорирует --budget"
 doc_type: bug-report
 lang: ru
 bug_id: BUG-005
-status: open
+status: fixed
 severity: minor
 agent_impact: friction, token_overrun
 tokens_extra_est: 1500
@@ -87,3 +87,13 @@ docs/state/07 про поведение флага. Тест: секция >40 �
 - Обходной путь уже рабочий и задокументирован в AGENTS.md: дочитывать
   `--line-range` по `line_start`/`truncated`.
 - Не дублирует BUG-004 (запись) — это чтение.
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `791fc51` (PR #57) по «варианту 1 + 3»: `--budget` в ветке
+`--section` ограничивает окно секции в байтах (строки добавляются, пока бюджет
+не исчерпан; минимум одна строка), 40-строчный лимит применяется только без
+бюджета; в ответ добавлено `section_total_lines`, `truncated` честный.
+Проверки: `test_section_budget_extends_window` (62-строчная секция с
+`--budget 12000` отдаётся целиком), `test_section_budget_small_cuts_early`
+(бюджет 150 байт режет окно рано, сумма байт ≤ 150).

@@ -4,7 +4,7 @@ title: "BUG-001: Явный doc_type без fm-правила резолвитс
 doc_type: bug-report
 lang: ru
 bug_id: BUG-001
-status: triaged
+status: fixed
 severity: major
 agent_impact: friction
 component: engine
@@ -87,3 +87,16 @@ unknown | default
 - Родственный репорт: BUG-002 (частный случай — файлы, создаваемые самим движком).
 - Плановая проверка после фикса: `explain-path` каждого плана → `doc_type:
   plan`; критерий 3 плана `doc:plan-softdoc-profile`.
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `5038dd6` (PR #57): `resolve_type` получил явный приоритет
+объявления во front matter (конституция P1-14) — явный `doc_type` резолвится в
+само себя с `rule_source: front-matter`, даже если ни одно правило его не знает;
+согласное fm-правило сохраняет свой источник (`rule:<id>`), несогласные
+правила перекрываются объявлением. Проверки: `test_resolve_front_matter_miss`
+переписан на новую семантику (+ тест согласия правила), CLI-тест
+`test_explain_path_explicit_doc_type_without_rule`; на демо все пять планов
+показывают `plan | front-matter`, `validate --all` — 0 диагностик (обязательные
+секции типа plan у всех присутствуют). Вариант C из «Предложения» (warning на
+объявление без правила) не добавлялся: после фикса такое объявление легально.

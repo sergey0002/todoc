@@ -4,7 +4,7 @@ title: "BUG-007: linkcheck из DoD планов не существует ка�
 doc_type: bug-report
 lang: ru
 bug_id: BUG-007
-status: open
+status: fixed
 severity: minor
 component: cli
 agent_impact: friction, token_overrun
@@ -76,3 +76,12 @@ link-диагностики внутри `validate` (`validator._check_markdown_
    «validate 0 (link-диагностики входят)».
 3. Регресс-тест: `docs links --root demo` — total в стабильном диапазоне,
    broken == 0.
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `62c5945` (PR #57) по «Предложению 1»: команда
+`todoc docs links --root R [--limit N]` — инвентаризация локальных ссылок
+поверх того же резолва, что в validate (`_wikilink_candidates` /
+`resolve_link_target`): `total`, `broken`, `items` (path/target/kind/line),
+внешние и якорные ссылки в граф не считаются. DoD-строка «linkcheck 0» теперь
+выполнима дословно: на демо — 433 локальных ссылки, 0 битых, `truncated: false`.

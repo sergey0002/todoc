@@ -4,7 +4,7 @@ title: "BUG-004: docs edit не умеет вставку и удаление с
 doc_type: bug-report
 lang: ru
 bug_id: BUG-004
-status: open
+status: fixed
 severity: major
 agent_impact: friction, token_overrun
 tokens_extra_est: 4000
@@ -87,3 +87,15 @@ for op in ops:
 
 - Не дублирует BUG-005 (то — про чтение, это — про запись).
 - Кандидат в план вместе с планом жизненного цикла (review-first механики).
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `0d247a4` (PR #57) по «Предложению 1»: `apply_edit_ops`
+принимает `{"op": "insert_after", "line": N, "text": str|list}` (N=0 — в начало,
+N=len — в конец), `{"op": "delete", "line": N[, "to": M]}`; op без поля `op`
+остался заменой (обратная совместимость); последовательное применение — номера
+строк относятся к состоянию после предыдущих op; история и `--if-hash` — как у
+замены; неизвестный op — `edit.op_unknown`. Проверки: 5 unit-тестов
+(вставка строкой/списком/в конец, удаление одиночное/диапазоном, replace,
+op_unknown, out_of_range) + CLI-тест preview/apply на сборке
+вставка+удаление+шапка; наполнение документов теперь возможно внутри CLI.

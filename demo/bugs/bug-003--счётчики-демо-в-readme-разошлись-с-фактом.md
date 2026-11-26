@@ -4,7 +4,7 @@ title: "BUG-003: Счётчики демо в README разошлись с фа�
 doc_type: bug-report
 lang: ru
 bug_id: BUG-003
-status: triaged
+status: fixed
 severity: major
 agent_impact: friction
 tokens_extra_est: 2000
@@ -98,3 +98,14 @@ $ grep -o "15 dir_types[^|]*" demo/README.md
   BUG-007…010 (4 новых репорта, 4 record-файла). Дефект системный: счётчики
   в README обновляются вручную и каждый цикл контента отстают — статус не
   меняется.
+
+## Исправление (2026-11-25)
+
+Исправлено закрывающим коммитом PR #57 (вместе с секциями «Исправление» всех репортов): все счётчики приведены к
+измеренному факту — README (1084 теста; 99% покрытие — 5186 инструкций /
+1920 веток; 376 документов, 170 записей, 152 отношений; 18 dir_types /
+23 doc_types / 13 entity_types / 9 relation_types), demo/README (types list
+строка) и references/state/13-demo-dataset.md (таблица типов + состав
+документов 188 md / 1 csv / 187 json / 15 opaque). Приёмка из задачи D7 плана
+softdoc (пересчёт от `types list` и `docs tree`) выполнена; предложение 2
+(чек-лист в шаблоне PR) остаётся процессным — см. план doc-tags/lifecycle.

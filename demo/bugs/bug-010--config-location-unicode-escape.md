@@ -4,7 +4,7 @@ title: "BUG-010: диагностика конфигов без location при 
 doc_type: bug-report
 lang: ru
 bug_id: BUG-010
-status: open
+status: fixed
 severity: minor
 component: validator
 agent_impact: friction
@@ -74,3 +74,15 @@ Friction: ручной поиск строки в файле (+1–2 чтени�
 2. Минимальный вариант: при недоступной строке добавлять в message пометку
    «строка не определена (ключ записан escape-последовательностью)».
 3. Регресс-тест: диагностика для `"\u006frder"` несёт строку или явную пометку.
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `f732343` (PR #57) по «Предложению 1»: `_key_line`
+(folder_config) и `_key_location` (validator) после неудачи литерального
+поиска делают fallback-проход посимвольным шаблоном `(?:c|\uXXXX)` — ключ,
+записанный unicode-escape (`"\u006frder"`), находит строку и колонку.
+Проверки: `test_key_line_finds_unicode_escaped_key`,
+`test_validator_key_location_finds_unicode_escaped_key`,
+интеграционный `test_folder_config_bad_order_escaped_key_has_location`
+(диагностика `folder.config.bad_order` теперь несёт `{"line": 1}`); ветка
+«ключа нет вовсе» сохранена (`None`/`{}`).
