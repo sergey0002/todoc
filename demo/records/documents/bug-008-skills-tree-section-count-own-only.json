@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-008-skills-tree-section-count-own-only",
+  "entity_type": "document",
+  "title": "BUG-008: skills tree показывает счётчик только собственных скилов раздела:friction:400",
+  "source_path": "bugs/bug-008--skills-tree-section-count-own-only.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "agent_impact": [
+    "friction"
+  ],
+  "tokens_extra_est": 400,
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:plan-folder-config"
+      }
+    }
+  ]
+}
