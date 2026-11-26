@@ -4,7 +4,7 @@ title: "BUG-006: docs new создаёт кириллические имена �
 doc_type: bug-report
 lang: ru
 bug_id: BUG-006
-status: open
+status: fixed
 severity: minor
 component: cli
 agent_impact: friction, token_overrun
@@ -84,3 +84,13 @@ found: 2026-11-25
   2026-11-25: `notes/agent-contract.md` → «Именование документов», AGENTS.md,
   раздел «Именование файла» во всех 22 create-промптах doc_types.
 - Не дублирует BUG-004 (запись контента) — это именование файла при создании.
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `791fc51` (PR #57) по «Предложению 1»: `docs new` строит
+слаг через транслитерацию (таблица TRANSLIT из `changes.py` — единая функция
+слага системы, как предлагалось): кириллический заголовок даёт латинское имя
+`[a-z0-9-]`, `title` остаётся кириллическим, явный `--path` по-прежнему
+переопределение. Проверки: `test_docs_new_transliterates_cyrillic_title`
+(«Оформление заказа» → `inbox/oformlenie-zakaza.md` с кириллическим title) и
+`test_docs_new_punctuation_only_title_falls_back` (fallback `untitled`).

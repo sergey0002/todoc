@@ -494,7 +494,7 @@ def _doc_types_of(registry: Any) -> dict[str, Any]:
 
 
 def _key_location(text: str, key: str) -> dict[str, Any]:
-    """Line of the first occurrence of a JSON key, for record diagnostics.
+    r"""Line of the first occurrence of a JSON key, for record diagnostics.
 
     A key position, not the value's exact offset: it opens the file at the right
     place while the ``pointer`` in the same location stays the precise address.
@@ -506,6 +506,13 @@ def _key_location(text: str, key: str) -> dict[str, Any]:
     for lineno, line in enumerate(text.splitlines(), start=1):
         if needle in line:
             return {"line": lineno, "column": line.index(needle) + 1}
+    # BUG-010: ключ может быть записан unicode-escape ("\u006frder") — литерала в тексте нет
+    pattern = re.compile('"' + "".join(f"(?:{re.escape(ch)}|\\\\u{ord(ch):04x})" for ch in key) + '"',
+                         re.IGNORECASE)
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        m = pattern.search(line)
+        if m:
+            return {"line": lineno, "column": m.start() + 1}
     return {}
 
 

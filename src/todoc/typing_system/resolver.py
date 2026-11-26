@@ -128,11 +128,22 @@ def resolve_type(
     conflicts lists rule ids that tied on priority+specificity but assigned
     different types (ambiguous -> diagnostic, not silent winner).
     """
+    # BUG-001: явное объявление assign_key во front matter — высший приоритет
+    # (конституция P1-14): значение берётся из объявления, если ни одно правило
+    # не назначает то же значение.
+    explicit = None
+    if front_matter:
+        value = front_matter.get(assign_key)
+        if isinstance(value, str) and value.strip():
+            explicit = value.strip()
     matches: list[RuleMatch] = []
     for rule in rules:
         spec = _match_one(rule, path, basename, front_matter)
         if spec is not None:
             matches.append(RuleMatch(rule, spec))
+    if explicit is not None and not any(
+            (m.rule.get("assign") or {}).get(assign_key) == explicit for m in matches):
+        return explicit, "front-matter", []
     if matches:
         best = max(matches, key=lambda m: (m.priority, m.specificity))
         tied = [m for m in matches if (m.priority, m.specificity) == (best.priority, best.specificity)]

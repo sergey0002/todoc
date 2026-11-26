@@ -8,8 +8,8 @@
 | Показатель | Значение |
 |---|---|
 | Команд CLI | 26 |
-| Тестов | 1060 (все проходят) |
-| Покрытие | 99% — 5101 инструкций, 1876 веток (на модулях folder-config — 100%) |
+| Тестов | 1084 (все проходят) |
+| Покрытие | 99% — 5186 инструкций, 1920 веток (на модулях folder-config и bug-fix ветках — 100%) |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
 | Демо-датасет | [`demo/`](demo/README.md): 376 документов, 170 записей, 0 диагностик |
 
@@ -219,8 +219,8 @@ todoc records query --root KB --query-file KB/.todoc/queries/decisions-accepted.
 ## Демо-датасет
 
 [`demo/`](demo/README.md) — готовый DATA_ROOT со всей документацией проекта, разложенной по типам
-папок и документов: 15 `dir_types`, 21 `doc_types`, 13 `entity_types`, 9 `relation_types`,
-170 записей, 148 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
+папок и документов: 18 `dir_types`, 23 `doc_types`, 13 `entity_types`, 9 `relation_types`,
+170 записей, 152 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
 
 ```bash
 todoc validate --root demo --all                       # 0 диагностик

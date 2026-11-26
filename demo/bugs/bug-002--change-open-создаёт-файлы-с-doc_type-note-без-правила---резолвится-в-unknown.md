@@ -4,7 +4,7 @@ title: "BUG-002: change open создаёт файлы с doc_type note без �
 doc_type: bug-report
 lang: ru
 bug_id: BUG-002
-status: triaged
+status: fixed
 severity: major
 agent_impact: friction
 component: engine
@@ -84,3 +84,13 @@ if not proposal.exists():
 - Родительский дефект: BUG-001 (явный doc_type без правила → unknown).
 - Связано с планом `doc:plan-softdoc-profile` (решение D3) и с пилотом
   (задача 5, шаг 3 — прогон `change open` на демо).
+
+## Исправление (2026-11-25)
+
+Исправлено в commit `5038dd6` (PR #57), двумя уровнями из «Предложения»:
+(1) дефолтные ассеты `init` получили fm-правило `doc_type: note → note`
+(приоритет 200, id `note-by-front-matter`); (2) фикс резолвера BUG-001 —
+явное объявление `doc_type: note` резолвится даже в датасете без правила.
+Проверки: `test_change_open_files_resolve_note` (init → change open →
+explain-path proposal.md/tasks.md = `note | rule:note-by-front-matter`),
+`validate --all` на свежем датасете — 0 диагностик.

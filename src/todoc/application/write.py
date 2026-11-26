@@ -163,7 +163,16 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
 
 def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
                    history: Any | None = None) -> str:
-    """Apply line-based edit ops: [{line: 1-based, text: new line}]."""
+    r"""Apply line-based edit ops (BUG-004: не только замена).
+
+    Формы op (применяются последовательно; номера строк относятся к состоянию
+    файла после предыдущих op):
+    - ``{"line": N, "text": "..."}`` — replace строки N (обратная совместимость,
+      отсутствие поля ``op`` = replace);
+    - ``{"op": "insert_after", "line": N, "text": str | [str, ...]}`` — вставка
+      после строки N (N=0 — в начало файла, N=len(lines) — в конец);
+    - ``{"op": "delete", "line": N[, "to": M]}`` — удаление строки N или диапазона N–M.
+    """
     target = root / rel_path
     if not target.is_file():
         raise ValidationError(f"File not found: {rel_path}", "edit.file_missing")
@@ -172,10 +181,28 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
         raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
     lines = target.read_text(encoding="utf-8").splitlines()
     for op in ops:
-        line_no = int(op.get("line", 0))
-        if line_no < 1 or line_no > len(lines):
-            raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
-        lines[line_no - 1] = str(op.get("text", ""))
+        kind = op.get("op", "replace")
+        if kind in ("replace", None):
+            line_no = int(op.get("line", 0))
+            if line_no < 1 or line_no > len(lines):
+                raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
+            lines[line_no - 1] = str(op.get("text", ""))
+        elif kind == "insert_after":
+            line_no = int(op.get("line", 0))
+            if line_no < 0 or line_no > len(lines):
+                raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
+            texts = op.get("text", "")
+            if isinstance(texts, str):
+                texts = [texts]
+            lines[line_no:line_no] = [str(x) for x in texts]
+        elif kind == "delete":
+            start = int(op.get("line", 0))
+            end = int(op.get("to", start))
+            if start < 1 or end < start or end > len(lines):
+                raise ValidationError(f"Line out of range: {start}-{end}", "edit.line_out_of_range")
+            del lines[start - 1:end]
+        else:
+            raise ValidationError(f"Unknown edit op: {kind}", "edit.op_unknown")
     new_text = "\n".join(lines) + "\n"
     before = target.read_bytes()
     atomic_write(target, new_text)

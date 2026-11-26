@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -16,13 +17,14 @@ from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within
 from todoc.adapters.history.journal import read_events
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
-from todoc.adapters.formats.markdown import heading_path_for, parse_markdown
+from todoc.adapters.formats.markdown import (heading_path_for, parse_markdown,
+                                           resolve_link_target)
 from todoc.application.history import (add_tag, blame as history_blame, content_at, diff_texts,
                                        export as history_export_run, gc as history_gc_run,
                                        adopt as history_adopt_run, journal_diagnostics,
                                        log as history_log, resolve_rev,
                                        revert_plan, show as history_show)
-from todoc.application.changes import (apply_change, archive_change, change_id_for,
+from todoc.application.changes import (TRANSLIT, apply_change, archive_change, change_id_for,
                                        collect_deltas, list_changes, load_change,
                                        open_change, record_path, revert_change,
                                        validate_change, verify_change)
@@ -33,7 +35,8 @@ from todoc.application.search import search_documents
 from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
-from todoc.application.validator import _entity_types_of, _load_schemas, stable_id
+from todoc.application.validator import (_basename_index, _entity_types_of,
+                                         _load_schemas, _wikilink_candidates, stable_id)
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
@@ -397,11 +400,15 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
         # узлы строятся только из префиксов показанных секций — отсечка не нужна
         own = sorted(sections.get(node, []), key=lambda x: x["path"].lstrip("!"))
         meta = sec_meta.get(node) or {}
-        if node and (own or meta):  # узел печатаем, если в нём есть скилы или у папки есть конфиг
+        # BUG-008: счётчик раздела каскадный — own + все скилы подразделов; узел с
+        # непустым поддеревом печатается, даже если собственных скилов/конфига нет
+        cascade = sum(len(v) for k, v in sections.items()
+                      if k == node or k.startswith(node + "/"))
+        if node and (own or meta or cascade):
             label = f"{node.split('/')[-1]}/"
             if meta.get("title"):
                 label += f" — {meta['title']}" + (f": {meta['description']}" if meta.get("description") else "")
-            lines.append("  " * depth + f"{label} ({len(own)})")
+            lines.append("  " * depth + f"{label} ({cascade})")
         for s in own:
             label = f"[!] {s['name']}" if s["muted"] else s["name"]
             lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
@@ -1159,8 +1166,11 @@ def docs(ctx: click.Context) -> None:
 
 
 def _slugify(title: str) -> str:
-    """Filesystem-safe slug from a title (letters, digits, dash, underscore)."""
-    return "".join(c if c.isalnum() or c in "-_" else "-" for c in title.lower()).strip("-") or "untitled"
+    """Слаг файла из заголовка (BUG-006): транслитерация кириллицы, [a-z0-9-], латиница."""
+    lowered = title.strip().lower()
+    translit = "".join(TRANSLIT.get(ch, ch) for ch in lowered)
+    slug = re.sub(r"[^a-z0-9]+", "-", translit).strip("-")
+    return slug or "untitled"
 
 
 def _utc_date() -> str:
@@ -1304,12 +1314,24 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
                     end_line = h.line - 1
                     break
             section_lines = lines[selected.line - 1:end_line]
-            window = section_lines[:SECTION_MAX_LINES]
+            if budget is not None:
+                # BUG-005: --budget ограничивает окно секции в байтах вместо молчаливого игнора
+                window: list[str] = []
+                used = 0
+                for ln in section_lines:
+                    cost = len(ln.encode("utf-8")) + 1
+                    if window and used + cost > budget:
+                        break
+                    window.append(ln)
+                    used += cost
+            else:
+                window = section_lines[:SECTION_MAX_LINES]
             data["section"] = selected.title
             data["heading_path"] = heading_path_for(md.headings, selected_index)
             data["line_start"] = selected.line
             data["line_end"] = selected.line + len(window) - 1
             data["lines"] = window
+            data["section_total_lines"] = len(section_lines)
             data["truncated"] = len(section_lines) > len(window)
             data["text"] = "\n".join(window)
         elif line_range:
@@ -1374,6 +1396,50 @@ def docs_suggest(roots: tuple[str, ...], q: str, limit: int, output: str, no_inp
                             "purpose": "Создать документ в выбранной папке"},
                            {"argv": _root_argv(roots) + ["explain-path", "<путь из кандидатов>"],
                             "purpose": "Объяснить выбранную папку (dir_type + мета)"}])
+
+
+@docs.command("links")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--limit", type=int, default=20, show_default=True)
+@click.option("--no-input", is_flag=True)
+def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int) -> None:
+    """Инвентаризация локальных ссылок: total/broken (BUG-007, тот же резолв, что в validate)."""
+    ctx = _contexts(roots)[0]
+    _folders, documents, _r, _rel, _diags = ctx.scan_and_validate()
+    paths = {d["path"] for d in documents}
+    by_basename, _basenames = _basename_index(paths)
+    total = broken = 0
+    items: list[dict[str, Any]] = []
+    for d in documents:
+        if d.get("format") != "markdown":
+            continue
+        fpath = ctx.root / d["path"]
+        try:
+            text = fpath.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for link in parse_markdown(text).links:
+            if link.is_wikilink:
+                if not link.target:
+                    continue
+                kind = "wikilink"
+                ok = bool(_wikilink_candidates(link.target, by_basename))
+            else:
+                normalized = resolve_link_target(d["path"], link.target)
+                if normalized is None:
+                    continue  # внешние/якорные — не локальный граф
+                kind = "md"
+                ok = normalized in paths
+            total += 1
+            if not ok:
+                broken += 1
+                items.append({"path": d["path"], "target": link.target,
+                              "kind": kind, "line": link.line})
+    truncated = broken > limit
+    items = items[:limit]
+    _emit_ok({"total": total, "broken": broken, "items": items, "truncated": truncated},
+             output, None)
 
 
 @docs.command("tree")
