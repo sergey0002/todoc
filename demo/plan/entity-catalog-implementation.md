@@ -3,7 +3,7 @@ id: doc:plan-entity-catalog
 title: "Справочник сущностей: term-записи, u-graph ссылок md↔JSON, undo рёбер, витрины флоу (план реализации)"
 doc_type: plan
 lang: ru
-status: active
+status: done
 tags: [plan, entity-catalog, термины, u-graph, mentions, undo]
 related: ["[[entity-catalog]]", "[[documentation-system]]", "[[документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы]]", "[[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]"]
 created: 2026-11-26
@@ -464,7 +464,8 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
 - Статус: **план исполнен полностью** (З1–З9 + DoD, 2026-11-26). Волны 1–2 —
   2026-11-25; gate softdoc открыт (PR #78); З6 (tree + uses_term) и З8
   (render/write/walk, T1/T2) — 2026-11-26; DoD проверен командами (validate 0,
-  check ok, linkcheck 453/0, pytest зелёный, flow_view 100%).
+  check ok, linkcheck 453/0, pytest зелёный, flow_view 100%; fm status: done —
+  явная фраза пользователя «план выполнен полностью» (2026-11-26)).
 - План составлен по идее doc:entity-catalog-idea (321 строка, 10 разделов) —
   все код-якоря проверены чтением (markdown.py:26/62/333, jsonfmt.py:248,
   validator.py:134/621, query.py:116, service.py:180, history.py:162,
