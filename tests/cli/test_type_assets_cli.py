@@ -111,7 +111,12 @@ def test_docs_new_without_type_stays_a_bare_title(root):
     assert result.exit_code == 0, result.output
     data = _json(result)["data"]
     assert data["doc_type"] is None and data["template"] == "none"
-    assert (root / data["path"]).read_text(encoding="utf-8") == "# Просто\n\n"
+    # план doc-tags З3: fm-блок ставит движок; без типа строки doc_type нет
+    text = (root / data["path"]).read_text(encoding="utf-8")
+    assert text.startswith("---\n")
+    assert 'title: "Просто"' in text and "lang: ru" in text
+    assert "doc_type:" not in text
+    assert text.endswith("# Просто\n\n")
 
 
 def test_docs_new_type_without_declared_template(root):
