@@ -7,11 +7,11 @@
 
 | Показатель | Значение |
 |---|---|
-| Команд CLI | 27 |
-| Тестов | 1130 (все проходят) |
-| Покрытие | 99% — 5350 инструкций, 1958 веток (на новых модулях — 100%) |
+| Команд CLI | 51 листовых (27 верхнего уровня, 8 групп) |
+| Тестов | 1186 (все проходят) |
+| Покрытие | 99% — 5725 инструкций, 2146 веток (на новых модулях — 100%) |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
-| Демо-датасет | [`demo/`](demo/README.md): 376 документов, 170 записей, 0 диагностик |
+| Демо-датасет | [`demo/`](demo/README.md): 389 документов, 182 записи, 0 диагностик |
 
 ## Установка
 
@@ -114,7 +114,7 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
 |---|---|
 | `docs new --title T [--dir D\|--path P] [--type T] [--template T\|FILE]` | создать документ из шаблона типа (create-only) |
 | `docs search --query Q [--type T] [--limit N] [--within P] [--budget B]` | лексический поиск с фрагментами; слова из конфига папки-предка дают буст +2 |
-| `docs read --id ID [--section S\|--anchor A\|--line-range N-M\|--pointer P\|--columns C --rows R --where K=V]` | чтение с проекцией |
+| `docs read --id ID[#раздел] [--section S\|--anchor A\|--line-range N-M\|--pointer P\|--columns C --rows R --where K=V]` | чтение с проекцией; fragment в id — синоним `--section` (конфликт — usage.error) |
 | `docs tree [--within P] [--match Q] [--max-depth N]` | дерево папок и документов с типами; `--match` фильтрует папки скорингом конфигов |
 | `docs suggest --query Q [--limit N]` | «куда положить / где искать»: скоринг папок по `.config.json` (score ≥ 0.25, reason у каждого кандидата) |
 | `docs edit --id ID --patch-file F [--preview\|--apply] [--if-hash H]` | построчная правка после предпросмотра |
@@ -149,8 +149,10 @@ todoc explain-path --root demo plan                        # папка: dir_typ
 | `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N]` | список с фильтрами |
 | `records query --query-file F` | декларативный запрос (`$in`, `$gte`, `$lte`) |
 | `records aggregate --metric FIELD --type T [--group-by F]` | сумма с единицами, формулой и provenance |
-| `records read --id ID [--view NAME]` | запись целиком или проекция |
-| `relations graph --from ID [--type T] [--depth N] [--limit N]` | обход типизированного графа |
+| `records read --id ID [--view NAME]` | запись целиком или проекция; `mentioned_in{file,line,fragment}` — витрины и упоминания md |
+| `relations graph --from ID [--type T] [--depth N] [--limit N]` | обход типизированного графа; упоминания md — рёбра `via:mention` |
+| `relations tree --from ID [--type T] [--depth N] [--limit N]` | вложенное дерево: группировка по type_id, out/in, cycle-защита, mention помечен |
+| `records undo-relation --id ID --pointer /relations/N [--apply] [--expected-hash H]` | точечный откат ребра из ревизий журнала (preview по умолчанию) |
 
 ### Типы и ремонт
 
@@ -237,7 +239,7 @@ SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, ports, adapters, typing_system, output
-tests/                988 тестов: unit, cli, integration (покрытие 100%)
+tests/                1186 тестов: unit, cli, integration (покрытие 99%)
 docs/
 ├── README.md         индекс всей документации
 ├── installation.md   установка, проверка, первый датасет
@@ -296,7 +298,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **30.0 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-988 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+1186 тестов и покрытие 99%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 

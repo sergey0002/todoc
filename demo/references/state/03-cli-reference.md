@@ -270,7 +270,9 @@ containment-проверка слоя команд отвечает раньше
 `--cursor` — смещение: вторая страница продолжает выдачу без пересечений с первой.
 Нецелое значение — `usage.invalid_cursor` (exit 3), а не traceback.
 
-### `docs read --id ID [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget BYTES]`
+### `docs read --id ID[#раздел] [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget BYTES]`
+
+Fragment в `--id` (`doc:x#раздел`) — синоним `--section`; задавать оба — `usage.error` (exit 2).
 Ограниченное чтение. Поля ответа зависят от формата:
 - Markdown без селектора: `{title, headings[], text}` (`text` усекается до `--budget`, по умолчанию 4000 символов);
 - Markdown с `--section`/`--anchor`: `{section, heading_path, lines[], text}` — окно до 40 строк от заголовка;
@@ -318,10 +320,28 @@ QuerySpec: `{entity_type, filters, limit}`; фильтры поддержива�
 Смешение единиц измерения в одной агрегации — `query.unit_mismatch` (exit 3).
 
 ### `records read --id ID [--view NAME]`
-`data`: `{dataset_id, record_id, path, data}`. `--view` берёт список полей из `views` описателя типа.
+`data`: `{dataset_id, record_id, path, data, mentioned_in}`. `--view` берёт список полей из
+`views` описателя типа. `mentioned_in` — упоминания записи из md (`{file, line, fragment}`;
+`fragment` — часть после `#` у цели).
+
+### `records undo-relation --id ID --pointer /relations/N [--apply] [--expected-hash H]`
+Точечный откат ребра из ревизий журнала (план entity-catalog З4, T3). Без `--apply` — план:
+`{mode: restore|remove, current, previous, previous_present, rev, at}` (ребро добавлено
+последней ревизией → «до: отсутствовало»; изменено → прежний target). Идентичность ребра —
+`type_id + target.id`. Apply — сплайс элемента JSON байт-в-байт + событие журнала; CAS по
+`--expected-hash` (расхождение — `write.hash_mismatch`, exit 5). Отказы: чистый журнал —
+`history.revision_missing` (exit 1); указатель вне массива/не вида `/relations/N` —
+`edit.relation_missing` (exit 3) / `usage.error` (exit 2).
 
 ### `relations graph --from ID [--type T] [--depth N] [--limit N]`
 BFS по типизированным рёбрам (обход ненаправленный). `data`: `{dataset_id, from, edges[{type_id, from, to}]}`.
+Упоминания цели в md — рёбра `type_id: mention` с `via: "mention"` у корня; вершины-md в BFS не вовлекаются.
+
+### `relations tree --from ID [--type T] [--depth N] [--limit N]`
+Вложенное дерево над теми же данными, что graph (план entity-catalog З3, T11). `data`:
+`{root, groups[{type_id, edges[{direction: out|in, id, fragment?, via?, cycle?, children[...]}]}], truncated}`.
+JSON — вложенные `children`; `markdown`/`table` — компактный текст-рендер (`→`/`←`, `[mention]`,
+`(cycle)`, «… (обрезано)» при усечении).
 
 ### `types list` / `types show TYPE_ID` / `types prompt TYPE_ID [--op OP]` / `types guide [--format markdown|json] [--out PATH]`
 `list`: `{dataset_id, dir_types[], doc_types[], entity_types[], relation_types[]}`.

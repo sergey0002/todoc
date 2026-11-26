@@ -375,13 +375,13 @@ Run: `todoc relations tree --root demo --from term:<X>` — «правило →
 - Modify: `demo/README.md`, `README.md`, `demo/references/state/01-overview.md`,
   `demo/references/state/13-demo-dataset.md`, `demo/HOME.md`
 
-- [ ] **Шаг 1: счётчики от факта** — types list (entity 14 / relation 11
+- [x] **Шаг 1: счётчики от факта** — types list (entity 14 / relation 11
   + вычитать softdoc-надбавку, если он уже исполнен — считать от факта),
   записи/документы (`check --root demo`), тесты (pytest), команды CLI.
-- [ ] **Шаг 2: тексты** — HOME: раздел «Справочник сущностей»; state/13: состав
+- [x] **Шаг 2: тексты** — HOME: раздел «Справочник сущностей»; state/13: состав
   term-записей + пример `relations tree`; state/03: `records undo-relation`,
   `relations tree`, fragment в `docs read`; demo/README: mentions.
-- [ ] **Шаг 3: финальный прогон волны**
+- [x] **Шаг 3: финальный прогон волны**
 
 Run: `todoc validate --root demo --all` — 0; `python3 tools/linkcheck.py demo` — 0 битых;
 `pytest -q` — зелёные. Коммит `docs(demo-catalog): счётчики и справочники волны 2`.

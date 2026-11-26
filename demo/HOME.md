@@ -22,12 +22,13 @@ tags: [moc, содержимого, датасета]
 - [Конкурентный анализ](plan/competitive-analysis.md) — ландшафт и C01–C60.
 - [Аудит реализации](plan/audit-implementation.md) — что найдено в коде MVP.
 
-### Активные планы (не начаты, 25.11.2026)
+### Планы (статусы от 25.11.2026)
 
-- [Документирование софта: типовой профиль — типы, стартовые промпты, скилы](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — Фаза 1 идеи documentation-system: 4 doc_types, 6 entity_types, 4 dir_types, 4 relation_types, CRUD-промпты, 5 скилов и приёмочный флоу-документ.
-- [Конфиг папок: .config.json — самоописание, дерево с описаниями, suggest-скоринг](plan/folder-config-implementation.md) — 6 задач TDD: парсер+валидация `folder.*`, `folder_meta` в docs tree/explain-path, команда `docs suggest` (Фаза A скоринга), разделы skills tree из конфигов, буст docs search, 5 демо-конфигов; закрывает открытые вопросы идеи [folder-config](ideas/folder-config.md).
-- [Агентский стейт: state.json в движке](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — `todoc state set/get/list/unset`, файл вне данных.
-- [Скилы взаимодействия: захват, план, исполнение, переходы](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — статусы в документах/записях, 4 скила, relation `implements`.
+- [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **не начат** (ждёт команды): 4 doc_types, 6 entity_types, 4 dir_types, 4 relation_types, CRUD-промпты, 5 скилов, приёмочный флоу-документ; он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md).
+- [Конфиг папок](plan/folder-config-implementation.md) — **исполнен** (38/38): `folder.*`, `folder_meta`, `docs suggest`, буст search.
+- [Агентский стейт](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — **исполнен** (20/20): `todoc state set/get/list/unset`, файл вне данных.
+- [Скилы взаимодействия](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — **не начат** (план не аудирован): статусы, 4 скила, relation `implements`.
+- [Entity-catalog: справочник сущностей](plan/entity-catalog-implementation.md) — **волна 1 исполнена** (З1–З4: фрагменты ссылок, mention-индекс, relations tree, undo-relation); волна 2: З5 исполнена (тип `term` + `uses_term`/`part_of` + 10 терминов), З6/З8 — gate на softdoc; З7 — счётчики; З9 — финал.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
 - [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой).
 
@@ -151,6 +152,14 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 
 ## Записи и данные
 
-- Записи: `records/documents/`, `records/decisions/`, `records/guides/`, `records/competitors/`, `records/metrics/`.
+- Записи: `records/documents/`, `records/decisions/`, `records/guides/`, `records/competitors/`, `records/metrics/`, `records/terms/`.
+- **Справочник сущностей** — 10 терминов глоссария (`term:<slug>`, витрины `glossary/*.md`,
+  определение и алиасы в записи): [term:envelope](records/terms/envelope.json),
+  [term:dir-type](records/terms/dir-type.json), [term:doc-type](records/terms/doc-type.json),
+  [term:entity-type](records/terms/entity-type.json), [term:relation-type](records/terms/relation-type.json),
+  [term:data-root](records/terms/data-root.json), [term:diagnostic](records/terms/diagnostic.json),
+  [term:generation](records/terms/generation.json), [term:reserved-basename](records/terms/reserved-basename.json),
+  [term:write-plan](records/terms/write-plan.json). `records read --id term:<slug>` —
+  запись с `mentioned_in`; `relations tree --from term:<slug>` — витрина и `part_of`.
 - CSV-инвентарь: [docs-inventory.csv](attachments/docs-inventory.csv).
 - Заметки: [как читать демо](notes/how-to-read-this-demo.md), [token economy](notes/token-economy.md), [контракт CLI](notes/agent-contract.md).

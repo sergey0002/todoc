@@ -25,12 +25,29 @@ tags: [references, reference, состояние, датасет]
 | Отношений | 138 |
 | Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 18 / 23 / 13 / 9 |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 18 / 23 / 14 / 11 |
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 188 Markdown + 1 CSV + 187 JSON (170 записей) + 15 opaque-вложений — всего 376.
-Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3, `task` 2.
+Состав документов: 191 Markdown + 1 CSV + 182 JSON (182 записи) + 15 opaque-вложений — всего 389.
+Состав записей: `document` 103, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
+`guide` 3, `task` 2.
+
+Справочник сущностей — `term:<slug>` (10 терминов глоссария: data-root, diagnostic,
+dir-type, doc-type, entity-type, envelope, generation, relation-type, reserved-basename,
+write-plan). У термина `source_path` — витрина `glossary/<slug>.md` (в теле —
+`[[term:<slug>]]`, упоминание видно в `records read` → `mentioned_in`); артефакты
+(`artifacts{path, role}`) — только файлы, названные в определении; иерархия —
+`part_of` по факту: `term:reserved-basename → part_of → term:dir-type`.
+
+Пример дерева (план entity-catalog З3):
+
+```bash
+todoc relations tree --root demo --from term:dir-type --depth 1 --output markdown
+# term:dir-type
+#   mention → glossary/dir-type.md [mention]
+#   part_of ← term:reserved-basename
+```
 
 У 13 из 21 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
 уровня 2, общие для всех документов типа), поэтому валидация датасета остаётся чистой.
@@ -64,7 +81,7 @@ tags: [references, reference, состояние, датасет]
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 159 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 182 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.
