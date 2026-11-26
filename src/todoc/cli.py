@@ -1606,6 +1606,70 @@ def docs_flow_walk(roots: tuple[str, ...], output: str, no_input: bool, flow_id:
                             "purpose": "Показать витрину флоу целиком"}])
 
 
+@docs.command("status")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--id", "doc_id", required=True)
+@click.option("--set", "set_value", default=None, help="Новое значение статуса (без --set — чтение).")
+def docs_status(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str,
+                set_value: str | None) -> None:
+    """Чтение/смена статуса md-документа: fm `status`, набор — allowed_statuses его doc_type.
+
+    План «скилы-взаимодействия» З2: точечная замена строки статуса без перестройки
+    документа, `updated:` бампается (единый писатель created/updated), history-ревизия.
+    Документ без поля status не получает его молча — set отказ (docs.no_status_field).
+    """
+    del no_input
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
+    if doc is None:
+        raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
+    text = (ctx.root / doc["path"]).read_text(encoding="utf-8")
+    is_md = doc["format"] == "markdown"
+    if set_value is None:
+        current = parse_markdown(text).front_matter.get("status") if is_md else None
+        _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "status": current}, output, None)
+        return
+    value = set_value.strip()
+    if not value or value != set_value or "\n" in set_value:
+        raise TodocError("--set ждёт одно значение статуса без обрамляющих пробелов",
+                         EXIT_USAGE, "usage.error")
+    descriptor = ctx.registry_types.doc_types.get(doc["doc_type"]) or {}
+    allowed = descriptor.get("allowed_statuses")
+    if isinstance(allowed, list) and allowed and value not in allowed:
+        raise ValidationError(
+            f"Статус {value!r} не входит в allowed_statuses типа {doc['doc_type']!r}",
+            "docs.status_not_allowed")
+    lines = text.splitlines()
+    end = None
+    if lines and lines[0].strip() == "---":
+        end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if end is None:
+        raise TodocError(f"У документа нет front matter: {doc_id}", EXIT_OPERATION, "docs.no_status_field")
+    status_idx = next((i for i in range(1, end) if lines[i].startswith("status:")), None)
+    if status_idx is None:
+        raise TodocError(f"В front matter нет поля status — set не добавляет его молча: {doc_id}",
+                         EXIT_OPERATION, "docs.no_status_field")
+    new_lines = list(lines)
+    new_lines[status_idx] = f"status: {value}"
+    updated_idx = next((i for i in range(1, end) if new_lines[i].startswith("updated:")), None)
+    if updated_idx is not None:
+        new_lines[updated_idx] = f"updated: {_utc_date()}"
+    content = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
+    new_hash = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+    plan = WritePlan(dataset_id=ctx.dataset_id, target_path=doc["path"], new_content=content,
+                     expected_hash=file_hash(ctx.root / doc["path"]), new_hash=new_hash,
+                     basis=f"docs status --set {doc_id} -> {value}")
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "status": value, "new_hash": new_hash},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["validate", "--root", str(ctx.root), "--all"],
+                            "purpose": "Проверить набор после смены статуса"}])
+
+
 @docs.command("edit")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
@@ -1746,6 +1810,60 @@ def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_typ
         truncated = False
     _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "returned": len(items), "truncated": truncated,
               "items": items}, output, None)
+
+
+@records.command("status")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--id", "record_id", required=True)
+@click.option("--set", "set_value", default=None, help="Новое значение статуса (без --set — чтение).")
+def records_status(roots: tuple[str, ...], output: str, no_input: bool, record_id: str,
+                   set_value: str | None) -> None:
+    """Чтение/смена статуса JSON-записи: меняется ТОЛЬКО поле `status`.
+
+    План «скилы-взаимодействия» З2: записи иначе create-only; набор — enum статуса
+    из схемы entity_type (до записи — records.status_not_allowed, файл не трогается);
+    атомарная запись поверх CAS-хэша, history-ревизия.
+    """
+    del no_input
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    rec = next((r for r in payload["records"] if r.get("record_id") == record_id), None)
+    if rec is None:
+        raise ValidationError(f"Record not found: {record_id}", "records.not_found")
+    data = rec.get("data") or {}
+    if set_value is None:
+        _emit_ok({"dataset_id": ctx.dataset_id, "id": record_id, "status": data.get("status")},
+                 output, None)
+        return
+    value = set_value.strip()
+    if not value or value != set_value or "\n" in set_value:
+        raise TodocError("--set ждёт одно значение статуса без обрамляющих пробелов",
+                         EXIT_USAGE, "usage.error")
+    schemas = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset, "entity_type", _entity_types_of)
+    loaded = schemas.get(rec["entity_type"])
+    if loaded:
+        prop = (loaded[0].get("properties") or {}).get("status") or {}
+        enum = prop.get("enum")
+        if isinstance(enum, list) and enum and value not in enum:
+            raise ValidationError(
+                f"Статус {value!r} не входит в enum статуса типа {rec['entity_type']!r}",
+                "records.status_not_allowed")
+    target = ctx.root / rec["path"]
+    current = json.loads(target.read_text(encoding="utf-8"))
+    current["status"] = value
+    content = json.dumps(current, indent=2, ensure_ascii=False) + "\n"
+    new_hash = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+    plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rec["path"], new_content=content,
+                     expected_hash=file_hash(target), new_hash=new_hash,
+                     basis=f"records status --set {record_id} -> {value}")
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "id": record_id, "status": value, "new_hash": new_hash},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["validate", "--root", str(ctx.root), "--all"],
+                            "purpose": "Проверить набор после смены статуса"}])
 
 
 @records.command("query")
