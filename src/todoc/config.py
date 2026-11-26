@@ -70,6 +70,7 @@ def default_document_rules() -> dict[str, Any]:
             {"id": "adr-markdown", "match": {"kind": "file", "glob": "**/adr/*.md"}, "assign": {"doc_type": "adr"}, "priority": 50},
             {"id": "change-delta", "match": {"kind": "file", "glob": "**/changes/*/deltas/*.md"}, "assign": {"doc_type": "delta"}, "priority": 150},
             {"id": "glossary-by-front-matter", "match": {"kind": "file", "front_matter": {"doc_type": "glossary-entry"}}, "assign": {"doc_type": "glossary-entry"}, "priority": 200},
+            {"id": "note-by-front-matter", "match": {"kind": "file", "front_matter": {"doc_type": "note"}}, "assign": {"doc_type": "note"}, "priority": 200},
         ],
     }
 

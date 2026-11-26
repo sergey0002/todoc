@@ -44,10 +44,18 @@ def test_resolve_by_front_matter():
 
 
 def test_resolve_front_matter_miss():
+    """BUG-001: явный doc_type в front matter выше правил датасета — «other» резолвится как объявлено."""
     rules = [{"id": "g", "match": {"kind": "file", "front_matter": {"doc_type": "glossary-entry"}}, "assign": {"doc_type": "glossary-entry"}, "priority": 200}]
     doc_type, source, _ = resolve_type(rules, "x.md", "x.md", {"doc_type": "other"}, "doc_type", {}, "unknown")
-    assert doc_type == "unknown"
-    assert source == "default"
+    assert doc_type == "other"
+    assert source == "front-matter"
+
+
+def test_resolve_rule_agreeing_with_explicit_keeps_rule_source():
+    """Явное объявление совпало с fm-правилом — значение то же, источник остаётся правилом."""
+    rules = [{"id": "g", "match": {"kind": "file", "front_matter": {"doc_type": "note"}}, "assign": {"doc_type": "note"}, "priority": 200}]
+    doc_type, source, _ = resolve_type(rules, "x.md", "x.md", {"doc_type": "note"}, "doc_type", {}, "unknown")
+    assert (doc_type, source) == ("note", "rule:g")
 
 
 def test_resolve_reserved():
