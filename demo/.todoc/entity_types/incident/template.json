@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "incident:<slug>",
+  "entity_type": "incident",
+  "title": null,
+  "symptom": null,
+  "root_cause": null,
+  "lesson": null,
+  "origin": {
+    "task": null,
+    "project": null,
+    "external_id": null
+  },
+  "relations": []
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "fixes",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Релиз исправляет инцидент.",
+  "endpoints": {
+    "source": [
+      "release"
+    ],
+    "target": [
+      "incident"
+    ]
+  }
+}

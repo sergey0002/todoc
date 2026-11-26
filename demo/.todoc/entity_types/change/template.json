@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "record_id": "change:<slug>",
+  "entity_type": "change",
+  "title": "<что меняется>",
+  "status": "proposed",
+  "created_at": null,
+  "applied_at": null,
+  "artifacts": [],
+  "relations": []
+}

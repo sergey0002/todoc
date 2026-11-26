@@ -209,6 +209,72 @@
         "dir_type": "bugs"
       },
       "priority": 100
+    },
+    {
+      "id": "demo-dir-flows",
+      "match": {
+        "kind": "directory",
+        "basename": "flows"
+      },
+      "assign": {
+        "dir_type": "flows"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-reports",
+      "match": {
+        "kind": "directory",
+        "basename": "reports"
+      },
+      "assign": {
+        "dir_type": "reports"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-specs",
+      "match": {
+        "kind": "directory",
+        "basename": "specs"
+      },
+      "assign": {
+        "dir_type": "specs"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-changes",
+      "match": {
+        "kind": "directory",
+        "basename": "changes"
+      },
+      "assign": {
+        "dir_type": "changes"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-contracts",
+      "match": {
+        "kind": "directory",
+        "basename": "contracts"
+      },
+      "assign": {
+        "dir_type": "contracts"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-ops",
+      "match": {
+        "kind": "directory",
+        "basename": "ops"
+      },
+      "assign": {
+        "dir_type": "ops"
+      },
+      "priority": 100
     }
   ]
 }

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "specs",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Capability-спеки в нотации OpenSpec: SHALL-требования и WHEN/THEN-сценарии."
+}

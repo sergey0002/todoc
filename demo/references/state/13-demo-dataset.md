@@ -25,13 +25,25 @@ tags: [references, reference, состояние, датасет]
 | Отношений | 138 |
 | Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 18 / 23 / 14 / 11 |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 24 / 30 / 25 / 16 |
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 191 Markdown + 1 CSV + 182 JSON (182 записи) + 15 opaque-вложений — всего 389.
-Состав записей: `document` 103, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
-`guide` 3, `task` 2.
+Состав документов: 199 Markdown + 1 CSV + 194 JSON (194 записи) + 15 opaque-вложений — всего 409.
+Состав записей: `document` 104, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
+`rule` 3, `dep` 3, `guide` 3, `task` 2, `event` 2, `flow` 1, `change` 1, `context` 1.
+
+Профиль документирования софта (план softdoc): пилот «оформление заказа» —
+`flow:order-placement` + правила `rule:account-blocked-v1` / `rule:no-funds-v1` /
+`rule:gateway-down-v1` (рёбра `belongs_to`, examples = строки таблицы решений
+флоу-дока) + `change:pilot-profil-dokumentirovaniya-softa` (команда `change open`);
+Event-storming-срез пилота: `event:order-placed-v1` (OrderPlaced, producer
+orders-api, command PlaceOrder) и `event:payment-failed-v1` → `belongs_to`
+на флоу и `context:orders`; зависимости `dep:billing` / `dep:pricing` /
+`dep:payment-gateway` с рёбрами `depends_on` от флоу. Волна 2 исполнена:
+типы `api-endpoint`/`domain-event`/`bounded-context`/`slo`/`dependency`,
+`depends_on`, doc_types `api-contract`/`runbook`/`postmortem`, dir_types
+`contracts`/`ops`.
 
 Справочник сущностей — `term:<slug>` (10 терминов глоссария: data-root, diagnostic,
 dir-type, doc-type, entity-type, envelope, generation, relation-type, reserved-basename,
@@ -81,7 +93,7 @@ todoc relations tree --root demo --from term:dir-type --depth 1 --output markdow
 3. **JSON-записи как документы.** У записей `records/documents/*.json` есть поле `doc_type`,
    поэтому правило по front matter присваивает тип и им: `explain-path records/documents/constitution.json`
    → `rule:fm-constitution`.
-4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 182 записям;
+4. **Схемы записей.** `.todoc/entity_types/<entity_type>/schema.json` применяются ко всем 194 записям;
    ни одна не нарушает схему (0 диагностик).
 5. **Отношения.** `documents`, `references`, `analyzes`, `describes`, `supersedes`; все цели
    существуют, все `type_id` есть в реестре.

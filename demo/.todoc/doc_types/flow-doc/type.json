@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "flow-doc",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Эталон бизнес-флоу: state machine + таблица решений (истина) + flowchart + lineage. md — витрина; истина — записи flow/rule (см. entity-catalog).",
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Жизненный цикл",
+    "## Таблица решений",
+    "## Диаграмма исходов",
+    "## Lineage"
+  ]
+}

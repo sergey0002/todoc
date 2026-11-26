@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "type_id": "domain-event",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Факт домена в прошедшем времени (OrderPlaced): producer, payload-схема в репо, consumers; command — отдельно, policy — запись rule (event storming).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "past_tense_name",
+    "producer",
+    "payload_ref",
+    "origin"
+  ],
+  "path_template": "records/events/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "past_tense_name",
+      "producer"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

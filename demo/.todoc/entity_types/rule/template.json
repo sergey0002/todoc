@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_id": "rule:<имя>-v<N>",
+  "entity_type": "rule",
+  "title": null,
+  "statement": null,
+  "examples": [
+    {
+      "given": "<контекст>",
+      "when": "<условие>",
+      "then": "<результат>"
+    }
+  ],
+  "status": null,
+  "origin": {
+    "task": null,
+    "project": null,
+    "external_id": null
+  },
+  "relations": []
+}

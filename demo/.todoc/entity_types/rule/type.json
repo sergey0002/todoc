@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "type_id": "rule",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Бизнес-правило с примерами-тестами: проверяемая формулировка {given/when/then}; версии append-only (supersedes).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "statement",
+    "examples",
+    "status",
+    "origin"
+  ],
+  "path_template": "records/rules/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "statement",
+      "status"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

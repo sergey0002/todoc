@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "type_id": "slo",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Целевой уровень сервиса: SLI, цель, окно измерения. Истина — контракт сервиса; запись связывает обязательство с документацией.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "indicator",
+    "target",
+    "window",
+    "origin"
+  ],
+  "path_template": "records/slos/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "indicator",
+      "target"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

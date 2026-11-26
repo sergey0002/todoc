@@ -425,6 +425,72 @@
         "doc_type": "agent-skill"
       },
       "priority": 200
+    },
+    {
+      "id": "demo-doc-flow-doc",
+      "match": {
+        "kind": "file",
+        "glob": "flows/**"
+      },
+      "assign": {
+        "doc_type": "flow-doc"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-spec-doc",
+      "match": {
+        "kind": "file",
+        "glob": "specs/**"
+      },
+      "assign": {
+        "doc_type": "spec-doc"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-task-report",
+      "match": {
+        "kind": "file",
+        "glob": "reports/**"
+      },
+      "assign": {
+        "doc_type": "task-report"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-api-contract",
+      "match": {
+        "kind": "file",
+        "glob": "contracts/**"
+      },
+      "assign": {
+        "doc_type": "api-contract"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-runbook",
+      "match": {
+        "kind": "file",
+        "glob": "ops/runbooks/**"
+      },
+      "assign": {
+        "doc_type": "runbook"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-postmortem",
+      "match": {
+        "kind": "file",
+        "glob": "ops/postmortems/**"
+      },
+      "assign": {
+        "doc_type": "postmortem"
+      },
+      "priority": 100
     }
   ]
 }

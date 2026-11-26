@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "type_id": "api-contract",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Человекочитаемый контракт API поверх OpenAPI/AsyncAPI из репо сервиса: карта операций, аутентификация, ошибки. Истина — spec в репо (D8: связки, не копии).",
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Обзор",
+    "## Аутентификация",
+    "## Операции",
+    "## Ошибки",
+    "## Примеры"
+  ]
+}

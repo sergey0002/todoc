@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "dep:payment-gateway",
+  "entity_type": "dependency",
+  "title": null,
+  "kind": null,
+  "criticality": null,
+  "origin": {
+    "task": null,
+    "project": null,
+    "external_id": null
+  },
+  "relations": []
+}

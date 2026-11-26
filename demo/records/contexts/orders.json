@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_id": "context:orders",
+  "entity_type": "bounded-context",
+  "title": "Заказы",
+  "language": [
+    "заказ",
+    "платёж",
+    "шлюз",
+    "баланс"
+  ],
+  "owner": "команда заказов",
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": []
+}

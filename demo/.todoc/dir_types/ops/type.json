@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "ops",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Эксплуатационные документы: runbook под алерты и постмортемы инцидентов."
+}

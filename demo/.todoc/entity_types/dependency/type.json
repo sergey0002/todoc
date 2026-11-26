@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "type_id": "dependency",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Внешняя система/сервис/очередь, от которой зависим; направление и критичность — вход в runbook и анализ отказов.",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "kind",
+    "criticality",
+    "origin"
+  ],
+  "path_template": "records/dependencies/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "kind",
+      "criticality"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "rule:gateway-down-v1",
+  "entity_type": "rule",
+  "title": "Недоступный шлюз переигрывает платёж",
+  "statement": "При недоступности платёжного шлюза система SHALL переводить платёж в повтор (PAYMENT_RETRY) без списания.",
+  "status": "active",
+  "examples": [
+    {
+      "given": "платёжный шлюз недоступен",
+      "when": "покупатель подтверждает оплату",
+      "then": "платёж переходит в повтор PAYMENT_RETRY, списания нет"
+    }
+  ],
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": [
+    {
+      "type_id": "belongs_to",
+      "target": {
+        "kind": "record",
+        "id": "flow:order-placement"
+      }
+    }
+  ]
+}

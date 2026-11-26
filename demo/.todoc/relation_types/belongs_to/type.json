@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "type_id": "belongs_to",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Правило/событие принадлежит флоу или bounded-context.",
+  "endpoints": {
+    "source": [
+      "rule",
+      "domain-event"
+    ],
+    "target": [
+      "flow",
+      "bounded-context"
+    ]
+  }
+}

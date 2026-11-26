@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "reports",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "Человекочитаемые отчёты: task-report по задаче и release-note по релизу."
+}

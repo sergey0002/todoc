@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "slo:orders-availability",
+  "entity_type": "slo",
+  "title": null,
+  "indicator": null,
+  "target": null,
+  "window": null,
+  "origin": {
+    "task": null,
+    "project": null,
+    "external_id": null
+  },
+  "relations": []
+}
