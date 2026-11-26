@@ -4,7 +4,7 @@
   "entity_type": "task",
   "title": "Реализовать конвертеры DMN/ASL/Rasa и группу interop export",
   "source": "user",
-  "status": "open",
+  "status": "done",
   "created": "2026-11-26",
   "origin": {
     "task": null,

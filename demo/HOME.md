@@ -31,7 +31,7 @@ tags: [moc, содержимого, датасета]
 - [Entity-catalog: справочник сущностей](plan/entity-catalog-implementation.md) — **исполнен полностью** (43/43; **done**): фрагменты ссылок, mention-индекс, relations tree, undo-relation, тип `term` + 10 терминов, source_anchor, tree пилотного флоу + uses_term, flow render/walk, DoD закрыт.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
 - [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой). fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
-- [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **активен** (26.11.2026, из идеи «Интероп-экспорты»): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
+- [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **исполнен** (Задачи 1–2, DoD 3/3; **done**): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
 
 ### Хранилище скилов (`skills/`)
 
@@ -96,7 +96,7 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [`.config.json` — самоописание папок](ideas/folder-config.md) — заголовок, описание и порядок папки для CLI-вывода; описания разделов для дерева скилов. **Реализована** (fm done, 2026-11-26).
 - [Агентский стейт — state.json в движке](ideas/agent-state.md) — память рабочего состояния между сессиями вне данных; v1: только `context.current_project`. **Реализована** (fm done, 2026-11-26).
 
-- [Интероп-экспорты: DMN, ASL, Rasa](ideas/interop-exports.md) — конвертеры flow→ASL, rule→DMN 1.3, term→Rasa NLU без новых зависимостей. **Запланирована** (26.11.2026) → [план](plan/interop-exports-dmn-asl-rasa.md); реализация З1–З2 исполнена, витрины в `exports/`.
+- [Интероп-экспорты: DMN, ASL, Rasa](ideas/interop-exports.md) — конвертеры flow→ASL, rule→DMN 1.3, term→Rasa NLU без новых зависимостей. **Реализована** (fm done, 2026-11-26) — [план](plan/interop-exports-dmn-asl-rasa.md) исполнен (DoD 3/3), витрины в `exports/`.
 ## Гайды
 
 - [CLI для агентов](guides/cli-for-agents.md)
