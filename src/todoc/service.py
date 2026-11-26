@@ -10,7 +10,7 @@ from todoc.adapters.formats.jsonfmt import parse_json
 from todoc.application.history import observe_external_changes, open_backend, record_write
 from todoc.application.registry import RegistryStore, corpus_digest
 from todoc.application import temporal
-from todoc.application.validator import stable_id, validate_dataset, validate_relations
+from todoc.application.validator import build_mentions, stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
 from todoc.domain.models import Document, Folder
 from todoc.errors import IncompleteError, ValidationError
@@ -125,6 +125,14 @@ class DatasetContext:
         diag_dicts = [d.to_dict() if hasattr(d, "to_dict") else d for d in diags]
         return folders, documents, records, relations, diag_dicts
 
+    def build_mentions(self, scanned: tuple[Any, Any], records: list[dict[str, Any]],
+                       folders: list[dict[str, Any]], documents: list[dict[str, Any]]
+                       ) -> list[dict[str, Any]]:
+        """Индекс упоминаний md → цели (план entity-catalog З2). Derived, rebuildable."""
+        scanned_folders, scanned_files = scanned
+        all_paths = {f.rel_path for f in scanned_files}
+        return build_mentions(self.root, scanned_files, records, all_paths)
+
     def history_recorder(self, change_id: str | None = None) -> HistoryRecorder:
         """Рекодер с бэкендом из конфигурации; деградация в embedded видна в `degraded`."""
         backend, degraded = open_backend(self.root, self.dataset)
@@ -170,7 +178,9 @@ class DatasetContext:
                             "relations": len(existing.get("relations") or []),
                             "diagnostics": len(existing.get("diagnostics") or [])}
         folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
-        gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest)
+        mentions = self.build_mentions(scanned, records, folders, documents)
+        gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest,
+                                    mentions=mentions)
         self.store.write_stats(scanned[1])
         self.observe_history(scanned[1])
         return {"dataset_id": self.dataset_id, "generation_id": gen_id, "corpus_digest": digest,
@@ -191,7 +201,9 @@ class DatasetContext:
             if payload is not None:
                 return payload
         folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
-        self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest)
+        mentions = self.build_mentions(scanned, records, folders, documents)
+        self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest,
+                           mentions=mentions)
         self.store.write_stats(scanned[1])
         self.observe_history(scanned[1])
         payload = self.store.load_current()

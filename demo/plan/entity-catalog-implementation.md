@@ -191,27 +191,27 @@ updated: 2026-11-26
   record → файл → прочее; коды `markdown.anchor_not_found`,
   `markdown.record_not_found`, `markdown.pointer_invalid`.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — `[[x#раздел]]` валидный/битый якорь;
+- [x] **Шаг 1 (TDD, красные): тесты** — `[[x#раздел]]` валидный/битый якорь;
   `[..](x.md#якорь)`; `[[document:constitution]]` валидна (сегодня красная —
   битая ссылка); `[[document:no-such]]` → record_not_found;
   `[[document:plan-softdoc-profile#/relations/0]]` валидна;
   `[[document:plan-softdoc-profile#/no/such/key]]` → pointer_invalid;
   wikilink с `|alias` и `#fragment` одновременно; кириллический якорь;
   внешние URL и anchor-only не меняют поведения.
-- [ ] **Шаг 2: парсер** — `Link.fragment`, обновить `_WIKILINK_RE` (захват
+- [x] **Шаг 2: парсер** — `Link.fragment`, обновить `_WIKILINK_RE` (захват
   фрагмента), inline-target сохранить фрагмент; `resolve_link_target`
   нормализует цель без фрагмента (фрагмент — отдельное поле, не в target).
-- [ ] **Шаг 3: валидатор** — parsed-docs словарь на прогон валидации
+- [x] **Шаг 3: валидатор** — parsed-docs словарь на прогон валидации
   (P1-3: файл читается один раз); резолвинг по порядку §4; реестр record_id —
   из набора записей прогона; проверка якоря — slug'и заголовков цели из
   parsed-docs; pointer — чтение файла записи + `resolve_pointer`.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `.venv/bin/python -m pytest tests/unit/test_link_fragments.py -q` — все зелёные;
 `.venv/bin/python -m pytest -q` — 1130+N зелёных;
 `.venv/bin/todoc validate --root demo --all` — 0 диагностик.
 
-- [ ] **Шаг 5: коммит** `feat(links): фрагменты wikilink и record-цели — anchor/record/pointer валидация (T7)`
+- [x] **Шаг 5: коммит** `feat(links): фрагменты wikilink и record-цели — anchor/record/pointer валидация (T7)`
 
 ### Задача 2 (волна 1): mention-индекс (T8) + mentioned_in (T4) + mention-вершины (T6)
 
@@ -226,19 +226,19 @@ Run: `.venv/bin/python -m pytest tests/unit/test_link_fragments.py -q` — вс�
   `records read` → `mentioned_in: [{file, section?, line}]`; graph-edges с
   `via: "mention"` для md-вершин.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — rebuild публикует mentions (tmp-датасет:
+- [x] **Шаг 1 (TDD, красные): тесты** — rebuild публикует mentions (tmp-датасет:
   md со `[[document:x]]` и `[y.md#sec]`); mentioned_in в records read;
   graph от record-вершины включает md-вершину; reuse-путь (digest не изменился)
   отдаёт те же mentions без пересборки.
-- [ ] **Шаг 2: store** — mentions.json в publish/load_current/meta (тот же
+- [x] **Шаг 2: store** — mentions.json в publish/load_current/meta (тот же
   lifecycle; снапшот атомарный, derived).
-- [ ] **Шаг 3: построение** — при rebuild из parsed docs: body-ссылки с
+- [x] **Шаг 3: построение** — при rebuild из parsed docs: body-ссылки с
   record-целями (записи) и doc-целями (файлы) → плоский список упоминаний;
   fragment сохраняется.
-- [ ] **Шаг 4: вывод** — records read: `mentioned_in` из payload (обратный
+- [x] **Шаг 4: вывод** — records read: `mentioned_in` из payload (обратный
   индекс по target); relations graph: mention-рёбра с `via: "mention"`
   (вершины `{kind: "doc"|"record"|"fragment", id, fragment?}`).
-- [ ] **Шаг 5: проверить**
+- [x] **Шаг 5: проверить**
 
 Run: `.venv/bin/todoc index rebuild --root demo && todoc records read --root demo --id document:constitution` —
 mentioned_in (после З5/З7 непусто; сейчас — пусто, ключ есть);
@@ -257,15 +257,15 @@ mentioned_in (после З5/З7 непусто; сейчас — пусто, к
   `relations tree --from X [--type T] [--depth N]` — вложенное дерево
   (группировка по type_id, направления, mention-вершины помечены).
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — fragment в id читает секцию
+- [x] **Шаг 1 (TDD, красные): тесты** — fragment в id читает секцию
   (равен `--section`); конфликт fragment+`--section` → usage.error; tree:
   группировка, стрелки направлений, упоминания помечены, --depth/--limit
   работают.
-- [ ] **Шаг 2: docs_read** — разбор id на `{id, fragment}` до выборки.
-- [ ] **Шаг 3: tree** — над теми же данными, что graph (relations + mentions);
+- [x] **Шаг 2: docs_read** — разбор id на `{id, fragment}` до выборки.
+- [x] **Шаг 3: tree** — над теми же данными, что graph (relations + mentions);
   текст-рендер в `--output markdown` (компактные строки с отступами), JSON —
   вложенные children.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `todoc docs read --root demo --id "doc:constitution#Принципы"` — секция;
 `todoc relations tree --root demo --from document:constitution --depth 2`;
@@ -285,20 +285,20 @@ Run: `todoc docs read --root demo --id "doc:constitution#Принципы"` — 
   [--expected-hash H]`; коды: `history.revision_missing`, `edit.relation_missing`
   (указатель вне текущего массива), usage-ошибки клика.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — план: ребро добавлено последней
+- [x] **Шаг 1 (TDD, красные): тесты** — план: ребро добавлено последней
   ревизией → «до: ребро отсутствовало»; ребро изменено → прежний target;
   рёбер в журнале нет (чистый журнал) → `history.revision_missing`;
   `--pointer /relations/99` → `edit.relation_missing`; apply восстанавливает
   (validate = 0, новая ревизия в журнале, CAS конфликт без expected-hash
   при расхождении).
-- [ ] **Шаг 2: план** — скан событий файла записи новейшие→старейшие;
+- [x] **Шаг 2: план** — скан событий файла записи новейшие→старейшие;
   `content_at` → JSON → массив `relations`; идентичность ребра =
   type_id + target.id; первое отличие от текущего → прежнее состояние
   (значение | отсутствовало).
-- [ ] **Шаг 3: apply** — собрать новый текст (обратный дифф только relations,
+- [x] **Шаг 3: apply** — собрать новый текст (обратный дифф только relations,
   остальной JSON байт-в-байт прежнего форматирования сохраняется), atomic_write,
   journal event, CAS по expected-hash; preview без `--apply`.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `todoc records undo-relation --root demo --id < pilot> --pointer /relations/0`
 — план; `--apply --expected-hash …` — применено; `validate` = 0;
@@ -461,7 +461,7 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
 
 ## 8. Прогресс и отклонения
 
-- Статус: не начат (2026-11-26). Первая задача — Задача 1, шаг 1.
+- Статус: волна 1 (З1–З4) исполнена (2026-11-25). Волна 2 — Задача 5.
 - План составлен по идее doc:entity-catalog-idea (321 строка, 10 разделов) —
   все код-якоря проверены чтением (markdown.py:26/62/333, jsonfmt.py:248,
   validator.py:134/621, query.py:116, service.py:180, history.py:162,
@@ -469,7 +469,12 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
   entity 13 / relation 9, документы 376 (188 md).
 - Волна 2 (З6) — gate на softdoc З2/З5: если softdoc не исполнен, З6/З8
   останавливаются на gate-проверке, З1–З5 и З7 (без пилотных рёбер) исполняются.
-- Отклонений нет.
+- Отклонений нет. Решения в рамках шагов (2026-11-25): регистр якоря
+  не важен (как в Obsidian); у inline-ссылок цель с ":" и без файла трактуется
+  как битая record-ссылка (markdown.record_not_found); упоминание записи
+  с JSON Pointer'ом — тоже mention; demo-журнал не содержит before-образов
+  записей → records undo-relation на демо корректно отдаёт
+  history.revision_missing (машина проверена тестами З4).
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->

@@ -11,9 +11,11 @@ from typing import Any
 
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
+from todoc.application.history import previous_relation_state
 from todoc.application.registry import invalidate_parse_cache
 from todoc.domain.models import WritePlan
-from todoc.errors import ConflictError, ValidationError
+from todoc.errors import (EXIT_OPERATION, EXIT_USAGE, ConflictError, TodocError,
+                     ValidationError)
 
 
 def _sha(text: str) -> str:
@@ -224,6 +226,151 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
         history.record(rel_path, before, new_text.encode("utf-8"), "doc.edit",
                        f"docs edit {len(ops)} ops" + (" + bump updated" if updated_bumped else ""))
     return _sha(new_text), updated_bumped
+
+
+# --- undo-relation (план entity-catalog З4, T3) -------------------------------
+
+_JSON_WS = re.compile(r"[ \t\r\n]*")
+
+
+def _json_array_element_span(text: str, key: str, index: int) -> tuple[int, int, int, int] | None:
+    """Спаны (elem_start, elem_end, arr_start, arr_end) элемента ``key[index]``.
+
+    Мини-сканер поверх json.JSONDecoder.raw_decode: позиция элемента нужна,
+    чтобы сплайсить текст точечно, сохраняя остальной JSON байт-в-байт.
+    None — ключа/массива/индекса нет.
+    """
+    decoder = json.JSONDecoder()
+    pos = _JSON_WS.match(text, 0).end()
+    if pos >= len(text) or text[pos] != "{":
+        return None
+    pos += 1
+    while True:
+        pos = _JSON_WS.match(text, pos).end()
+        if pos >= len(text):
+            return None
+        if text[pos] == "}":
+            return None
+        if text[pos] == ",":
+            pos += 1
+            pos = _JSON_WS.match(text, pos).end()
+        try:
+            key_value, pos = decoder.raw_decode(text, pos)
+        except ValueError:
+            return None
+        pos = _JSON_WS.match(text, pos).end()
+        if pos >= len(text) or text[pos] != ":":
+            return None
+        pos += 1
+        pos = _JSON_WS.match(text, pos).end()
+        if key_value != key:
+            try:
+                _, pos = decoder.raw_decode(text, pos)
+            except ValueError:
+                return None
+            continue
+        if pos >= len(text) or text[pos] != "[":
+            return None
+        arr_start = pos
+        pos += 1
+        elem_start = elem_end = -1
+        seen = 0
+        while True:
+            pos = _JSON_WS.match(text, pos).end()
+            if pos >= len(text):
+                return None
+            if text[pos] == "]":
+                arr_end = pos
+                break
+            if text[pos] == ",":
+                pos += 1
+                continue
+            try:
+                _, elem_end = decoder.raw_decode(text, pos)
+            except ValueError:
+                return None
+            if seen == index:
+                elem_start = pos
+            pos = elem_end
+            seen += 1
+        if elem_start < 0:
+            return None
+        return elem_start, elem_end, arr_start, arr_end
+
+
+def _splice_element(text: str, spans: tuple[int, int, int, int],
+                    value: dict[str, Any] | None) -> str:
+    """Заменить элемент на ``value`` (None — удалить), остальной текст байт-в-байт."""
+    elem_start, elem_end, arr_start, arr_end = spans
+    if value is None:
+        after = _JSON_WS.match(text, elem_end).end()
+        if after < len(text) and text[after] == ",":
+            elem_end = after + 1
+        else:
+            before = text.rfind(",", arr_start, elem_start)
+            if before >= 0:
+                elem_start = before
+        remainder = (text[arr_start + 1:elem_start] + text[elem_end:arr_end]).strip()
+        if not remainder:
+            return text[:arr_start] + "[]" + text[arr_end + 1:]
+        return text[:elem_start] + text[elem_end:]
+    dumps = json.dumps(value, indent=2, ensure_ascii=False)
+    line_start = text.rfind("\n", 0, elem_start) + 1
+    base_indent = text[line_start:elem_start]
+    indented = dumps.replace("\n", "\n" + base_indent) if "\n" in dumps else dumps
+    return text[:elem_start] + indented + text[elem_end:]
+
+
+def plan_undo_relation(root: Path, rel_path: str, pointer: str) -> dict[str, Any]:
+    """План точечного отката ребра /relations/N из ревизий журнала (план entity-catalog З4, T3)."""
+    target = root / rel_path
+    if not target.is_file():
+        raise ValidationError(f"File not found: {rel_path}", "edit.file_missing")
+    match = re.fullmatch(r"/relations/(\d+)", pointer)
+    if not match:
+        raise TodocError(f"Pointer должен быть вида '/relations/N', получен: {pointer}",
+                         EXIT_USAGE, "usage.error")
+    index = int(match.group(1))
+    data = json.loads(target.read_text(encoding="utf-8"))
+    relations = data.get("relations") if isinstance(data, dict) else None
+    if not isinstance(relations, list) or index >= len(relations) or index < 0:
+        raise ValidationError(f"Ребро отсутствует: {pointer} вне массива relations", "edit.relation_missing")
+    current_edge = relations[index]
+    previous = previous_relation_state(root, rel_path, index, current_edge, relations)
+    if previous is None:
+        raise TodocError("В журнале нет ревизий, меняющих это ребро.",
+                         EXIT_OPERATION, "history.revision_missing")
+    return {"path": rel_path, "pointer": pointer,
+            "mode": "restore" if previous["state"] == "value" else "remove",
+            "current": current_edge, "previous": previous.get("value"),
+            "previous_present": previous["state"] == "value",
+            "rev": previous.get("rev"), "at": previous.get("at")}
+
+
+def apply_undo_relation(root: Path, rel_path: str, pointer: str, previous: dict[str, Any] | None,
+                        expected_hash: str | None = None, history: Any | None = None) -> str:
+    """Применить откат ребра: сплайс элемента, atomic_write, событие журнала, CAS."""
+    target = root / rel_path
+    if not target.is_file():
+        raise ValidationError(f"File not found: {rel_path}", "edit.file_missing")
+    if expected_hash is not None:
+        current_hash = file_hash(target)
+        if current_hash != expected_hash:
+            raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
+    text = target.read_text(encoding="utf-8")
+    match = re.fullmatch(r"/relations/(\d+)", pointer)
+    index = int(match.group(1)) if match else -1
+    spans = _json_array_element_span(text, "relations", index)
+    if spans is None:
+        raise ValidationError(f"Ребро отсутствует: {pointer} вне массива relations", "edit.relation_missing")
+    new_text = _splice_element(text, spans, previous)
+    before = target.read_bytes()
+    atomic_write(target, new_text)
+    invalidate_parse_cache(root, rel_path)
+    if history is not None:
+        history.record(rel_path, before, new_text.encode("utf-8"), "record.undo_relation",
+                       f"undo relation {pointer}")
+    return _sha(new_text)
 
 
 def load_input_record(path: Path) -> dict[str, Any]:

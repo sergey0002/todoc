@@ -23,7 +23,7 @@ _MD = MarkdownIt("commonmark")  # shared parser instance (parse is stateless per
 
 # Only for column location of token-confirmed inline links, never for discovery.
 _INLINE_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-_WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
+_WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#([^\]|]*))?(?:\|[^\]]*)?\]\]")
 _EXTERNAL_PREFIXES = ("http://", "https://", "mailto:")
 
 
@@ -45,6 +45,7 @@ class Link:
     column: int
     is_wikilink: bool = False
     end_column: int = 0  # 1-based column of the last char of the markdown span
+    fragment: str = ""  # план entity-catalog З1: то, что после "#" (якорь или JSON Pointer)
 
 
 @dataclass
@@ -237,8 +238,12 @@ def _locate_columns(
     links: list[Link] = []
     for idx, (text, href, line) in enumerate(raw_links):
         column, end_column = columns.get(idx, (1, 1))
-        target = href if href.startswith(_EXTERNAL_PREFIXES) else unquote(href)
-        links.append(Link(text=text, target=target, line=line, column=column, end_column=end_column))
+        if href.startswith(_EXTERNAL_PREFIXES):
+            links.append(Link(text=text, target=href, line=line, column=column, end_column=end_column))
+            continue
+        target, _, fragment = unquote(href).partition("#")
+        links.append(Link(text=text, target=target, line=line, column=column,
+                          end_column=end_column, fragment=fragment))
     return links
 
 
@@ -253,7 +258,8 @@ def _wikilinks(body_lines: list[str], body_start: int, regions: list[tuple[int, 
             if any(start <= m.start() < end for start, end in code_spans):
                 continue
             links.append(Link(text=m.group(1).strip(), target=m.group(1).strip(),
-                              line=lineno, column=m.start() + 1, is_wikilink=True, end_column=m.end()))
+                              line=lineno, column=m.start() + 1, is_wikilink=True, end_column=m.end(),
+                              fragment=(m.group(2) or "").strip()))
     return links
 
 
@@ -385,7 +391,7 @@ def section_bounds(text: str, selector: str) -> tuple[int, int] | None:
 #: Версия формы кэша. Любое изменение состава полей обязано её поднять: кэш
 #: производный и пересобираемый, а молча прочитанная запись старой формы дала бы
 #: диагностику не по тому разбору.
-DOC_PAYLOAD_VERSION = 1
+DOC_PAYLOAD_VERSION = 2  # 2: Link.fragment (план entity-catalog З1)
 
 
 def doc_to_payload(doc: MarkdownDoc) -> dict[str, Any]:
@@ -402,8 +408,8 @@ def doc_to_payload(doc: MarkdownDoc) -> dict[str, Any]:
         "title": doc.title,
         "front_matter": doc.front_matter,
         "headings": [[h.title, h.level, h.line, h.anchor, h.parent_index] for h in doc.headings],
-        "links": [[link.text, link.target, link.line, link.column, link.is_wikilink, link.end_column]
-                  for link in doc.links],
+        "links": [[link.text, link.target, link.line, link.column, link.is_wikilink,
+                   link.end_column, link.fragment] for link in doc.links],
         "warnings": [[lineno, message] for lineno, message in doc.warnings],
         "errors": list(doc.errors),
     }
@@ -424,7 +430,8 @@ def doc_from_payload(payload: dict[str, Any]) -> MarkdownDoc:
         if heading.parent_index is not None:
             headings[heading.parent_index].children.append(heading)
     links = [Link(text=row[0], target=row[1], line=int(row[2]), column=int(row[3]),
-                  is_wikilink=bool(row[4]), end_column=int(row[5]))
+                  is_wikilink=bool(row[4]), end_column=int(row[5]),
+                  fragment=row[6] if len(row) > 6 else "")
              for row in payload["links"]]
     return MarkdownDoc(title=payload["title"], front_matter=payload["front_matter"],
                        headings=headings, links=links, text="",

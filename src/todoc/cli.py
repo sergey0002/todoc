@@ -29,7 +29,7 @@ from todoc.application.changes import (TRANSLIT, apply_change, archive_change, c
                                        open_change, record_path, revert_change,
                                        validate_change, verify_change)
 from todoc.application.context import build_context
-from todoc.application.query import aggregate_records, graph_neighbors, query_records
+from todoc.application.query import aggregate_records, build_tree, graph_neighbors, query_records
 from todoc.application.folder_config import load_folder_configs, score_folder_configs
 from todoc.application.state import get_var, load_state, set_var, unset_var
 from todoc.application.search import search_documents
@@ -38,8 +38,9 @@ from todoc.application.staleness import check_all, collect_owners, current_hashe
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
 from todoc.application.validator import (_basename_index, _entity_types_of,
                                          _load_schemas, _wikilink_candidates, stable_id)
-from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
-                                   create_record_plan, load_input_record)
+from todoc.application.write import (apply_edit_ops, apply_fix, apply_undo_relation, apply_write_plan,
+                                     create_document_plan, create_record_plan, load_input_record,
+                                     plan_undo_relation)
 from todoc.config import init_dataset
 from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError,
                           ConflictError, TodocError, ValidationError)
@@ -1291,6 +1292,12 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     """Bounded projection read (section/pointer/columns)."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
+    # план entity-catalog З3/T5: fragment в id — синоним --section; конфликт — usage.error
+    id_base, hash_sep, id_fragment = doc_id.partition("#")
+    if hash_sep and section:
+        raise TodocError("Фрагмент в --id и --section одновременно.", EXIT_USAGE, "usage.error")
+    if hash_sep:
+        doc_id, section = id_base, id_fragment
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
@@ -1565,6 +1572,34 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
     _emit_ok({"dataset_id": ctx.dataset_id, "created": plan.target_path, "new_hash": new_hash}, output, None)
 
 
+@records.command("undo-relation")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--id", "record_id", required=True)
+@click.option("--pointer", required=True, help="Путь ребра: /relations/N")
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--expected-hash", default=None)
+def records_undo_relation(roots: tuple[str, ...], output: str, no_input: bool, record_id: str,
+                          pointer: str, apply_: bool, expected_hash: str | None) -> None:
+    """Точечный откат ребра из ревизий журнала (preview по умолчанию)."""
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    record = next((r for r in payload["records"] if r["record_id"] == record_id), None)
+    if record is None:
+        raise ValidationError(f"Record not found: {record_id}", "records.not_found")
+    plan = plan_undo_relation(ctx.root, record["path"], pointer)
+    if not apply_:
+        _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan}, output, None)
+        return
+    new_hash = apply_undo_relation(ctx.root, record["path"], pointer, plan["previous"],
+                                   expected_hash=expected_hash, history=ctx.history_recorder())
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "applied": True, "path": record["path"],
+              "pointer": pointer, "mode": plan["mode"], "new_hash": new_hash,
+              "undone_rev": plan.get("rev")}, output, None)
+
+
 @records.command("list")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
@@ -1664,7 +1699,11 @@ def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id:
         fields = (descriptor.get("views") or {}).get(view)
         if fields:
             data = {k: data[k] for k in fields if k in data}
-    _emit_ok({"dataset_id": ctx.dataset_id, "record_id": record_id, "path": record["path"], "data": data}, output, None)
+    mentioned_in = [{"file": m.get("source_file"), "line": m.get("source_line"),
+                     "fragment": m.get("source_fragment", "")}
+                    for m in payload.get("mentions") or [] if m.get("target") == record_id]
+    _emit_ok({"dataset_id": ctx.dataset_id, "record_id": record_id, "path": record["path"], "data": data,
+              "mentioned_in": mentioned_in}, output, None)
 
 
 @cli.group()
@@ -1686,8 +1725,53 @@ def relations_graph(roots: tuple[str, ...], output: str, no_input: bool, from_id
     """Typed edges + brief neighbours (BFS, bounded)."""
     ctx = _contexts(roots)[0]
     payload = ctx.ensure_index()
-    edges = graph_neighbors(payload["relations"], from_id, type_id, depth, limit)
+    edges = graph_neighbors(payload["relations"], from_id, type_id, depth, limit,
+                            mentions=payload.get("mentions"))
     _emit_ok({"dataset_id": ctx.dataset_id, "from": from_id, "edges": edges, "total": len(edges)}, output, None)
+
+
+def _relations_tree_text(tree: dict[str, Any]) -> str:
+    """Компактный текст-рендер дерева связей (план entity-catalog З3/T11)."""
+    lines = [str(tree["root"])]
+
+    def render(groups: list[dict[str, Any]], indent: str) -> None:
+        arrow = {"out": "→", "in": "←"}
+        for group in groups:
+            for edge in group["edges"]:
+                mark = " [mention]" if edge.get("via") == "mention" else ""
+                fragment = f"#{edge['fragment']}" if edge.get("fragment") else ""
+                suffix = " (cycle)" if edge.get("cycle") else ""
+                lines.append(f"{indent}{group['type_id']} {arrow[edge['direction']]} "
+                             f"{edge['id']}{fragment}{mark}{suffix}")
+                render(edge.get("children") or [], indent + "  ")
+            if group.get("truncated"):
+                lines.append(f"{indent}… (обрезано)")
+
+    render(tree["groups"], "  ")
+    if tree.get("truncated"):
+        lines.append("… (лимит рёбер)")
+    return "\n".join(lines)
+
+
+@relations.command("tree")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--from", "from_id", required=True)
+@click.option("--type", "type_id", default=None)
+@click.option("--depth", default=1, show_default=True)
+@click.option("--limit", default=100, show_default=True)
+def relations_tree(roots: tuple[str, ...], output: str, no_input: bool, from_id: str,
+                   type_id: str | None, depth: int, limit: int) -> None:
+    """Вложенное дерево связей (группировка по type_id, mention помечен)."""
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    tree = build_tree(payload["relations"], from_id, type_id, depth, limit,
+                      mentions=payload.get("mentions"))
+    if output == "json":
+        _emit_ok({"dataset_id": ctx.dataset_id, **tree}, output, None)
+    else:  # table и markdown — компактный текст-рендер
+        click.echo(_relations_tree_text(tree))
 
 
 @cli.group()
