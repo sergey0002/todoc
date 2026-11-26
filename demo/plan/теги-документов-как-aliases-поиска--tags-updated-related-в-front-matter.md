@@ -49,7 +49,7 @@ tags, related-wikilinks) во front matter; даты поддерживает м
 
 1. `todoc docs search --root demo --query "tags"` возвращает этот план выше
    нетегированных документов (тег-буст работает); `--tag tags` фильтрует точно.
-2. Все md-файлы демо (сейчас 104, аудит 2026-11-25) имеют полный набор: `created`, `updated`, `tags` (2–8),
+2. Все md-файлы демо (сейчас 188, аудит 2026-11-26) имеют полный набор: `created`, `updated`, `tags` (2–8),
    `related` — где есть связи; `docs edit --apply` бампит `updated` автоматически.
 3. Папка `demo/` открывается в Obsidian как vault: properties видны, `related`
    дают связи в графе, теги — в tag pane; `.obsidian/` вне Git.
@@ -57,9 +57,10 @@ tags, related-wikilinks) во front matter; даты поддерживает м
    (`tags: ["С ЛЮБЫМ!!"]`, `updated: 25.11.2026`, `created: 25.11.2026`) дают
    `markdown.tags_invalid` / `markdown.updated_invalid` / `markdown.created_invalid`;
    `related: ["файл.md"]` без скобок → `markdown.related_invalid` (форма wikilink).
-5. Документ **без** этих полей валиден (поля опциональны — конвенция «aliases не
-   обязательны», коммит `fad36c5`).
-6. pytest зелёный (сейчас 988 + новые), coverage 100%.
+5. Документ **без** этих полей валиден (поля опциональны — конвенция
+   folder-config: aliases папок опциональны, теги наследуют её).
+6. pytest зелёный (сейчас 1117 + ~15–20 новых), покрытие нового кода 100%;
+   метрики README — от замера (урок BUG-003).
 
 ## 2. Вне скоупа
 
@@ -81,8 +82,11 @@ tags, related-wikilinks) во front matter; даты поддерживает м
 - Формат тега: `^[a-z0-9]+(-[a-z0-9]+)*$`, длина 2–32, латиница/цифры (поиск лексический,
   кириллические теги допустимы — паттерн расширить на `\u0400-\u04ff` — выбрано:
   разрешить кириллицу сразу, словарь демо русскоязычный).
-- Веса поиска — согласованы с folder-config: title ×10 (есть), **tag exact ×8**,
-  **tag пословное ×3**, headings/body ×1 (базовая длина совпадений — как сейчас).
+- Веса поиска — согласованы с folder-config. Текущий score (замер 2026-11-26,
+  search.py, score-ветка search_documents ~:255): `title_hits×10 + len(matched) +
+  cfg-буст (+2 за конфиг-предков)`. Тег-веса добавляются аддитивно поверх:
+  `+ tag_exact×8 + tag_partial×3`; документы без тегов — score прежний (включая
+  cfg-буст).
 - Миграция демо — скриптом-батчами по папкам, validate после каждого батча;
   скрипт одноразовый, в коммит идут только md-файлы.
 - Счётчики документов не меняются от миграции (теги не создают документы); свой
@@ -92,27 +96,37 @@ tags, related-wikilinks) во front matter; даты поддерживает м
 
 - **Данные**: front matter каждого md — полный набор опциональных полей
   (created/updated/tags/related); значения валидирует validator рядом с required_sections.
-- **Даты**: движок — единственный писатель: `docs new` пишет created+updated,
-  `docs edit --apply` бампит updated в той же атомарной записи (ответ содержит
-  `updated_bumped`); preview файл не меняет.
+- **Даты**: движок — единственный писатель. Якорь-замер: `docs new` сегодня
+  НЕ пишет front matter вовсе (шаблоны без fm, smoke 2026-11-26 — документ
+  начинается с `# {title}`); значить движок строит fm-блок сам в
+  `create_document_plan` (write.py): `id/doc_type/lang/title/created/updated`
+  (lang — `ru` по умолчанию, в dataset.json поля нет). `docs edit --apply`
+  бампит `updated` параметром `bump_updated` в `apply_edit_ops` — одна атомарная
+  запись, `new_hash` финальный, ответ содержит `updated_bumped`; preview файл
+  не меняет.
 - **Obsidian**: `related` = wikilinks — граф, бэклинки и properties работают
   нативно; `.obsidian/` уходит в `.gitignore`; vault-чек — шаг Задачи 4.
-- **Поиск**: `_document_text` в `src/todoc/application/search.py` дополняется
-  тег-строкой с весовой структурой: вместо одного обогащённого текста — матчинг по
-  полям (title, tags, rest) с весами ×10/×8/×3/×1; суммирование как в folder-config
-  Phase A; порядок ties не меняется.
+- **Поиск**: score-ветка `search_documents` в `src/todoc/application/search.py`
+  дополняется тег-слагаемыми (exact ×8 / partial ×3 поверх базового score);
+  front matter уже разобран одним проходом — `_document_text` парсит файл, doc
+  (`MarkdownDoc.front_matter`, markdown.py:78/260) несёт теги: второй парсинг
+  запрещён, экстракция уже общая.
 - **CLI**: `docs search --tag <tag>` — пост-фильтр выдачи (точное совпадение тега);
   `docs read` в output добавляет `tags`/`updated`/`related` из front matter.
 - **Миграция**: одноразовый скрипт (stdin/stdout, не в репо): git log для дат,
   правила тегов ниже.
 
 Файлы:
-- Modify: `src/todoc/application/validator.py` (4 кода), `src/todoc/application/search.py`
-  (веса), `src/todoc/cli.py` (`--tag`, read-поля, created/updated в `docs new`,
-  бамп `updated` в `docs edit`)
-- Modify: все md демо (~97) — полный набор полей
-- Modify: `.gitignore` (`.obsidian/`), промпты CRUD doc_types (`create.md`/`edit.md`)
-- Create: `tests/unit/test_meta_tags.py` (валидатор + поиск + CLI-фильтр + даты)
+- Modify: `src/todoc/application/validator.py` (4 кода, рядом с `_check_structure`
+  ~:221), `src/todoc/application/search.py` (тег-слагаемые в score-ветке),
+  `src/todoc/cli.py` (`--tag` у docs search, поля в docs read, fm в docs new),
+  `src/todoc/application/write.py` (fm-сборка в `create_document_plan`,
+  `bump_updated` в `apply_edit_ops`)
+- Modify: все md демо (~188) — полный набор полей
+- Modify: `.gitignore` (`.obsidian/` — замер: отсутствует), промпты CRUD
+  doc_types (`prompts/create.md`, `prompts/edit.md` — 22 дира)
+- Create: `tests/unit/test_meta_tags.py` (валидатор + поиск + даты),
+  `tests/cli/test_meta_tags_cli.py` (CLI-фильтр --tag и поля read — house-конвенция)
 
 ## 5. Задачи
 
@@ -123,8 +137,9 @@ tags, related-wikilinks) во front matter; даты поддерживает м
 - Test: `tests/unit/test_meta_tags.py`
 
 **Интерфейсы:**
-- Consumes: парсер front matter (adapters/formats/markdown), ветка required_sections
-  (~строка 197 validator.py) — рядом добавляется проверка полей.
+- Consumes: парсер front matter (`MarkdownDoc.front_matter` — один проход,
+  adapters/formats/markdown.py:78/260), `_check_structure` в validator.py
+  (~:221, required_sections) — рядом добавляется проверка полей.
 - Produces: коды `markdown.tags_invalid` (не список / не строка-тег / >8 шт / длина),
   `markdown.updated_invalid` и `markdown.created_invalid` (не YYYY-MM-DD),
   `markdown.related_invalid` (не список строк `[[имя]]` — wikilink-форма).
@@ -146,9 +161,10 @@ Expected: FAIL — кодов нет
 - [ ] **Шаг 4: прогнать валидатор на демо**
 
 Run: `todoc validate --root demo --all`
-Expected: 0 диагностик — в демо уже есть два документа с полями (этот план и
-`doc:plan-softdoc-profile`); их формы исправлены аудитом 2026-11-25 (related —
-wikilinks, tags ≤8), остальные поля отсутствуют
+Expected: 0 диагностик — в демо уже есть md с полями (замер 2026-11-26: 5 с
+`tags` — guide markdown-knowledge-base и планы folder-config/skills-vault/
+softdoc/doc-tags, все ≤8 тегов; 5+ с `related`-wikilinks), формы валидны,
+остальные поля отсутствуют
 
 - [ ] **Шаг 5: коммит**
 
@@ -161,16 +177,18 @@ git commit -m "feat(tags): валидация tags/updated/related во front ma
 
 **Файлы:**
 - Modify: `src/todoc/application/search.py`, `src/todoc/cli.py`
-- Test: `tests/unit/test_meta_tags.py` (второй класс тестов)
+- Test: `tests/unit/test_meta_tags.py` (второй класс тестов),
+  `tests/cli/test_meta_tags_cli.py` (--tag и read-поля — house-конвенция CLI)
 
 **Интерфейсы:**
-- Consumes: `_document_text`, `_terms`, подсчёт score в search.py; существующий
-  API `_emit_ok` в cli.py.
-- Produces: score документа с тегами = `title_hits×10 + tag_exact×8 + tag_partial×3
-  + len(matched_rest)`; `tag_exact` — токен запроса == тег; `tag_partial` — токен
-  совпадает пословно внутри тега (тег из слов); документы без тегов — прежний score;
-  CLI: `docs search ... --tag <tag>` → post-фильтр по точному тегу; read-вывод
-  дополняется `tags`/`updated`/`related`.
+- Consumes: `_document_text` (возвращает и front_matter — один парсинг), `_terms`,
+  score-ветка search_documents (title×10 + len(matched) + cfg-буст); `_emit_ok` cli.py.
+- Produces: score с тегами = текущий базовый `title_hits×10 + len(matched) +
+  cfg-буст` + `tag_exact×8 + tag_partial×3`; `tag_exact` — токен запроса == тег;
+  `tag_partial` — токен совпадает пословно внутри тега (тег из слов); документы
+  без тегов — score прежний (включая cfg-буст); CLI: `docs search --tag <tag>` →
+  post-фильтр по точному тегу; read-вывод дополняется `tags`/`updated`/`related`
+  из `MarkdownDoc.front_matter`.
 
 - [ ] **Шаг 1: падающие тесты** — doc A с тегом `search`, doc B без: запрос «search»
   → A выше B; `--tag search` → только A; score A строго больше score B.
@@ -193,27 +211,33 @@ Expected: PASS — все существующие поисковые тесты
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add src/todoc/application/search.py src/todoc/cli.py tests/unit/test_meta_tags.py
+git add src/todoc/application/search.py src/todoc/cli.py tests/unit/test_meta_tags.py \
+      tests/cli/test_meta_tags_cli.py
 git commit -m "feat(tags): теги в лексическом поиске (exact x8, partial x3) + docs search --tag"
 ```
 
 ### Задача 3: даты в движке + промпты (created/updated без ручной дисциплины)
 
 **Файлы:**
-- Modify: `src/todoc/cli.py` (`docs new`, `docs edit`)
+- Modify: `src/todoc/application/write.py` (`create_document_plan` — fm-сборка;
+  `apply_edit_ops` — параметр `bump_updated`)
+- Modify: `src/todoc/cli.py` (`docs new` — значения дат; `docs edit --apply` — бамп)
 - Modify: `.gitignore` (добавить `.obsidian/`)
-- Modify: `demo/.todoc/doc_types/*/prompts/create.md`, `edit.md` (все doc_types с промптами)
-- Test: `tests/unit/test_meta_tags.py`
+- Modify: `demo/.todoc/doc_types/*/prompts/create.md`, `edit.md` (22 дира промптов)
+- Test: `tests/unit/test_meta_tags.py`, `tests/cli/test_meta_tags_cli.py`
 
 **Интерфейсы:**
-- Consumes: шаблонизатор `docs new` (существующий front matter-вывод, переменные
-  {title}/{slug}/{date}); `apply_edit_ops` (writer `docs edit`).
-- Produces: `docs new` добавляет во front matter `created: <UTC-дата>` и
-  `updated: <UTC-дата>`; `docs edit --apply` при успешной замене контента бампит
-  `updated: <сегодня>` в той же атомарной записи, ответ включает `updated_bumped: true`;
-  preview файл не меняет и updated не трогает; промпты: create — «created/updated
-  ставит движок — руками не заполнять», edit — «updated бампит движок; связал
-  документ — добавь/обнови related-wikilink».
+- Consumes: `create_document_plan` (write.py: шаблоны БЕЗ fm — движок строит
+  fm-блок сам: `id: doc:<path>`, `title`, `doc_type`, `lang: ru`, `created`,
+  `updated`; render_template рендерит тело как сейчас); `apply_edit_ops`
+  (write.py:164+ — BUG-004 ops).
+- Produces: `docs new` пишет fm-блок с `created: <UTC-дата>` = `updated: <UTC-дата>`;
+  `docs edit --apply` бампит `updated: <сегодня>` в той же записи
+  (`apply_edit_ops(..., bump_updated=True)` — модификация строк до записи,
+  `new_hash` финальный), ответ включает `updated_bumped: true`; preview файл
+  не меняет и updated не трогает; промпты: create — «created/updated ставит
+  движок — руками не заполнять», edit — «updated бампит движок; связал документ —
+  добавь/обнови related-wikilink».
 
 - [ ] **Шаг 1: падающие тесты** — `docs new` → created==updated==сегодня в файле;
   `docs edit --apply` (правка одной строки) → `updated` = сегодня, `created` не
@@ -237,14 +261,16 @@ Expected: PASS — включая существующие тесты docs new/e
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add src/todoc/cli.py .gitignore demo/.todoc tests/unit/test_meta_tags.py
+git add src/todoc/application/write.py src/todoc/cli.py .gitignore demo/.todoc \
+      tests/unit/test_meta_tags.py tests/cli/test_meta_tags_cli.py
 git commit -m "feat(meta): created/updated в docs new, бамп updated в docs edit + промпты CRUD"
 ```
 
 ### Задача 4: миграция демо — полный набор полей во все md
 
 **Файлы:**
-- Modify: все md демо (~104, список: `git ls-files 'demo/**/*.md'`; включая `bugs/` и корневые HOME.md/README.md)
+- Modify: все md демо (~188, список: `git ls-files 'demo/**/*.md'`; включая `bugs/`,
+  `demo/HOME.md` и `demo/README.md`)
 
 **Интерфейсы:**
 - Consumes: правила тегов (ниже), `git log --diff-filter=A --format=%as -- <file>`
@@ -284,9 +310,10 @@ Run: `todoc docs search --root demo --query "state" --tag tags` и
 `todoc docs search --root demo --query "aliases"`
 Expected: тег-буст виден в выдаче; 0 диагностик
 
-- [ ] **Шаг 5: Obsidian-чек (ручной)** — открыть `demo/` как vault: properties
-  показывают created/updated/status/tags; related дают связи в графе и бэклинках;
-  теги — в tag pane; `.obsidian/` не в `git status`.
+- [ ] **Шаг 5: Obsidian-чек** — агент проверяет структурно (sandbox: fm каждого
+  md парсится движком, related-формы wikilink, `.obsidian/` вне `git status`);
+  визуальную часть (properties/граф/tag pane) выполняет пользователь вне сессии —
+  Obsidian в sandbox недоступен.
 
 - [ ] **Шаг 6: коммиты по батчам** (см. шаги 1–3; последний: `demo(tags): миграция демо — полный набор полей во всех md`)
 
@@ -295,10 +322,12 @@ Expected: тег-буст виден в выдаче; 0 диагностик
 **Файлы:**
 - Modify: `demo/ideas/folder-config.md` (кросс-ссылка: теги документов — doc-уровень
   той же весовой модели), `demo/HOME.md` (строка про теги), `demo/README.md`
-  (строка 38: «15 dir_types» — живой BUG-003), `README.md` и
-  `docs/state/01-overview.md`, `docs/state/13-demo-dataset.md` (состав, пример
-  поиска), `docs/state/15-benchmark.md` — все счётчики от факта (сейчас
-  270 документов / 104 md / 1 csv / 165 json; миграция состав не меняет)
+  (состав демо; строка types list уже от факта — BUG-003 исправлен PR #56),
+  `README.md` (метрики: тесты/покрытие от замера), `demo/references/state/01-overview.md`,
+  `demo/references/state/13-demo-dataset.md` (состав, пример поиска),
+  `bench/results/benchmark.md` (если метрики упомянуты) — все счётчики от факта
+  (замер 2026-11-26: 376 документов / 188 md / 1 csv / 187 json / 15 opaque;
+  миграция состав не меняет)
 
 **Интерфейсы:**
 - Consumes: фактические числа после миграции.
@@ -313,7 +342,8 @@ Expected: 0 диагностик, все зелёные, 100%, 0 пропуск�
 - [ ] **Шаг 3: коммит**
 
 ```bash
-git add README.md docs/state demo/ideas/folder-config.md demo/HOME.md
+git add README.md demo/references/state demo/ideas/folder-config.md demo/HOME.md \
+      demo/README.md bench/results/benchmark.md
 git commit -m "docs: счётчики и гайды после введения тегов документов"
 ```
 
@@ -325,8 +355,9 @@ git commit -m "docs: счётчики и гайды после введения 
 - [ ] Даты ведутся движком: `docs new` ставит, `docs edit --apply` бампит (тест),
   промпты запрещают ручное.
 - [ ] Obsidian-чек пройден: properties, граф по related, tag pane; `.obsidian/` вне Git.
-- [ ] pytest 437+N зелёный; coverage 100%, 0 пропусков.
-- [ ] Счётчики согласованы от факта (`check --root demo`; на 25.11.2026 — 270/104); folder-config сослался на doc-теги.
+- [ ] pytest 1117+N зелёный; новый код — 100% покрытие; метрики README от замера.
+- [ ] Счётчики согласованы от факта (`check --root demo`; на 26.11.2026 — 376 документов,
+      188 md); folder-config сослался на doc-теги.
 
 ## 7. Риски и митигации
 
@@ -334,7 +365,7 @@ git commit -m "docs: счётчики и гайды после введения 
 |---|---|---|---|
 | Словарь тегов расползается (синонимы: search/поиск) | В×С | правила именования в Задаче 3; теги = папка+тип+заголовок; синонимы — роль aliases папок, не тегов | агент |
 | Миграция 96 файлов одним дифом не ревьюится | С×С | 3 батча-коммита по группам папок; validate после каждого | агент |
-| Двойной парсинг front matter (validator+search) рассинхронизируется | Н×В | extraction в одну функцию markdown-модуля, реюз обеими сторонами (Шаг 3 задачи 2) | агент |
+| Двойной парсинг front matter (validator+search) рассинхронизируется | Н×В | уже решено: `MarkdownDoc.front_matter` общий (markdown.py:78/260); запрет второго парсинга в поиске — реюз doc из одного прохода | агент |
 | Изменение score ломает существующие ожидания поиска | С×Н | тесты «без тегов score прежний»; веса добавляются, не заменяют | агент |
 | `related` указывает на переименованные файлы | Н×Н | v1 без проверки существования (заявлено в валидаторе); v2 с резолвером за gate | агент |
 | Даты правятся руками в обход движка | С×Н | движок — единственный писатель created/updated; промпты запрещают; валидатор формата ловит битое | агент |
@@ -361,5 +392,28 @@ git commit -m "docs: счётчики и гайды после введения 
   validate — 0 диагностик, plan-документ читается CLI. Готов к выполнению:
   первая задача — Задача 1, шаг 1.
 
+- 2026-11-26 — финальный аудит перед реализацией (якоря сверены с кодом;
+  правки уточняющие, шаги не переписывались): (1) числа от замера — md 104→188,
+  документов 270→376, json 165→187 (+15 opaque), тестов 988→1117; (2) З1: ветка
+  required_sections — `_check_structure` validator.py ~:221 (было ~:197); в демо
+  уже 5 md с tags и 5+ с related (замер), все ≤8 тегов, формы валидны — ожидание
+  шага 4 переписано; ссылка на коммит `fad36c5` удалена (несуществующий);
+  (3) З2: формула Produces уточнена — текущий score = title×10 + len(matched) +
+  cfg-буст folder-config (+2), тег-веса аддитивны поверх; CLI-тесты вынесены в
+  tests/cli/test_meta_tags_cli.py (house-конвенция); экстракция fm уже общая
+  (MarkdownDoc.front_matter) — «вынести extraction» не требуется, риск двойного
+  парсинга закрыт констатацией; (4) З3 — главный якорь: `docs new` сегодня НЕ
+  пишет fm вовсе (шаблоны без fm, smoke 26.11) → движок строит fm-блок в
+  `create_document_plan` (id/doc_type/lang/created/updated; lang: ru — в
+  dataset.json поля нет); бамп `updated` — параметр `bump_updated` в
+  `apply_edit_ops` (одна запись, new_hash финальный); файлы З3 дополнены
+  write.py; (5) З4: «корневые HOME/README» = demo/HOME.md, demo/README.md;
+  Obsidian-чек разделён: структурная часть — агент, визуальная — пользователь
+  (Obsidian в sandbox недоступен); (6) З5: пути docs/state/* →
+  demo/references/state/*, 15-benchmark → bench/results/benchmark.md, строка
+  «15 dir_types» уже исправлена (BUG-003 закрыт PR #56) — остаётся состав демо;
+  git add-строки приведены к фактическим путям; (7) промпты: 22 дира
+  prompts/create.md+edit.md подтверждены; .obsidian/ в .gitignore отсутствует —
+  шаг реален. Отклонений семантики нет: 5 задач, DoD полон.
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
