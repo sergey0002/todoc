@@ -243,12 +243,13 @@ def previous_relation_state(root: Path, rel_path: str, pointer_index: int,
                     return {"state": "value", "value": old_edge,
                             "rev": event.get("rev"), "at": event.get("at")}
             else:
-                # идентичности нет: первая версия с отличающимся массивом —
-                # ребро на позиции pointer_index там прежнее (или его не было)
-                if old_relations != current_relations:
-                    value = old_relations[pointer_index] if pointer_index < len(old_relations) else None
-                    return {"state": "value" if value is not None else "absent",
-                            "value": value, "rev": event.get("rev"), "at": event.get("at")}
+                # идентичности нет: массив отличался — ребро на позиции
+                # pointer_index в этой версии прежнее (или его не было).
+                # (Массив, равный текущему, сюда не попадает: равенство массивов
+                # означает совпадение ребра по идентичности, т.е. break выше.)
+                value = old_relations[pointer_index] if pointer_index < len(old_relations) else None
+                return {"state": "value" if value is not None else "absent",
+                        "value": value, "rev": event.get("rev"), "at": event.get("at")}
     return None
 
 

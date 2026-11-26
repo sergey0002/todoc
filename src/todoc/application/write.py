@@ -273,7 +273,7 @@ def _json_array_element_span(text: str, key: str, index: int) -> tuple[int, int,
             return None
         arr_start = pos
         pos += 1
-        elem_start = elem_end = -1
+        elem_start = elem_end = matched_end = -1
         seen = 0
         while True:
             pos = _JSON_WS.match(text, pos).end()
@@ -286,16 +286,18 @@ def _json_array_element_span(text: str, key: str, index: int) -> tuple[int, int,
                 pos += 1
                 continue
             try:
-                _, elem_end = decoder.raw_decode(text, pos)
+                _, stop = decoder.raw_decode(text, pos)
             except ValueError:
                 return None
+            elem_end = stop
             if seen == index:
                 elem_start = pos
-            pos = elem_end
+                matched_end = stop  # конец именно совпавшего элемента
+            pos = stop
             seen += 1
         if elem_start < 0:
             return None
-        return elem_start, elem_end, arr_start, arr_end
+        return elem_start, matched_end, arr_start, arr_end
 
 
 def _splice_element(text: str, spans: tuple[int, int, int, int],
