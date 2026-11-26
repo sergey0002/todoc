@@ -5,9 +5,9 @@ doc_type: plan
 lang: ru
 created: 2026-11-26
 updated: 2026-11-26
-status: active
+status: done
 derived_from: ["ideas/interop-exports.md@sha256:31e0868d6bf0ca30f53fe0706473ca4df8d12bb207e176c5215cb3bdc88cfb8e"]
-tags: [plan, interop, dmn, asl, rasa, экспорт]
+derived_from: ["ideas/interop-exports.md@sha256:8d928c77d10d763a4a9a39dad8a34f5cb27446f2fd57cf1c7beb67078917f073"]
 ---
 
 # Интероп-экспорты: DMN, ASL, Rasa (план реализации)
@@ -71,8 +71,8 @@ tags: [plan, interop, dmn, asl, rasa, экспорт]
 
 ## 8. Прогресс и отклонения
 
-- Статус: **исполнен 2026-11-26** (Задачи 1–2; fm-статус не менялся — `done` только
-  по явной фразе пользователя).
+- Статус: **исполнен 2026-11-26** (Задачи 1–2, DoD 3/3; fm `status: done` —
+  явная фраза пользователя «ок выполнен», 2026-11-26).
 - 2026-11-26 — Задача 1 исполнена (TDD): тест-контракты маппинга
   tests/unit/test_interop.py (18 тестов); extraction-слой
   src/todoc/application/interop.py с докстроками контракта (flow/tree→ASL,

@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 created: 2026-11-26
 updated: 2026-11-26
-status: planned
+status: done
 tags: [ideas, idea, интероп, экспорт, dmn, asl, rasa]
 ---
 
@@ -15,6 +15,9 @@ tags: [ideas, idea, интероп, экспорт, dmn, asl, rasa]
 - Создан: 2026-11-26
 - Идентификатор: `doc:ideas/interop-exports.md`
 - Статус: captured (fm)
+- Реализация: выполнена (2026-11-26) — план [интероп-экспорты](../plan/interop-exports-dmn-asl-rasa.md)
+  исполнен (Задачи 1–2, DoD 3/3) и закрыт (`done`): конвертеры DMN 1.3 / ASL / Rasa NLU,
+  `todoc interop export`, 5 витрин демо в `exports/`; вне скоупа (§2): импорт, runtime, чужие датасеты.
 
 ## Суть
 
