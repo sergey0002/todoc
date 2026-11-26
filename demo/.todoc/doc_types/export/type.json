@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "type_id": "export",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Derived-артефакт: экспорт витрины во внешний формат (DMN 1.3, ASL, Rasa NLU YML), сгенерированный todoc interop export. Истина — записи-источники из derived_from; дрейф ловит todoc stale; ручные правки затираются перегенерацией.",
+  "format": "markdown"
+}

@@ -30,6 +30,8 @@ from todoc.application.changes import (TRANSLIT, apply_change, archive_change, c
                                        open_change, record_path, revert_change,
                                        validate_change, verify_change)
 from todoc.application.flow_view import build_flow_view
+from todoc.application.interop import (anchor_for, build_export_doc, flow_to_asl,
+                                       related_flow_id, rule_to_dmn, terms_to_rasa)
 from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, build_tree, graph_neighbors, query_records
 from todoc.application.folder_config import load_folder_configs, score_folder_configs
@@ -1939,6 +1941,117 @@ def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id:
                     for m in payload.get("mentions") or [] if m.get("target") == record_id]
     _emit_ok({"dataset_id": ctx.dataset_id, "record_id": record_id, "path": record["path"], "data": data,
               "mentioned_in": mentioned_in}, output, None)
+
+
+# --- план «Интероп-экспорты» З2: записи → внешние форматы (derived-артефакты) --
+
+
+@cli.group()
+def interop() -> None:
+    """Экспорт витрин во внешние форматы (DMN 1.3 / ASL / Rasa NLU YML)."""
+
+
+@interop.command("export")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--kind", type=click.Choice(["dmn", "asl", "rasa"]), required=True)
+@click.option("--id", "record_id", default=None,
+              help="record_id источника (для rasa можно опустить — весь глоссарий).")
+@click.option("--write", "write_path", default=None, metavar="PATH",
+              help="Путь экспорта относительно корня (только exports/…); без него артефакт печатается в stdout.")
+def interop_export(roots: tuple[str, ...], output: str, no_input: bool, kind: str,
+                   record_id: str | None, write_path: str | None) -> None:
+    """Запись-источник → артефакт внешнего формата (derived-артефакт, review-first).
+
+    Без --write артефакт печатается в stdout; с --write — markdown-документ в
+    exports/ с fm derived_from на записи-источники (дрейф ловит `todoc stale`).
+    Перезапись поверх CAS разрешена только для derived-целей; записи не трогаются.
+    """
+    del no_input
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    doc_id, title, artifact, lang, anchors = _interop_artifact(ctx, payload, kind, record_id)
+    if write_path is None:
+        _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "record_id": record_id,
+                  "id": doc_id, "artifact": artifact, "anchors": anchors}, output, None)
+        return
+    rel = write_path.strip("/")
+    _contained_out(ctx.root, rel)
+    if not rel.startswith("exports/") or len(rel) <= len("exports/"):
+        raise TodocError(f"--write принимает путь только внутри exports/: {rel!r}",
+                         EXIT_USAGE, "interop.write_outside_exports")
+    target = ctx.root / rel
+    expected_hash: str | None = None
+    if target.is_file():
+        existing_fm = parse_markdown(target.read_text(encoding="utf-8")).front_matter
+        if not isinstance(existing_fm, dict) or "derived_from" not in existing_fm:
+            raise ConflictError(
+                f"Target is not a generated export (no derived_from): {rel}. "
+                "Ручной файл не перезаписывается.",
+                "interop.target_not_derived")
+        expected_hash = file_hash(target)
+    content = build_export_doc(doc_id=doc_id, title=title, kind=kind, anchors=anchors,
+                               artifact=artifact, lang=lang, today=_utc_date())
+    new_hash = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+    plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel, new_content=content,
+                     expected_hash=expected_hash, new_hash=new_hash,
+                     basis=f"interop export {kind} {record_id or '(glossary)'}")
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "id": doc_id,
+              "written": rel, "hash": new_hash, "derived_from": len(anchors)}, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["stale", "--root", str(ctx.root)],
+                            "purpose": "Проверить дрейф экспортов"}])
+
+
+def _interop_artifact(ctx: DatasetContext, payload: dict[str, Any], kind: str,
+                      record_id: str | None) -> tuple[str, str, str, str, list[str]]:
+    """Артефакт + якоря derived_from для одного экспорта (контракт — докстроки interop.py)."""
+    if kind == "rasa" and record_id is None:
+        term_recs = sorted((r for r in payload["records"]
+                            if r.get("entity_type") == "term" and isinstance(r.get("data"), dict)),
+                           key=lambda r: str(r.get("record_id") or ""))
+        if not term_recs:
+            raise ValidationError("No term records in the dataset.", "interop.no_terms")
+        artifact = terms_to_rasa([r["data"] for r in term_recs])
+        anchors = [anchor_for(ctx.root, str(r["path"]), "/definition") for r in term_recs]
+        return ("doc:export-rasa-glossary", "Экспорт Rasa NLU: глоссарий", artifact, "yaml", anchors)
+    if record_id is None:
+        raise TodocError("--id обязателен для kind asl|dmn (rasa без --id экспортирует весь глоссарий)",
+                         EXIT_USAGE, "usage.error")
+    rec = next((r for r in payload["records"] if r.get("record_id") == record_id), None)
+    if rec is None:
+        raise ValidationError(f"Record not found: {record_id}", "records.not_found")
+    data = rec.get("data") or {}
+    entity_type = data.get("entity_type")
+    slug = record_id.split(":", 1)[-1]
+    if kind == "asl":
+        if entity_type != "flow":
+            raise ValidationError(f"kind asl expects a flow record, got {entity_type!r}: {record_id}",
+                                  "interop.wrong_entity_type")
+        artifact = json.dumps(flow_to_asl(data), indent=2, ensure_ascii=False) + "\n"
+        return (f"doc:export-asl-{slug}", f"Экспорт ASL: {record_id}", artifact, "json",
+                [anchor_for(ctx.root, str(rec["path"]), "/tree")])
+    if kind == "dmn":
+        if entity_type != "rule":
+            raise ValidationError(f"kind dmn expects a rule record, got {entity_type!r}: {record_id}",
+                                  "interop.wrong_entity_type")
+        flow_id = related_flow_id(data)
+        flow_rec = next((r for r in payload["records"] if r.get("record_id") == flow_id), None)
+        if flow_rec is None:
+            raise ValidationError(f"Related flow record not found: {flow_id}", "interop.flow_missing")
+        artifact = rule_to_dmn(data, flow_rec.get("data") or {})
+        return (f"doc:export-dmn-{slug}", f"Экспорт DMN: {record_id}", artifact, "xml",
+                [anchor_for(ctx.root, str(rec["path"]), "/statement"),
+                 anchor_for(ctx.root, str(rec["path"]), "/examples"),
+                 anchor_for(ctx.root, str(flow_rec["path"]), "/tree")])
+    if entity_type != "term":
+        raise ValidationError(f"kind rasa expects a term record, got {entity_type!r}: {record_id}",
+                              "interop.wrong_entity_type")
+    artifact = terms_to_rasa([data])
+    return (f"doc:export-rasa-{slug}", f"Экспорт Rasa NLU: {record_id}", artifact, "yaml",
+            [anchor_for(ctx.root, str(rec["path"]), "/definition")])
 
 
 @cli.group()

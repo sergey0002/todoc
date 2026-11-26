@@ -11,7 +11,7 @@
 | Тестов | 1191 (все проходят) |
 | Покрытие | 99% — 5748 инструкций, 2156 веток (на новых модулях — 100%) |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
-| Демо-датасет | [`demo/`](demo/README.md): 418 документов, 197 записи, 0 диагностик |
+| Демо-датасет | [`demo/`](demo/README.md): 423 документа, 197 записи, 0 диагностик |
 
 ## Установка
 
@@ -122,6 +122,7 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
 | `docs flow walk --id flow:X [--at NODE] [--all-paths]` | проход дерева решений: ветви по приоритету, props развилок (`mode`/`default_branch`), все ациклические пути до терминалов |
 | `docs status --id ID [--set V]` | чтение/смена статуса md-документа: fm `status`, набор — `allowed_statuses` doc_type; set бампает `updated:` и пишет ревизию; документ без поля статуса не получает его молча |
 | `records status --id ID [--set V]` | чтение/смена поля `status` JSON-записи (набор — enum схемы entity_type); меняется только `status`, атомарно, с ревизией |
+| `interop export --kind dmn|asl|rasa --id ID [--write exports/…md]` | экспорт витрины во внешний формат: derived-артефакт с fm `derived_from` на записи-источники (дрейф ловит `stale`); перезапись только derived-целей; без `--write` — артефакт в stdout |
 
 #### Конфиги папок (`.config.json`)
 

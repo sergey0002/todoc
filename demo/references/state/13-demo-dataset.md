@@ -25,11 +25,11 @@ tags: [references, reference, состояние, датасет]
 | Отношений | 138 |
 | Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 24 / 30 / 25 / 18 |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 24 / 31 / 25 / 18 |
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 205 Markdown + 1 CSV + 197 JSON (197 записей) + 15 opaque-вложений — всего 418.
+Состав документов: 210 Markdown + 1 CSV + 197 JSON (197 записей) + 15 opaque-вложений — всего 423.
 Состав записей: `document` 105, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
 `rule` 3, `dep` 3, `guide` 3, `task` 4, `event` 2, `flow` 1, `change` 1, `context` 1.
 
@@ -114,7 +114,7 @@ todoc relations tree --root demo --from term:dir-type --depth 1 --output markdow
 ```bash
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
-todoc types list --root demo                            # 14/19/12/9
+todoc types list --root demo                            # 24/31/25/18
 todoc index rebuild --root demo                         # 67 папок, 376 документов, 172 записи, 152 отношения
 todoc docs tree --root demo --max-depth 1               # 67 папок, 376 документов
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42

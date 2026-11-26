@@ -13,12 +13,13 @@
 | Отношений | 138 |
 | Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 24 / 30 / 25 / 18 |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 24 / 31 / 25 / 18 |
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 98 Markdown + 1 CSV + 159 JSON-записей.
-Состав записей: `document` 90, `competitor` 30, `metric` 24, `decision` 10, `guide` 3, `task` 2.
+Состав документов: 210 Markdown + 1 CSV + 197 JSON-записей (197 записей) + 15 opaque-вложений — всего 423.
+Состав записей: `document` 105, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
+`rule` 3, `dep` 3, `guide` 3, `task` 4, `event` 2, `flow` 1, `change` 1, `context` 1.
 
 У 13 из 21 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
 уровня 2, общие для всех документов типа), поэтому валидация датасета остаётся чистой.
@@ -73,9 +74,9 @@
 ```bash
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
-todoc types list --root demo                            # 14/19/12/9
-todoc index rebuild --root demo                         # 22 папки, 258 документов, 159 записей, 138 отношений
-todoc docs tree --root demo --max-depth 1               # 22 папки, у 16 назначен dir_type
+todoc types list --root demo                            # 24/31/25/18
+todoc index rebuild --root demo                         # 86 папок, 423 документа, 197 записей, 169 отношений
+todoc docs tree --root demo --max-depth 1               # 86 папок
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
 todoc records list --root demo --type decision --limit 3           # total 10
