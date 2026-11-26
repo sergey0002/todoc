@@ -84,22 +84,23 @@ def test_limit_exceeded_on_file_size(tmp_path, monkeypatch):
     assert err.value.code == "state.limit_exceeded"
 
 
-def test_file_unavailable_on_read_only_dir(tmp_path):
-    import os
+def test_file_unavailable_on_write(tmp_path):
+    """Каталог стейта занят файлом: mkstemp даёт NotADirectoryError (работает и под root)."""
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state/todoc").write_text("занято другим файлом", encoding="utf-8")
+    with pytest.raises(ValidationError) as err:
+        set_var("dataset-x", "context.current_project", "shop")
+    assert err.value.code == "state.file_unavailable"
+    assert "state-dataset-x.json" in str(err.value)
 
-    locked = tmp_path / "state/todoc"
-    locked.mkdir(parents=True)
-    (locked / "state-dataset-x.json").write_text("{}", encoding="utf-8")
-    os.chmod(locked, 0o500)  # read-only каталог: mkstemp невозможен
-    try:
-        if os.getuid() == 0:  # root пишет поверх прав
-            pytest.skip("chmod не блокирует root")
-        with pytest.raises(ValidationError) as err:
-            set_var("dataset-x", "context.current_project", "shop")
-        assert err.value.code == "state.file_unavailable"
-        assert "state-dataset-x.json" in str(err.value)
-    finally:
-        os.chmod(locked, 0o700)
+
+def test_load_file_unavailable_on_read(tmp_path):
+    """Чтение при «каталоге»-файле: NotADirectoryError → state.file_unavailable (не FileNotFoundError)."""
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state/todoc").write_text("занято другим файлом", encoding="utf-8")
+    with pytest.raises(ValidationError) as err:
+        load_state("dataset-x")
+    assert err.value.code == "state.file_unavailable"
 
 
 def test_corrupted_file_reported(tmp_path):
@@ -126,3 +127,19 @@ def test_unset_removes_and_reports_absence(tmp_path):
     assert get_var("dataset-x", "context.current_project") is None
     assert unset_var("dataset-x", "context.current_project") is False  # уже нет
     assert get_var("dataset-x", "context.current_project") is None  # файл жив, vars пуст
+
+
+def test_save_file_unavailable_on_readonly_dir(tmp_path):
+    """Файл читается, но каталог стал read-only: mkstemp падает → state.file_unavailable из _save."""
+    import os
+
+    d = tmp_path / "state/todoc"
+    d.mkdir(parents=True)
+    set_var("dataset-x", "context.current_project", "shop")  # файл создан и читается
+    os.chmod(d, 0o500)
+    try:
+        with pytest.raises(ValidationError) as err:
+            set_var("dataset-x", "context.current_project", "shop2")
+        assert err.value.code == "state.file_unavailable"
+    finally:
+        os.chmod(d, 0o700)
