@@ -8,5 +8,6 @@
   "aliases": [],
   "source_path": "glossary/<slug>.md",
   "artifacts": [],
-  "relations": []
+  "relations": [],
+  "source_anchor": null
 }

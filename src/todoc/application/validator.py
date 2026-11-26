@@ -196,6 +196,43 @@ def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[d
     return mentions
 
 
+def _check_source_anchors(dataset_id: str, root: Path, records: list[dict[str, Any]],
+                          parsed_docs: dict[str, Any], all_paths: set[str]) -> list[Diagnostic]:
+    """source_anchor записи обязан существовать в витрине source_path (план entity-catalog З9, T9).
+
+    Правило общее: у любой записи, где заданы непустые ``source_anchor`` и
+    ``source_path``, якорь должен найтись в markdown-документе витрины; иначе
+    ``markdown.anchor_not_found`` на пути записи. Пустое/None поле — легально
+    (витрина атомарна). Регистр якоря не важен (как в Obsidian).
+    """
+    from todoc.adapters.formats.markdown import parse_markdown as _parse_md
+
+    diags: list[Diagnostic] = []
+    for record in records:
+        data = record.get("data") or {}
+        anchor = data.get("source_anchor")
+        source = data.get("source_path")
+        if not anchor or not source or not isinstance(anchor, str) or not isinstance(source, str):
+            continue
+        if source not in all_paths:
+            diags.append(_diag(dataset_id, record["path"], "markdown.anchor_not_found",
+                               f"Витрина отсутствует: {source}",
+                               location={"pointer": "/source_anchor"}))
+            continue
+        doc = parsed_docs.get(source)
+        if doc is None:
+            try:
+                doc = _parse_md((root / source).read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError):
+                continue
+        anchors = {h.anchor.lower() for h in doc.headings}
+        if str(anchor).lower() not in anchors:
+            diags.append(_diag(dataset_id, record["path"], "markdown.anchor_not_found",
+                               f"В витрине {source} нет раздела с якорем: {anchor}",
+                               location={"pointer": "/source_anchor"}))
+    return diags
+
+
 def _collect_record_ids(scanned_files: list[ScannedFile]) -> set[str]:
     """record_id всех json-записей прогона — дёшево, по regexp по тексту (план entity-catalog З1).
 
@@ -579,6 +616,7 @@ def validate_dataset(
     # Record validation: JSON files with record_id/entity_type.
     records = _validate_records(dataset_id, root, scanned_files, doc_info, dataset, registry)
     diags.extend(_check_link_targets(dataset_id, scanned_files, parsed_docs, records[1], all_paths))
+    diags.extend(_check_source_anchors(dataset_id, root, records[1], parsed_docs, all_paths))
     diags.extend(records[0])
     diags.extend(_skills_diagnostics(dataset_id, root))
     diags.extend(_folder_configs_diagnostics(dataset_id, root))

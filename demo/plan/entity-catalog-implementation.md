@@ -420,13 +420,13 @@ Run: `todoc docs flow render --root demo --id flow:order-placement` — витр
   `validator.py` (anchor source_anchor при наличии), `query.py`/mentions
   (вершины `{id, fragment}`), счётчики финал
 
-- [ ] **Шаг 1 (TDD):** schema-расширение; валидация: source_anchor задан →
+- [x] **Шаг 1 (TDD):** schema-расширение; валидация: source_anchor задан →
   якорь существует в source_path-документе (anchor_not_found иначе);
   mentions/graph несут фрагменты.
-- [ ] **Шаг 2: данные** — заполнить source_anchor у 1–2 терминов с крупными
+- [x] **Шаг 2: данные** — заполнить source_anchor у 1–2 терминов с крупными
   витринами (от факта демо; если страницы атомарны — поле остаётся пустым,
   это легально).
-- [ ] **Шаг 3: финальные счётчики и прогон**
+- [x] **Шаг 3: финальные счётчики и прогон**
 
 Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера;
 `todoc types list` / `todoc check --root demo` — от факта; README/state —
@@ -461,7 +461,8 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
 
 ## 8. Прогресс и отклонения
 
-- Статус: волна 1 (З1–З4) исполнена (2026-11-25). Волна 2 — Задача 5.
+- Статус: волны 1–2 исполнены (З1–З5, З7, З9 — 2026-11-25). З6/З8 остановлены
+  на gate: softdoc З2/З5 не исполнен (ждёт явной команды).
 - План составлен по идее doc:entity-catalog-idea (321 строка, 10 разделов) —
   все код-якоря проверены чтением (markdown.py:26/62/333, jsonfmt.py:248,
   validator.py:134/621, query.py:116, service.py:180, history.py:162,
@@ -475,6 +476,12 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
   с JSON Pointer'ом — тоже mention; demo-журнал не содержит before-образов
   записей → records undo-relation на демо корректно отдаёт
   history.revision_missing (машина проверена тестами З4).
+- Решения волны 2/3 (2026-11-25): source_anchor заполнен у 2 терминов
+  (term:envelope, term:data-root → "связи" — единственный фактический раздел
+  витрин; остальные 8 витрин атомарны, поле пустое — легально по шагу 2 З9);
+  правки записей — docs edit (insert_after) поверх JSON, review-first.
+  Фрагменты mention-рёбер (З9 шаг 1, третья часть) уже несёт машина З2/З3 —
+  покрыто тестами test_mentions/test_entity_catalog_coverage.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
