@@ -191,27 +191,27 @@ updated: 2026-11-26
   record → файл → прочее; коды `markdown.anchor_not_found`,
   `markdown.record_not_found`, `markdown.pointer_invalid`.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — `[[x#раздел]]` валидный/битый якорь;
+- [x] **Шаг 1 (TDD, красные): тесты** — `[[x#раздел]]` валидный/битый якорь;
   `[..](x.md#якорь)`; `[[document:constitution]]` валидна (сегодня красная —
   битая ссылка); `[[document:no-such]]` → record_not_found;
   `[[document:plan-softdoc-profile#/relations/0]]` валидна;
   `[[document:plan-softdoc-profile#/no/such/key]]` → pointer_invalid;
   wikilink с `|alias` и `#fragment` одновременно; кириллический якорь;
   внешние URL и anchor-only не меняют поведения.
-- [ ] **Шаг 2: парсер** — `Link.fragment`, обновить `_WIKILINK_RE` (захват
+- [x] **Шаг 2: парсер** — `Link.fragment`, обновить `_WIKILINK_RE` (захват
   фрагмента), inline-target сохранить фрагмент; `resolve_link_target`
   нормализует цель без фрагмента (фрагмент — отдельное поле, не в target).
-- [ ] **Шаг 3: валидатор** — parsed-docs словарь на прогон валидации
+- [x] **Шаг 3: валидатор** — parsed-docs словарь на прогон валидации
   (P1-3: файл читается один раз); резолвинг по порядку §4; реестр record_id —
   из набора записей прогона; проверка якоря — slug'и заголовков цели из
   parsed-docs; pointer — чтение файла записи + `resolve_pointer`.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `.venv/bin/python -m pytest tests/unit/test_link_fragments.py -q` — все зелёные;
 `.venv/bin/python -m pytest -q` — 1130+N зелёных;
 `.venv/bin/todoc validate --root demo --all` — 0 диагностик.
 
-- [ ] **Шаг 5: коммит** `feat(links): фрагменты wikilink и record-цели — anchor/record/pointer валидация (T7)`
+- [x] **Шаг 5: коммит** `feat(links): фрагменты wikilink и record-цели — anchor/record/pointer валидация (T7)`
 
 ### Задача 2 (волна 1): mention-индекс (T8) + mentioned_in (T4) + mention-вершины (T6)
 
