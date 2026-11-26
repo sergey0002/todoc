@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -61,10 +62,19 @@ def _diag(path: str, code: str, message: str, line: int | None = None,
 
 
 def _key_line(text: str, key: str) -> int | None:
-    """Строка первого вхождения JSON-ключа (локальная копия логики validator._key_location)."""
+    r"""Строка первого вхождения JSON-ключа (локальная копия логики validator._key_location).
+
+    BUG-010: ключ, записанный unicode-escape ("\u006frder"), литералом не находится —
+    вторым проходом ищем посимвольную форму ``(?:c|\uXXXX)``.
+    """
     needle = f'"{key}"'
     for lineno, line in enumerate(text.splitlines(), start=1):
         if needle in line:
+            return lineno
+    pattern = re.compile('"' + "".join(f"(?:{re.escape(ch)}|\\\\u{ord(ch):04x})" for ch in key) + '"',
+                         re.IGNORECASE)
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if pattern.search(line):
             return lineno
     return None
 
@@ -258,7 +268,8 @@ def score_folder_configs(configs: dict[str, FolderConfig],
     items: list[dict[str, Any]] = []
     for cfg, s, reasons, _field_hits in raw:
         norm = round(s / max_score, 4) if max_score > 0 else 0.0
-        items.append({"path": cfg.path, "title": cfg.title, "score": norm,
+        # BUG-009: raw-величина рядом с нормированной — единственный кандидат больше не маскируется 1.0
+        items.append({"path": cfg.path, "title": cfg.title, "score": norm, "score_raw": round(s, 4),
                       "reason": "; ".join(reasons[:2]), "order": cfg.order})
     items.sort(key=lambda x: (-x["score"], x["order"] if x["order"] is not None else 10**9, x["path"]))
     candidates = [x for x in items if x["score"] >= _THRESHOLD]

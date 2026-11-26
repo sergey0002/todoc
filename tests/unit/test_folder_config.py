@@ -159,7 +159,8 @@ def test_bad_order_key_line_missing(tmp_path):
     cfgs, diags = load_folder_configs(tmp_path)
     assert cfgs == {}
     assert [x["code"] for x in diags] == ["folder.config.bad_order"]
-    assert diags[0]["location"] == {}  # _key_line вернул None
+    # BUG-010: escape-ключ "\\u006frder" теперь находится fallback-поиском
+    assert diags[0]["location"] == {"line": 1}
 
 
 def test_score_alias_words_reason(tmp_path):
