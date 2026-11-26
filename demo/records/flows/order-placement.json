@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "record_id": "flow:order-placement",
+  "entity_type": "flow",
+  "title": "Оформление заказа",
+  "actor": "Покупатель",
+  "states": [
+    "created",
+    "payment_pending",
+    "paid"
+  ],
+  "outcomes": [
+    "paid",
+    "ACC_BLOCKED",
+    "INSUFFICIENT_FUNDS",
+    "PAYMENT_RETRY"
+  ],
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": []
+}

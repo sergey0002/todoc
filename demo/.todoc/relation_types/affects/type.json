@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "type_id": "affects",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Изменение/снимок задачи/релиз затрагивают флоу или правило.",
+  "endpoints": {
+    "source": [
+      "change",
+      "task-snapshot",
+      "release"
+    ],
+    "target": [
+      "flow",
+      "rule"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "change:pilot-profil-dokumentirovaniya-softa",
+  "entity_type": "change",
+  "title": "Пилот: профиль документирования софта",
+  "status": "proposed",
+  "created_at": "2026-11-26T11:56:58Z",
+  "applied_at": null,
+  "artifacts": [],
+  "relations": [],
+  "baseline": {
+    "artifacts": {},
+    "diagnostics": []
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "rule:no-funds-v1",
+  "entity_type": "rule",
+  "title": "Недостаток средств даёт отказ оплаты",
+  "statement": "Покупатель с недостаточным балансом SHALL получать отказ оплаты с кодом INSUFFICIENT_FUNDS.",
+  "status": "active",
+  "examples": [
+    {
+      "given": "баланс покупателя меньше суммы заказа",
+      "when": "покупатель подтверждает оплату",
+      "then": "отказ INSUFFICIENT_FUNDS, заказ остаётся в payment_pending"
+    }
+  ],
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": [
+    {
+      "type_id": "belongs_to",
+      "target": {
+        "kind": "record",
+        "id": "flow:order-placement"
+      }
+    }
+  ]
+}

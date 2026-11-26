@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "record_id": "rule:account-blocked-v1",
+  "entity_type": "rule",
+  "title": "Блокировка аккаунта останавливает оплату",
+  "statement": "Покупатель с заблокированным аккаунтом SHALL не проходить оплату: заказ отклоняется с кодом ACC_BLOCKED.",
+  "status": "active",
+  "examples": [
+    {
+      "given": "аккаунт покупателя заблокирован",
+      "when": "покупатель оформляет заказ",
+      "then": "заказ отклоняется с кодом ошибки ACC_BLOCKED, оплаты нет"
+    }
+  ],
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": [
+    {
+      "type_id": "belongs_to",
+      "target": {
+        "kind": "record",
+        "id": "flow:order-placement"
+      }
+    }
+  ]
+}
