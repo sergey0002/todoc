@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "type_id": "spec-doc",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Capability-спека в нотации OpenSpec: SHALL-требования и WHEN/THEN-сценарии; дельта требований — в записи change (requirements_delta).",
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Требования",
+    "## Сценарии",
+    "## Открытые вопросы"
+  ]
+}

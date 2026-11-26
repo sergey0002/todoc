@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "release-note",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Релизная сводка: версия, задачи, затронутые флоу и правила, инциденты и фиксы. Назначается явным fm doc_type (D5).",
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Версия",
+    "## Задачи релиза",
+    "## Затронутые флоу и правила",
+    "## Инциденты и фиксы"
+  ]
+}
