@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "document:design-q01-terminal-status-guard",
+  "entity_type": "document",
+  "title": "DESIGN-Q01: терминальный статус записи — guard процедурный, движок молчит (дизайн-вопрос)",
+  "source_path": "bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": []
+}

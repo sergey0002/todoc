@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "document:design-q02-review-first-cost",
+  "entity_type": "document",
+  "title": "DESIGN-Q02: review-first двойной вызов — стоимость для агента против контроля (дизайн-вопрос)",
+  "source_path": "bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": []
+}

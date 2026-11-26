@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-014-edit-preview-no-line-numbers",
+  "entity_type": "document",
+  "title": "BUG-014: docs edit --preview не показывает нумерацию результата",
+  "source_path": "bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": [],
+  "agent_impact": [
+    "friction"
+  ],
+  "tokens_extra_est": 800
+}

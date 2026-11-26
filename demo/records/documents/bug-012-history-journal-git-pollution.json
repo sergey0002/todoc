@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-012-history-journal-git-pollution",
+  "entity_type": "document",
+  "title": "BUG-012: history-ревизии мутирующих команд загрязняют git-статус",
+  "source_path": "bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": [],
+  "agent_impact": [
+    "friction"
+  ],
+  "tokens_extra_est": 500
+}

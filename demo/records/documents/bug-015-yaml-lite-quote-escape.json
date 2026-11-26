@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-015-yaml-lite-quote-escape",
+  "entity_type": "document",
+  "title": "BUG-015: YAML-lite front matter не обрабатывает backslash-escape кавычек",
+  "source_path": "bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": [],
+  "agent_impact": [
+    "friction"
+  ],
+  "tokens_extra_est": 600
+}

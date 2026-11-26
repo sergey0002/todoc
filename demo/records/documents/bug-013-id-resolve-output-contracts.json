@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-013-id-resolve-output-contracts",
+  "entity_type": "document",
+  "title": "BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep",
+  "source_path": "bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": [],
+  "agent_impact": [
+    "friction",
+    "token_overrun"
+  ],
+  "tokens_extra_est": 1500
+}
