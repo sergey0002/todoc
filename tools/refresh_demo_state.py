@@ -33,6 +33,10 @@ REMAP = {
     "../../references/workflow.md": "../workflow.md",
 }
 
+#: Docs reference demo assets as ``../../demo/...``; from the demo copy the same
+#: file is one level shallower (``../../plan/…``, ``../../bugs/…``, …).
+DEMO_ASSET = re.compile(r"^\.\./\.\./demo/(?P<rest>.+)$")
+
 #: AFTER-plans live one level deeper in the demo dataset.
 AFTER = re.compile(r"^\.\./plan/(?P<name>[^/]+\.after\.md)$")
 
@@ -60,8 +64,11 @@ def remap_link(match: re.Match[str]) -> str:
     if target in DELINK:
         return text
     after = AFTER.match(target)
+    demo_asset = DEMO_ASSET.match(target)
     if after:
         target = f"../../plan/after/{after.group('name')}"
+    elif demo_asset:
+        target = f"../../{demo_asset.group('rest')}"
     else:
         target = REMAP.get(target, target)
     return f"[{text}]({target}{rest})"

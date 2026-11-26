@@ -46,3 +46,25 @@ def test_scan_reports_front_matter_problems(tmp_path):
     assert diags[0]["path"].endswith("docs/broken/SKILL.md")
     assert "line" in diags[0]["location"]
     assert diags[0]["suggested_fixes"]
+
+
+def test_scan_unreadable_skill_md(tmp_path):
+    d = tmp_path / "skills" / "broken"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_bytes(b"\xff\xfe\x00not-utf8")
+    skills, diags = scan_skills(tmp_path / "skills")
+    assert skills == []
+    assert any("не читается" in x["message"] for x in diags)
+
+
+def test_scan_unparseable_skill_md(tmp_path, monkeypatch):
+    d = tmp_path / "skills" / "boom"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\nname: boom\ndescription: x\n---\n\n# ok\n", encoding="utf-8")
+    import todoc.application.skills as skills_mod
+    def boom(_text):
+        raise RuntimeError("parse exploded")
+    monkeypatch.setattr(skills_mod, "parse_markdown", boom)
+    skills, diags = scan_skills(tmp_path / "skills")
+    assert skills == []
+    assert any("не парсится" in x["message"] for x in diags)
