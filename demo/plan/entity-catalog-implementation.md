@@ -257,15 +257,15 @@ mentioned_in (после З5/З7 непусто; сейчас — пусто, к
   `relations tree --from X [--type T] [--depth N]` — вложенное дерево
   (группировка по type_id, направления, mention-вершины помечены).
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — fragment в id читает секцию
+- [x] **Шаг 1 (TDD, красные): тесты** — fragment в id читает секцию
   (равен `--section`); конфликт fragment+`--section` → usage.error; tree:
   группировка, стрелки направлений, упоминания помечены, --depth/--limit
   работают.
-- [ ] **Шаг 2: docs_read** — разбор id на `{id, fragment}` до выборки.
-- [ ] **Шаг 3: tree** — над теми же данными, что graph (relations + mentions);
+- [x] **Шаг 2: docs_read** — разбор id на `{id, fragment}` до выборки.
+- [x] **Шаг 3: tree** — над теми же данными, что graph (relations + mentions);
   текст-рендер в `--output markdown` (компактные строки с отступами), JSON —
   вложенные children.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `todoc docs read --root demo --id "doc:constitution#Принципы"` — секция;
 `todoc relations tree --root demo --from document:constitution --depth 2`;

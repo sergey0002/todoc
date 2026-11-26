@@ -158,3 +158,60 @@ def graph_neighbors(relations: list[dict[str, Any]], from_id: str, type_id: str 
         if not frontier:
             break
     return result
+
+
+def build_tree(relations: list[dict[str, Any]], from_id: str, type_id: str | None = None,
+               depth: int = 1, limit: int = 100,
+               mentions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Вложенное дерево связей (план entity-catalog З3/T11).
+
+    Те же данные, что у graph (relations + mentions): рёбра каждой вершины
+    группируются по type_id, направление помечено ("out"/"in"), mention-рёбра
+    несут via "mention". Вершины не разворачиваются повторно (cycle).
+    """
+    visited = {from_id}
+    counter = {"n": 0}
+
+    def expand(node: str, level: int) -> list[dict[str, Any]]:
+        if level > depth or counter["n"] >= limit:
+            return []
+        raw: list[tuple[str, str, str, str]] = []  # (type_id, direction, id, fragment)
+        for rel in relations:
+            if type_id is not None and rel.get("type_id") != type_id:
+                continue
+            if rel.get("source_id") == node:
+                raw.append((str(rel.get("type_id")), "out", str(rel.get("target_id")), ""))
+            elif rel.get("target_id") == node:
+                raw.append((str(rel.get("type_id")), "in", str(rel.get("source_id")), ""))
+        if type_id in (None, "mention"):
+            for m in mentions or []:
+                if m.get("target") == node:
+                    raw.append(("mention", "out", str(m.get("source_file")), str(m.get("source_fragment", ""))))
+                elif m.get("source_file") == node:
+                    raw.append(("mention", "out", str(m.get("target")), str(m.get("source_fragment", ""))))
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for type_, direction, other, fragment in raw:
+            groups.setdefault(type_, []).append({"direction": direction, "id": other, "fragment": fragment})
+        result: list[dict[str, Any]] = []
+        for type_ in sorted(groups):
+            edges: list[dict[str, Any]] = []
+            for item in groups[type_]:
+                if counter["n"] >= limit:
+                    return result + [{"type_id": type_, "edges": edges, "truncated": True}] if edges else result
+                counter["n"] += 1
+                edge: dict[str, Any] = {"direction": item["direction"], "id": item["id"]}
+                if type_ == "mention":
+                    edge["via"] = "mention"
+                    if item["fragment"]:
+                        edge["fragment"] = item["fragment"]
+                if item["id"] in visited:
+                    edge["cycle"] = True
+                else:
+                    visited.add(item["id"])
+                    if level < depth:
+                        edge["children"] = expand(item["id"], level + 1)
+                edges.append(edge)
+            result.append({"type_id": type_, "edges": edges})
+        return result
+
+    return {"root": from_id, "groups": expand(from_id, 1), "truncated": counter["n"] >= limit}
