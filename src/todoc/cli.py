@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -22,7 +23,7 @@ from todoc.application.history import (add_tag, blame as history_blame, content_
                                        adopt as history_adopt_run, journal_diagnostics,
                                        log as history_log, resolve_rev,
                                        revert_plan, show as history_show)
-from todoc.application.changes import (apply_change, archive_change, change_id_for,
+from todoc.application.changes import (TRANSLIT, apply_change, archive_change, change_id_for,
                                        collect_deltas, list_changes, load_change,
                                        open_change, record_path, revert_change,
                                        validate_change, verify_change)
@@ -397,11 +398,15 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
         # узлы строятся только из префиксов показанных секций — отсечка не нужна
         own = sorted(sections.get(node, []), key=lambda x: x["path"].lstrip("!"))
         meta = sec_meta.get(node) or {}
-        if node and (own or meta):  # узел печатаем, если в нём есть скилы или у папки есть конфиг
+        # BUG-008: счётчик раздела каскадный — own + все скилы подразделов; узел с
+        # непустым поддеревом печатается, даже если собственных скилов/конфига нет
+        cascade = sum(len(v) for k, v in sections.items()
+                      if k == node or k.startswith(node + "/"))
+        if node and (own or meta or cascade):
             label = f"{node.split('/')[-1]}/"
             if meta.get("title"):
                 label += f" — {meta['title']}" + (f": {meta['description']}" if meta.get("description") else "")
-            lines.append("  " * depth + f"{label} ({len(own)})")
+            lines.append("  " * depth + f"{label} ({cascade})")
         for s in own:
             label = f"[!] {s['name']}" if s["muted"] else s["name"]
             lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
@@ -1159,8 +1164,11 @@ def docs(ctx: click.Context) -> None:
 
 
 def _slugify(title: str) -> str:
-    """Filesystem-safe slug from a title (letters, digits, dash, underscore)."""
-    return "".join(c if c.isalnum() or c in "-_" else "-" for c in title.lower()).strip("-") or "untitled"
+    """Слаг файла из заголовка (BUG-006): транслитерация кириллицы, [a-z0-9-], латиница."""
+    lowered = title.strip().lower()
+    translit = "".join(TRANSLIT.get(ch, ch) for ch in lowered)
+    slug = re.sub(r"[^a-z0-9]+", "-", translit).strip("-")
+    return slug or "untitled"
 
 
 def _utc_date() -> str:
@@ -1304,12 +1312,24 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
                     end_line = h.line - 1
                     break
             section_lines = lines[selected.line - 1:end_line]
-            window = section_lines[:SECTION_MAX_LINES]
+            if budget is not None:
+                # BUG-005: --budget ограничивает окно секции в байтах вместо молчаливого игнора
+                window: list[str] = []
+                used = 0
+                for ln in section_lines:
+                    cost = len(ln.encode("utf-8")) + 1
+                    if window and used + cost > budget:
+                        break
+                    window.append(ln)
+                    used += cost
+            else:
+                window = section_lines[:SECTION_MAX_LINES]
             data["section"] = selected.title
             data["heading_path"] = heading_path_for(md.headings, selected_index)
             data["line_start"] = selected.line
             data["line_end"] = selected.line + len(window) - 1
             data["lines"] = window
+            data["section_total_lines"] = len(section_lines)
             data["truncated"] = len(section_lines) > len(window)
             data["text"] = "\n".join(window)
         elif line_range:
