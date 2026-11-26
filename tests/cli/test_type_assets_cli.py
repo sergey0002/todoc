@@ -58,7 +58,10 @@ def test_docs_new_uses_the_type_template(root):
     assert data["doc_type"] == "spec"
     assert data["template"] == ".todoc/doc_types/spec/template.md"
     text = (root / data["path"]).read_text(encoding="utf-8")
-    assert text.startswith("# Оплата\n")
+    # план doc-tags З3: fm-блок сверху, тело шаблона как было
+    assert text.startswith("---\nid: doc:specs/oplata.md\ntitle: \"Оплата\"\ndoc_type: spec\nlang: ru\n")
+    assert "created: " in text and "updated: " in text
+    assert "# Оплата\n" in text
     assert "`spec`" in text and "doc:specs/" in text
     assert "{date}" not in text and "{id}" not in text
 
