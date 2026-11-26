@@ -32,7 +32,7 @@ tags: [references, reference, состояние, продукта]
 | Покрытие | 100% — 4570 инструкций, 1676 веток, 0 пропусков | `coverage run --branch` + `coverage report -m` |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` | `pyproject.toml` |
 | Python | 3.11.2 | `todoc doctor` |
-| Демо-датасет | 425 документов, 198 записей, 0 диагностик | `todoc validate --root demo --all` |
+| Демо-датасет | 439 документов, 205 записей, 0 диагностик | `todoc validate --root demo --all` |
 
 ## Что реализовано (проверено прогоном)
 

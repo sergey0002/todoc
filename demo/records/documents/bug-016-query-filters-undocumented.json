@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-016-query-filters-undocumented",
+  "entity_type": "document",
+  "title": "BUG-016: фильтры records query не документированы в справках",
+  "source_path": "bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "bug-report",
+    "session-2026-11-26"
+  ],
+  "relations": [],
+  "agent_impact": [
+    "friction"
+  ]
+}
