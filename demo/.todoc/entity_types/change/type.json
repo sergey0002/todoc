@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "type_id": "change",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Изменение: движок-контракт жизненного цикла (application/changes.py) плюс опциональная OpenSpec-дельта требований (requirements_delta SHALL).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title"
+  ],
+  "path_template": "changes/{slug}/change.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "title",
+      "status"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

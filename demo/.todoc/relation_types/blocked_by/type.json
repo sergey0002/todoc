@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "type_id": "blocked_by",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Изменение заблокировано другим изменением (пишется движком change open --blocked-by).",
+  "endpoints": {
+    "source": [
+      "change"
+    ],
+    "target": [
+      "change"
+    ]
+  }
+}
