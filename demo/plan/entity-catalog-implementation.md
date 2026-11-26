@@ -285,20 +285,20 @@ Run: `todoc docs read --root demo --id "doc:constitution#Принципы"` — 
   [--expected-hash H]`; коды: `history.revision_missing`, `edit.relation_missing`
   (указатель вне текущего массива), usage-ошибки клика.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — план: ребро добавлено последней
+- [x] **Шаг 1 (TDD, красные): тесты** — план: ребро добавлено последней
   ревизией → «до: ребро отсутствовало»; ребро изменено → прежний target;
   рёбер в журнале нет (чистый журнал) → `history.revision_missing`;
   `--pointer /relations/99` → `edit.relation_missing`; apply восстанавливает
   (validate = 0, новая ревизия в журнале, CAS конфликт без expected-hash
   при расхождении).
-- [ ] **Шаг 2: план** — скан событий файла записи новейшие→старейшие;
+- [x] **Шаг 2: план** — скан событий файла записи новейшие→старейшие;
   `content_at` → JSON → массив `relations`; идентичность ребра =
   type_id + target.id; первое отличие от текущего → прежнее состояние
   (значение | отсутствовало).
-- [ ] **Шаг 3: apply** — собрать новый текст (обратный дифф только relations,
+- [x] **Шаг 3: apply** — собрать новый текст (обратный дифф только relations,
   остальной JSON байт-в-байт прежнего форматирования сохраняется), atomic_write,
   journal event, CAS по expected-hash; preview без `--apply`.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `todoc records undo-relation --root demo --id < pilot> --pointer /relations/0`
 — план; `--apply --expected-hash …` — применено; `validate` = 0;

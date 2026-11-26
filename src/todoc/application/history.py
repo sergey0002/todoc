@@ -201,6 +201,57 @@ def content_at(root: Path, rev: str | None, rel_path: str, backend: Any | None =
     return None, "missing"
 
 
+def relation_identity(edge: dict[str, Any]) -> tuple[str, str]:
+    """Идентичность ребра = type_id + target.id (план entity-catalog З4, T3)."""
+    target = edge.get("target") if isinstance(edge.get("target"), dict) else {}
+    return (str(edge.get("type_id", "")), str(target.get("id", "")))
+
+
+def previous_relation_state(root: Path, rel_path: str, pointer_index: int,
+                            current_edge: dict[str, Any],
+                            current_relations: list[Any]) -> dict[str, Any] | None:
+    """Прежнее состояние ребра по журналу (план entity-catalog З4, T3).
+
+    Скан событий файла новейшие→старейшие. Сначала поиск ребра с той же
+    идентичностью: идентичное значение — ребро ещё не менялось, идём старше;
+    отличающееся — прежнее значение. Если такой идентичности нет ни в одной
+    версии, берём первую версию с отличающимся массивом relations: ребро на
+    позиции N там — прежнее значение (ребро изменено), при коротком массиве —
+    «ребро отсутствовало» (добавлено последней ревизией).
+
+    None — журнал не даёт прежнего состояния (ревизий нет).
+    """
+    identity = relation_identity(current_edge)
+    for event in reversed(journal.read_events(root)):
+        for item in event.get("paths") or []:
+            if not isinstance(item, dict) or item.get("path") != rel_path or not item.get("before"):
+                continue
+            before = objects.read_snapshot(root, item["before"])
+            if before is None:
+                continue
+            try:
+                old = json.loads(before.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError):
+                continue
+            old_relations = old.get("relations") if isinstance(old, dict) else None
+            if not isinstance(old_relations, list):
+                old_relations = []
+            for old_edge in old_relations:
+                if isinstance(old_edge, dict) and relation_identity(old_edge) == identity:
+                    if old_edge == current_edge:
+                        break  # не менялось в этой версии — смотрим старше
+                    return {"state": "value", "value": old_edge,
+                            "rev": event.get("rev"), "at": event.get("at")}
+            else:
+                # идентичности нет: первая версия с отличающимся массивом —
+                # ребро на позиции pointer_index там прежнее (или его не было)
+                if old_relations != current_relations:
+                    value = old_relations[pointer_index] if pointer_index < len(old_relations) else None
+                    return {"state": "value" if value is not None else "absent",
+                            "value": value, "rev": event.get("rev"), "at": event.get("at")}
+    return None
+
+
 def resolve_rev(root: Path, rev_or_tag: str) -> str | None:
     """Разрешает имя тега в ``rev``; сам ``rev`` возвращается как есть."""
     refs = read_refs(root)

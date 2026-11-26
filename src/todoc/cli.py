@@ -38,8 +38,9 @@ from todoc.application.staleness import check_all, collect_owners, current_hashe
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
 from todoc.application.validator import (_basename_index, _entity_types_of,
                                          _load_schemas, _wikilink_candidates, stable_id)
-from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
-                                   create_record_plan, load_input_record)
+from todoc.application.write import (apply_edit_ops, apply_fix, apply_undo_relation, apply_write_plan,
+                                     create_document_plan, create_record_plan, load_input_record,
+                                     plan_undo_relation)
 from todoc.config import init_dataset
 from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError,
                           ConflictError, TodocError, ValidationError)
@@ -1569,6 +1570,34 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
     new_hash = apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
     ctx.ensure_index()
     _emit_ok({"dataset_id": ctx.dataset_id, "created": plan.target_path, "new_hash": new_hash}, output, None)
+
+
+@records.command("undo-relation")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--id", "record_id", required=True)
+@click.option("--pointer", required=True, help="Путь ребра: /relations/N")
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--expected-hash", default=None)
+def records_undo_relation(roots: tuple[str, ...], output: str, no_input: bool, record_id: str,
+                          pointer: str, apply_: bool, expected_hash: str | None) -> None:
+    """Точечный откат ребра из ревизий журнала (preview по умолчанию)."""
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    record = next((r for r in payload["records"] if r["record_id"] == record_id), None)
+    if record is None:
+        raise ValidationError(f"Record not found: {record_id}", "records.not_found")
+    plan = plan_undo_relation(ctx.root, record["path"], pointer)
+    if not apply_:
+        _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan}, output, None)
+        return
+    new_hash = apply_undo_relation(ctx.root, record["path"], pointer, plan["previous"],
+                                   expected_hash=expected_hash, history=ctx.history_recorder())
+    ctx.ensure_index()
+    _emit_ok({"dataset_id": ctx.dataset_id, "applied": True, "path": record["path"],
+              "pointer": pointer, "mode": plan["mode"], "new_hash": new_hash,
+              "undone_rev": plan.get("rev")}, output, None)
 
 
 @records.command("list")
