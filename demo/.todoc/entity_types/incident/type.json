@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "type_id": "incident",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Разрешённый баг: симптом, причина, урок. Блеймлесс: причины — системные факторы; документ-разбор живёт отдельно (postmortem).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "symptom",
+    "root_cause",
+    "lesson",
+    "origin"
+  ],
+  "path_template": "records/incidents/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "title",
+      "verification"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

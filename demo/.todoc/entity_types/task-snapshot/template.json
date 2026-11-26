@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "record_id": "task-snapshot:KEY-1",
+  "entity_type": "task-snapshot",
+  "title": null,
+  "jira_key": null,
+  "status_at_fetch": null,
+  "url": null,
+  "fetched_at": null,
+  "origin": {
+    "task": null,
+    "project": null,
+    "external_id": null
+  },
+  "relations": []
+}

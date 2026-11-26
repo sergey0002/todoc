@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "record_id",
+    "entity_type",
+    "title",
+    "symptom",
+    "root_cause",
+    "lesson",
+    "origin"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^incident:[a-z0-9][a-z0-9-]*$"
+    },
+    "entity_type": {
+      "const": "incident"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 300
+    },
+    "symptom": {
+      "type": "string",
+      "minLength": 5,
+      "description": "Что видел пользователь/дежурный."
+    },
+    "root_cause": {
+      "type": "string",
+      "minLength": 5,
+      "description": "Системная причина, не персональная."
+    },
+    "lesson": {
+      "type": "string",
+      "minLength": 5,
+      "description": "Урок: что изменить в процессах/коде."
+    },
+    "verification": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "verified",
+        "partial",
+        "failed",
+        null
+      ]
+    },
+    "origin": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "project": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "external_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type_id",
+          "target"
+        ],
+        "properties": {
+          "type_id": {
+            "type": "string"
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

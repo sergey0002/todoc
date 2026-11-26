@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "type_id": "task-snapshot",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Снимок задачи Jira: живая истина — в трекере; origin.task — поле, не ребро (связки, не копии).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "jira_key",
+    "status_at_fetch",
+    "url",
+    "fetched_at",
+    "origin"
+  ],
+  "path_template": "records/tasks/{slug}.json",
+  "views": {
+    "summary": [
+      "record_id",
+      "jira_key",
+      "status_at_fetch"
+    ],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}
