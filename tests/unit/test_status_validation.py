@@ -108,3 +108,20 @@ def test_task_enum_rejects_unknown_status(root):
     diags, _info = _validate(root)
     bad = [d for d in diags if d.code == "record.schema_violation"]
     assert any(d.location.get("pointer") == "/status" for d in bad), bad
+
+
+def test_allowed_statuses_bad_shape_is_config_diagnostic(root):
+    # shape-валидация дескриптора: не-список / пустой / не-строки → config.invalid_schema
+    import json as _json
+    from todoc.typing_system.descriptors import descriptor_diagnostics
+    descriptor = {"schema_version": 1, "type_id": "idea", "version": "0.1", "kind": "doc_type",
+                  "description": "Идея.", "allowed_statuses": "captured"}
+    diags = descriptor_diagnostics(root, {"dataset_id": "d"}, "doc_type", descriptor, "x/type.json")
+    assert any(d["code"] == "config.invalid_schema" and "allowed_statuses" in d["message"] for d in diags)
+    for bad in ([], ["captured", ""], [1, 2]):
+        descriptor["allowed_statuses"] = bad
+        diags = descriptor_diagnostics(root, {"dataset_id": "d"}, "doc_type", descriptor, "x/type.json")
+        assert any(d["code"] == "config.invalid_schema" for d in diags), bad
+    descriptor["allowed_statuses"] = ["captured", "planned"]
+    diags = descriptor_diagnostics(root, {"dataset_id": "d"}, "doc_type", descriptor, "x/type.json")
+    assert not any(d["code"] == "config.invalid_schema" for d in diags)

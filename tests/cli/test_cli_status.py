@@ -173,3 +173,37 @@ def test_records_status_not_found(tmp_path):
     r = _run(runner, ["records", "status", "--root", str(tmp_path), "--id", "task:ghost"])
     assert r.exit_code != 0
     assert "records.not_found" in getattr(r.exception, "code", str(r.exception))
+
+
+def test_docs_status_set_rejects_padded_value(tmp_path):
+    # docs status: значение с обрамляющими пробелами/переводом строки → usage.error
+    runner = CliRunner()
+    _init_with_types(runner, tmp_path)
+    r = _run(runner, ["docs", "status", "--root", str(tmp_path),
+                      "--id", "doc:idea-x", "--set", " planned "])
+    assert r.exit_code != 0
+    assert getattr(r.exception, "code", "") == "usage.error"
+
+
+def test_records_status_with_schemaless_type_sets_openly(tmp_path):
+    # запись типа без схемы/enum: сет любого статуса легален (набор не объявлен)
+    runner = CliRunner()
+    _init_with_types(runner, tmp_path)
+    (tmp_path / ".todoc" / "entity_types" / "task" / "schema.json").unlink()
+    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    r = _run(runner, ["records", "status", "--root", str(tmp_path),
+                      "--id", "task:demo-1", "--set", "paused"])
+    assert r.exit_code == 0, r.output
+    assert _json(r)["data"]["status"] == "paused"
+
+
+def test_records_status_set_rejects_padded_value(tmp_path):
+    # records status: значение с обрамляющими пробелами → usage.error, файл не тронут
+    runner = CliRunner()
+    _init_with_types(runner, tmp_path)
+    before = (tmp_path / "tasks" / "demo-1.json").read_text(encoding="utf-8")
+    r = _run(runner, ["records", "status", "--root", str(tmp_path),
+                      "--id", "task:demo-1", "--set", " open "])
+    assert r.exit_code != 0
+    assert getattr(r.exception, "code", "") == "usage.error"
+    assert (tmp_path / "tasks" / "demo-1.json").read_text(encoding="utf-8") == before
