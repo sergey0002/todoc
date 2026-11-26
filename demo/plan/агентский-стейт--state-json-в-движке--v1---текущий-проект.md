@@ -79,7 +79,7 @@ status: active
   Ошибки: `state.unknown_key`, `state.invalid_value`, `state.limit_exceeded`,
   `state.file_unavailable`.
 
-- [ ] **Шаг 1: написать падающие тесты** (контракт из Produces выше)
+- [x] **Шаг 1: написать падающие тесты** (контракт из Produces выше)
 
 ```python
 def test_set_get_roundtrip(tmp_path, monkeypatch):
@@ -99,24 +99,24 @@ def test_missing_file_returns_empty(tmp_path, monkeypatch):
     assert get_var("dataset-x", "context.current_project") is None
 ```
 
-- [ ] **Шаг 2: убедиться, что тесты падают**
+- [x] **Шаг 2: убедиться, что тесты падают**
 
 Run: `python -m pytest tests/unit/test_state.py -v`
 Expected: FAIL/ERROR — модуля `todoc.application.state` не существует
 
-- [ ] **Шаг 3: реализовать `state.py`** — сигнатуры из Produces; файл
+- [x] **Шаг 3: реализовать `state.py`** — сигнатуры из Produces; файл
   `{"schema_version": 1, "vars": {...}, "updated_at": ISO-8601 UTC}`;
   ключ проверяется по `ALLOWED_KEYS_V1` → `ValidationError("...", "state.unknown_key")`;
   значение — `str`, 1–256 символов → `state.invalid_value`; >200 ключей или файл
   >64 КБ → `state.limit_exceeded`; запись `atomic_write`
   (родительский каталог создаёт сама); недоступный путь → `state.file_unavailable` с путём в сообщении.
 
-- [ ] **Шаг 4: убедиться, что тесты проходят**
+- [x] **Шаг 4: убедиться, что тесты проходят**
 
 Run: `python -m pytest tests/unit/test_state.py -v`
 Expected: PASS — все тесты нового файла
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/state.py tests/unit/test_state.py
@@ -139,7 +139,7 @@ git commit -m "feat(state): ядро хранилища стейта (set/get/un
   `--root/--output json/--no-input` (конвенция движка). Имя группы `state`
   свободно — конфликтов с 26 существующими командами нет (проверено `--help`).
 
-- [ ] **Шаг 1: написать падающие CLI-тесты**
+- [x] **Шаг 1: написать падающие CLI-тесты**
 
 ```python
 import json
@@ -165,24 +165,24 @@ def test_state_set_get_roundtrip(tmp_path, monkeypatch):
     assert json.loads(r2.output)["data"]["value"] == "shop"
 ```
 
-- [ ] **Шаг 2: убедиться, что тесты падают**
+- [x] **Шаг 2: убедиться, что тесты падают**
 
 Run: `python -m pytest tests/cli/test_cli_state.py -v`
 Expected: FAIL — команды `state` нет (exit_code != 0, «No such command»)
 
-- [ ] **Шаг 3: реализовать группу `state` в `cli.py`** — `@cli.group("state")` с 4
+- [x] **Шаг 3: реализовать группу `state` в `cli.py`** — `@cli.group("state")` с 4
   подкомандами; `--root` мульти-конвенция как у соседних команд; `dataset_id`
   читается из `.todoc/dataset.json` (нет файла → существующая ошибка инициализации);
   вывод: set → `{ok, key, value, updated_at}`, get → `{ok, key, value|null}`,
   list → `{ok, vars}`, unset → `{ok, key, removed}`; `TodocError` → стандартная
   JSON-диагностика с кодами `state.*` и не-нулевым кодом возврата.
 
-- [ ] **Шаг 4: убедиться, что тесты проходят и ничего не сломано**
+- [x] **Шаг 4: убедиться, что тесты проходят и ничего не сломано**
 
 Run: `python -m pytest tests/cli/test_cli_state.py tests/cli -v`
 Expected: PASS — новые и существующие CLI-тесты
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_state.py
@@ -201,24 +201,24 @@ git commit -m "feat(state): CLI-группа state set/get/list/unset с JSON-в
 - Consumes: фактическое число команд `todoc --help`.
 - Produces: согласованные счётчики в 3 файлах.
 
-- [ ] **Шаг 1: пересчитать и обновить счётчики** (26 → 30 после +4 подкоманд;
+- [x] **Шаг 1: пересчитать и обновить счётчики** (26 → 30 после +4 подкоманд;
   26 подтверждено аудитом: `todoc --help` и README.md)
 
 Run: `todoc --help | sed -n '/Commands:/,$p' | grep -c "^  [a-z]"`; править все
 вхождения счётчика (`grep -rn "Команд CLI\|команд" README.md demo/references/state/`)
 Expected: одно и то же число в README и 03-cli-reference
 
-- [ ] **Шаг 2: убедиться, что демо не затронуто**
+- [x] **Шаг 2: убедиться, что демо не затронуто**
 
 Run: `git status --short demo/` и `todoc validate --root demo --all`
 Expected: `demo/` чист, 0 диагностик
 
-- [ ] **Шаг 3: полный прогон**
+- [x] **Шаг 3: полный прогон**
 
 Run: `coverage run -m pytest && coverage report`
 Expected: все тесты зелёные, покрытие 100%, 0 пропусков
 
-- [ ] **Шаг 4: коммит**
+- [x] **Шаг 4: коммит**
 
 ```bash
 git add README.md demo/references/state/03-cli-reference.md
@@ -227,14 +227,14 @@ git commit -m "docs: счётчики CLI после добавления гру
 
 ## 6. Definition of Done
 
-- [ ] Все чекбоксы задач 1–3 отмечены; каждая задача уехала отдельным коммитом.
-- [ ] `pytest` — все зелёные (1084 + 10–15 новых); новый код — 100% покрытие;
+- [x] Все чекбоксы задач 1–3 отмечены; каждая задача уехала отдельным коммитом.
+- [x] `pytest` — все зелёные (1084 + 10–15 новых); новый код — 100% покрытие;
       метрики README (тесты/покрытие) синхронизированы по факту.
-- [ ] `todoc state set/get/list/unset` работают на демо; файл стейта вне репозитория;
+- [x] `todoc state set/get/list/unset` работают на демо; файл стейта вне репозитория;
   `git status demo/` чист.
-- [ ] `state.unknown_key` на чужом ключе; не-ноль exit; JSON-диагностика.
-- [ ] `todoc validate --root demo --all` — 0 диагностик; счётчики CLI согласованы (README + 03-cli-reference).
-- [ ] Спека (идея agent-state, фазы 1–2 и «План CLI») покрыта задачами — пробелов нет.
+- [x] `state.unknown_key` на чужом ключе; не-ноль exit; JSON-диагностика.
+- [x] `todoc validate --root demo --all` — 0 диагностик; счётчики CLI согласованы (README + 03-cli-reference).
+- [x] Спека (идея agent-state, фазы 1–2 и «План CLI») покрыта задачами — пробелов нет.
 
 ## 7. Риски и митигации
 
@@ -270,5 +270,17 @@ git commit -m "docs: счётчики CLI после добавления гру
   demo/records нет — это конвенция, запись плана не создаётся. Отклонений
   семантики идеи нет: фазы 1–2 покрывают все задачи, DoD полон.
 
+
+- 2026-11-25 — план исполнен (Задачи 1–3, TDD, коммит на задачу: ac205c8 / 2de546c /
+  закрывающий). pytest 1117 зелёных по замеру (+25 state-тестов: 18 unit + 7 CLI);
+  state.py — 100% покрытие; непокрытое в cli.py — старые ветки docs links (вне
+  скоупа). Отклонение Задачи 3, шаг 1: план ожидал 26→30 (+4 подкоманды как
+  отдельные строки счётчика), фактически счётчик «Команд CLI» — верхний уровень
+  `--help` (группы и одиночные команды) — 26→27; подкоманды видны в `state --help`
+  и внесены отдельной секцией справочника. Урок BUG-003 применён: числа README от
+  замера (тесты 1084→1117, покрытие 5186→5300 инструкций / 1920→1932 веток, 99%).
+  Приёмы file_unavailable: «каталог»-файл (NotADirectoryError ⊂ OSError — работает
+  и под root) для load/mkstemp + chmod 0o500 для ветки _save (uid 1001). Демо-данные
+  не затронуты; validate 0. Фазы 3–5 идеи — вне скоупа v1.
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
