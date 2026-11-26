@@ -19,9 +19,8 @@ description: "Use when the user says "save this idea / put it as a todo / take a
 
 ## Procedure
 
-1. Маршрутизация по формулировке: идея → `docs new --type idea`; дело → `records create --type task`; заметка → `docs new` (note).
 2. Проверка дублей: `todoc docs search --root KB --query "<тема>" --type idea` — топ-3 выдачи; совпадение есть → уточнить у пользователя: новая запись или дополнить существующую (docs edit).
-3. Создание идеи: `todoc docs new --root KB --type idea --title "<Название>" --path ideas/<slug>.md` → заполнить Суть/Проблема/Предложение по шаблону (docs edit --patch-file: --preview → --apply).
+3. Создание идеи: `todoc docs new --root KB --type idea --title "<Название>" --path ideas/<slug>.md` → заполнить Суть/Проблема/Предложение по шаблону и вписать `status: captured` в front matter (docs edit --patch-file: --preview → --apply; docs new не пишет статус, а docs status --set не добавляет поле молча).
 4. Создание TODO: минимальный payload — `title` + `source: user` + `status: open`, без выдуманных полей; `todoc records create --root KB --type task --input-file draft.json --preview` → `--apply`.
 5. Финал: `todoc validate --root KB --all` — 0 диагностик; ответить пользователю id созданного (doc:… / task:…).
 
