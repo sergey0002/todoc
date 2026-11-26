@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "subtask_of",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Дочерняя задача в составе родительской задачи (task → task)."
+}

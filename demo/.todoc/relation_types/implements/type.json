@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "implements",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Задача/документ реализует план, идею или спеку (машино-ребро: task → document-запись плана)."
+}
