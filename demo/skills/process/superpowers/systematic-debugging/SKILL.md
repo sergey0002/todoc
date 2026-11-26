@@ -1,6 +1,13 @@
 ---
 name: systematic-debugging
 description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+id: doc:skills/process/superpowers/systematic-debugging/SKILL.md
+title: "Systematic Debugging"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, systematic, debugging]
 ---
 
 # Systematic Debugging

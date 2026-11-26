@@ -10,6 +10,9 @@ component: cli
 agent_impact: friction
 tokens_extra_est: 400
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, собственных, показывает]
 ---
 
 # BUG-008: skills tree показывает счётчик только собственных скилов раздела

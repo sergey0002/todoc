@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/task-reviewer-prompt.md
+title: "Task Reviewer Prompt Template"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, reviewer, template]
+---
+
 # Task Reviewer Prompt Template
 
 Use this template when dispatching a task reviewer subagent. The reviewer

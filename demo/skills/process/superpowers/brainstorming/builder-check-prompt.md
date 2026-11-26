@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/brainstorming/builder-check-prompt.md
+title: "Builder Check Prompt"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, builder, prompt]
+---
+
 # Builder Check Prompt
 
 Dispatch a fresh general-purpose subagent with this prompt once the

@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/implementer-prompt.md
+title: "Implementer Subagent Prompt Template"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, implementer, subagent]
+---
+
 # Implementer Subagent Prompt Template
 
 Use this template when dispatching an implementer subagent.

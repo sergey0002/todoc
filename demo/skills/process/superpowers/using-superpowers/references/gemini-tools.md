@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/using-superpowers/references/gemini-tools.md
+title: "Gemini CLI Tool Mapping"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, mapping, gemini]
+---
+
 # Gemini CLI Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Gemini CLI these resolve to the tools below.

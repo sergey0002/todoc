@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/type-system.generated.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, generated, system]
 ---
 
 # Type system (generated)

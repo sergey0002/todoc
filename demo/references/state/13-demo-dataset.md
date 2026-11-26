@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/13-demo-dataset.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, датасет]
 ---
+
 # 13. Демо-датасет `demo/`
 
 `demo/` — полноценный DATA_ROOT, созданный командой `todoc init` и расширенный вручную:

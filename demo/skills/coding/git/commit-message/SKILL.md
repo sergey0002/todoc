@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: commit-message
 description: "Пишет commit message из staged diff по конвенции репозитория. Use when committing."
+created: 2026-11-26
+tags: [skill, agent-skill, message, commit]
 ---
 
 # Скил: commit message из staged diff

@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: code-review
 description: "Ревью дифа по чеклисту: безопасность, обработка ошибок, тесты, стиль репо. Use when reviewing a diff."
+created: 2026-11-26
+tags: [skill, agent-skill, ревью, дифа]
 ---
 
 # Скил: ревью дифа

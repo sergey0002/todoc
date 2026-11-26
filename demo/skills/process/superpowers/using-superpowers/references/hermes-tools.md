@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/using-superpowers/references/hermes-tools.md
+title: "Hermes Agent Tool Mapping"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, mapping, hermes]
+---
+
 # Hermes Agent Tool Mapping
 
 Skills speak in actions ("dispatch a subagent", "create a todo", "read a file"). On Hermes Agent these resolve to the tools below.

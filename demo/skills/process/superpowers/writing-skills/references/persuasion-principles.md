@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/persuasion-principles.md
+title: "Persuasion Principles for Skill Design"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, persuasion, principles]
+---
+
 # Persuasion Principles for Skill Design
 
 ## Overview

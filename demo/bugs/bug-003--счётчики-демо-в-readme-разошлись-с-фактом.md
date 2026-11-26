@@ -10,6 +10,9 @@ agent_impact: friction
 tokens_extra_est: 2000
 component: docs
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, разошлись, счётчики]
 ---
 
 # BUG-003: Счётчики демо в README разошлись с фактом

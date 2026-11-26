@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/fix-loop.md
+title: "The Fix Loop"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, loop, fix]
+---
+
 # The Fix Loop
 
 Part of superpowers:subagent-driven-development. The task review reported

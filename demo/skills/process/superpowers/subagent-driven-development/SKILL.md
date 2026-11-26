@@ -1,6 +1,13 @@
 ---
 name: subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
+id: doc:skills/process/superpowers/subagent-driven-development/SKILL.md
+title: "Subagent-Driven Development"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, development, subagent]
 ---
 
 # Subagent-Driven Development

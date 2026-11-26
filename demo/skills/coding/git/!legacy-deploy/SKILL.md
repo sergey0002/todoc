@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: legacy-deploy
 description: "Мьютнутый скил: деплой на legacy-стенд. Исключён из дерева и поиска; включается --all."
+created: 2026-11-26
+tags: [skill, agent-skill, замьючен, legacy]
 ---
 
 # Скил: деплой legacy-стенда (замьючен)

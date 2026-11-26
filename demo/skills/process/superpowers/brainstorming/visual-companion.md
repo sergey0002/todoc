@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/brainstorming/visual-companion.md
+title: "Visual Companion Guide"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, companion, visual]
+---
+
 # Visual Companion Guide
 
 Browser-based visual brainstorming companion for showing mockups, diagrams, and options.

@@ -1,3 +1,13 @@
+---
+id: doc:skills/docs/todoc-docs/references/query-cheatsheet.md
+title: "Шпаргалка: поиск и чтение KB (todoc)"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, шпаргалка, чтение]
+---
+
 # Шпаргалка: поиск и чтение KB (todoc)
 
 | Задача | Команда |

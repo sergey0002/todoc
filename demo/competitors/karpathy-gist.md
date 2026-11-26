@@ -5,6 +5,9 @@ doc_type: competitor-card
 lang: ru
 category: llm-wiki
 portability: files-only
+created: 2026-11-26
+updated: 2026-11-26
+tags: [competitors, competitor-card, karpathy, gist]
 ---
 
 # Karpathy LLM Wiki gist

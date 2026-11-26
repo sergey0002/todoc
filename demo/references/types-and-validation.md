@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/types-and-validation.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, validation, types]
 ---
 
 # Types and validation

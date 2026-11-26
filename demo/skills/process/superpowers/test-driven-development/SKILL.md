@@ -1,6 +1,13 @@
 ---
 name: test-driven-development
 description: Use when implementing any feature or bugfix, before writing implementation code
+id: doc:skills/process/superpowers/test-driven-development/SKILL.md
+title: "Test-Driven Development (TDD)"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, development, driven]
 ---
 
 # Test-Driven Development (TDD)

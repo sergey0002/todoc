@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/using-superpowers/references/claude-code-tools.md
+title: "Claude Code Tool Notes"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, claude, notes]
+---
+
 # Claude Code Tool Notes
 
 Claude Code is the reference harness: skills speak its vocabulary

@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/11-known-issues.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, известные, состояние]
 ---
+
 # 11. Известные проблемы
 
 Каждый пункт проверен запуском команды 2026-11-25; приведено воспроизведение. Полный исторический

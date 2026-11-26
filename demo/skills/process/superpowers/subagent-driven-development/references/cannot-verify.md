@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/cannot-verify.md
+title: "\"Cannot Verify From Diff\" Items"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, cannot, verify]
+---
+
 # "Cannot Verify From Diff" Items
 
 Part of superpowers:subagent-driven-development.

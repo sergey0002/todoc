@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: security-review
 description: "Аудит изменений на секреты, недоверенные install-скрипты и опасные зависимости. Use before merging external code."
+created: 2026-11-26
+tags: [skill, agent-skill, зависимостей, секретов]
 ---
 
 # Скил: аудит зависимостей и секретов

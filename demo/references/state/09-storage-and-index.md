@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/09-storage-and-index.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, поколения, состояние]
 ---
+
 # 09. Хранилище: индекс, снимок, кэш
 
 ## Разделение «истина» и «производное»

@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: release
 description: "Режет релиз: changelog, тег и release notes по конвенции репозитория. Use when cutting a release."
+created: 2026-11-26
+tags: [skill, agent-skill, changelog, релизный]
 ---
 
 # Скил: релизный срез

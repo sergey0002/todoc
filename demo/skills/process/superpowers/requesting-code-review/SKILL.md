@@ -1,6 +1,13 @@
 ---
 name: requesting-code-review
 description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
+id: doc:skills/process/superpowers/requesting-code-review/SKILL.md
+title: "Requesting Code Review"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, requesting, review]
 ---
 
 # Requesting Code Review

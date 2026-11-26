@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/references/session-discovery.md
+title: "Discover the session history"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, discover, history]
+---
+
 # Discover the session history
 
 Resolve the session your human partner named using the tools and information

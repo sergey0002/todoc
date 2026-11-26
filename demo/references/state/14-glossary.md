@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/14-glossary.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, глоссарий, состояние]
 ---
+
 # 14. Глоссарий
 
 | Термин | Определение | Где смотреть |

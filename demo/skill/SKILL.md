@@ -5,6 +5,9 @@ doc_type: skill
 lang: en
 source: SKILL.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent, todoc]
 ---
 
 ---

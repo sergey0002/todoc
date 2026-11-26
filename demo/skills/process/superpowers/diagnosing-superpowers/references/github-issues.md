@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/references/github-issues.md
+title: "GitHub issues"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, github, issues]
+---
+
 # GitHub issues
 
 Use `gh` when it is installed and authenticated; it handles auth, rate

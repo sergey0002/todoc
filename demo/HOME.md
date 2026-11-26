@@ -3,6 +3,9 @@ id: doc:home
 title: "HOME: карта содержимого демо-датасета"
 doc_type: moc
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [moc, содержимого, датасета]
 ---
 
 # HOME: карта содержимого

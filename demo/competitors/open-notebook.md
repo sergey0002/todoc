@@ -5,6 +5,9 @@ doc_type: competitor-card
 lang: ru
 category: rag-platform
 portability: mostly-portable
+created: 2026-11-26
+updated: 2026-11-26
+tags: [competitors, competitor-card, notebook, open]
 ---
 
 # Open Notebook

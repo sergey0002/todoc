@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: release-flow
 description: "Проводит merge-forward релиза без конфликтов: порядок мержей, rebase, проверки. Use when merging release branches."
+created: 2026-11-26
+tags: [skill, agent-skill, forward, релиза]
 ---
 
 # Скил: merge-forward релиза

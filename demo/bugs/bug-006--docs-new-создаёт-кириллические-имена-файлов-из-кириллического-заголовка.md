@@ -10,6 +10,9 @@ component: cli
 agent_impact: friction, token_overrun
 tokens_extra_est: 800
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, кириллического, кириллические]
 ---
 
 # BUG-006: docs new создаёт кириллические имена файлов из кириллического заголовка

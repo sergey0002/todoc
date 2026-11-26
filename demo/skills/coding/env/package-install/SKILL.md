@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: package-install
 description: "Ставит пакеты по конвенции проекта: Python — только .venv (PEP 668), Node — npm/npx, с проверкой версии. Use when installing tools."
+created: 2026-11-26
+tags: [skill, agent-skill, установка, пакетов]
 ---
 
 # Скил: установка CLI-пакетов в систему

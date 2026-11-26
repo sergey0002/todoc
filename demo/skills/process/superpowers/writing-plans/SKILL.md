@@ -1,6 +1,13 @@
 ---
 name: writing-plans
 description: Use when you have a spec or requirements for a multi-step task, before touching code
+id: doc:skills/process/superpowers/writing-plans/SKILL.md
+title: "Writing Plans"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, writing, plans]
 ---
 
 # Writing Plans

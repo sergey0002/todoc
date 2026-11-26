@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/templates/report.md
+title: "Session diagnosis:"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, diagnosis, session]
+---
+
 # Session diagnosis: <session-id>
 
 Report path: ~/.superpowers/diagnosing-superpowers/<session-id>/report.md

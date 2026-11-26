@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/re-review-prompt.md
+title: "Scoped Re-Review Prompt Template"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, template, prompt]
+---
+
 # Scoped Re-Review Prompt Template
 
 Use this template when dispatching a re-review after a fix round. The

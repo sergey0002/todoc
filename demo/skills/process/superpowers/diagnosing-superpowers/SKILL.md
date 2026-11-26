@@ -1,6 +1,13 @@
 ---
 name: diagnosing-superpowers
 description: Use when a superpowers session went wrong and your human partner wants to know why — repeated work, ignored plans, stumbles, poor results, a skill that didn't fire, "it took too long", "why is it so expensive", "what is it doing" — or wants to build a bug report for the superpowers maintainers, for the current session or a past one identified by id or path, on any harness.
+id: doc:skills/process/superpowers/diagnosing-superpowers/SKILL.md
+title: "Diagnosing Superpowers"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, superpowers, diagnosing]
 ---
 
 # Diagnosing Superpowers

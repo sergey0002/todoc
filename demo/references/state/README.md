@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/README.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, оглавление, состояние]
 ---
+
 # Состояние системы `todoc` — документация
 
 Каталог `docs/state/` описывает **фактическое текущее состояние** реализации: что работает,

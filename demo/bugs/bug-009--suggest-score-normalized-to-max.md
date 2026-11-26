@@ -10,6 +10,9 @@ component: application
 agent_impact: friction
 tokens_extra_est: 300
 found: 2026-11-25
+created: 2026-11-26
+updated: 2026-11-26
+tags: [bugs, bug-report, единственный, максимуму]
 ---
 
 # BUG-009: docs suggest нормирует score к максимуму — единственный кандидат всегда 1.0

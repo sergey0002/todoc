@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/12-agent-operations.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, работать]
 ---
+
 # 12. Как агенту работать с `todoc`
 
 Раздел для агента: последовательности команд, что читать из ответа, чего не делать.

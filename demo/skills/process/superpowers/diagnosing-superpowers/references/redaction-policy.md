@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/diagnosing-superpowers/references/redaction-policy.md
+title: "Redaction policy"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, redaction, policy]
+---
+
 # Redaction policy
 
 Apply these categories with the supplied `PUBLIC_REPOS` and `PROPRIETARY`

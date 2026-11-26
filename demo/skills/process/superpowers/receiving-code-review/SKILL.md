@@ -1,6 +1,13 @@
 ---
 name: receiving-code-review
 description: Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation
+id: doc:skills/process/superpowers/receiving-code-review/SKILL.md
+title: "Code Review Reception"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, reception, review]
 ---
 
 # Code Review Reception

@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/test-driven-development/writing-good-tests.md
+title: "Writing Good Tests"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, writing, tests]
+---
+
 # Writing Good Tests
 
 **Load this reference when:** writing or changing tests, adding mocks, or

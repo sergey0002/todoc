@@ -5,6 +5,9 @@ doc_type: reference
 lang: en
 source: references/formats-csv-json-markdown.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, markdown, formats]
 ---
 
 # Formats CSV/JSON/Markdown

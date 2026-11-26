@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/01-overview.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, состояние, продукта]
 ---
+
 # 01. Обзор: что такое `todoc` и в каком он состоянии
 
 ## Суть продукта

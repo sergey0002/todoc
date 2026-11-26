@@ -1,6 +1,13 @@
 ---
 name: writing-skills
 description: Use when creating new skills, editing existing skills, or verifying skills work before deployment
+id: doc:skills/process/superpowers/writing-skills/SKILL.md
+title: "Writing Skills"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, writing, skills]
 ---
 
 # Writing Skills

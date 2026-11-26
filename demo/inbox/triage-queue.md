@@ -3,6 +3,9 @@ id: doc:inbox-triage
 title: Очередь разборки входящих
 doc_type: note
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [inbox, note, входящих, разборки]
 ---
 
 # Очередь разборки входящих

@@ -3,6 +3,9 @@ id: doc:demo-readme
 title: README демо-датасета todoc
 doc_type: demo-readme
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [demo-readme, датасета, readme]
 ---
 
 # Демо-датасет `todoc`

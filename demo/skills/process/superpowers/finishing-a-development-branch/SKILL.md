@@ -1,6 +1,13 @@
 ---
 name: finishing-a-development-branch
 description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work
+id: doc:skills/process/superpowers/finishing-a-development-branch/SKILL.md
+title: "Finishing a Development Branch"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, development, finishing]
 ---
 
 # Finishing a Development Branch

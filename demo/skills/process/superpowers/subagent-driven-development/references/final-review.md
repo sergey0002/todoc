@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/final-review.md
+title: "Final Review and Finish"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, finish, review]
+---
+
 # Final Review and Finish
 
 Part of superpowers:subagent-driven-development. Every task in the plan is

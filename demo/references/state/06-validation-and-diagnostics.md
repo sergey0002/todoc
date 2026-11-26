@@ -5,7 +5,11 @@ doc_type: reference
 lang: ru
 source: docs/state/06-validation-and-diagnostics.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [references, reference, диагностик, валидация]
 ---
+
 # 06. Валидация и каталог диагностик
 
 ## Форма диагностики

@@ -6,6 +6,8 @@ lang: ru
 updated: 2026-11-25
 name: jira-fetch
 description: "Тянет задачу Jira в снимок-заметку датасета (task-snapshot) для офлайн-работы. Use when starting work on a ticket."
+created: 2026-11-26
+tags: [skill, agent-skill, задачи, снимок]
 ---
 
 # Скил: снимок задачи Jira

@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/writing-skills/references/discovery.md
+title: "Writing SKILL.md for Discovery"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, discovery, writing]
+---
+
 # Writing SKILL.md for Discovery
 
 Part of superpowers:writing-skills: the SKILL.md template and how to name,

@@ -5,6 +5,9 @@ doc_type: competitor-card
 lang: ru
 category: rag-platform
 portability: vendor-lock
+created: 2026-11-26
+updated: 2026-11-26
+tags: [competitors, competitor-card, fastgpt, ragflow]
 ---
 
 # RAGFlow / Dify / FastGPT

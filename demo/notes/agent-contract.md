@@ -3,6 +3,9 @@ id: doc:note-agent-contract
 title: Контракт CLI для агента
 doc_type: note
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [notes, note, контракт, агента]
 ---
 
 # Контракт CLI для агента

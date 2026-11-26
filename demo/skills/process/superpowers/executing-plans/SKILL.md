@@ -1,6 +1,13 @@
 ---
 name: executing-plans
 description: Use when executing an implementation plan in the current session as the implementer yourself — your human partner chose inline execution, or no subagent tool is available
+id: doc:skills/process/superpowers/executing-plans/SKILL.md
+title: "Executing Plans"
+doc_type: agent-skill
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, agent-skill, executing, plans]
 ---
 
 # Executing Plans

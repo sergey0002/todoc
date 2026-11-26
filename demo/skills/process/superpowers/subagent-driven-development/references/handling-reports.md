@@ -1,3 +1,13 @@
+---
+id: doc:skills/process/superpowers/subagent-driven-development/references/handling-reports.md
+title: "Handling a Report That Isn't DONE"
+doc_type: unknown
+lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [skill, unknown, handling, report]
+---
+
 # Handling a Report That Isn't DONE
 
 Part of superpowers:subagent-driven-development.
