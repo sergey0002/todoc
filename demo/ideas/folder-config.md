@@ -6,6 +6,8 @@ lang: ru
 status: planned
 updated: 2026-11-25
 related: ["[[plan-folder-config]]"]
+created: 2026-11-26
+tags: [ideas, idea, самоописание, заголовок]
 ---
 
 # Идея: `.config.json` — самоописание папок

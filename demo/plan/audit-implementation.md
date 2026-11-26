@@ -5,6 +5,9 @@ doc_type: audit-report
 lang: ru
 source: docs/plan/audit-implementation.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, audit-report, реализации, audit]
 ---
 
 # Аудит реализации todoc (24 ноября 2026)

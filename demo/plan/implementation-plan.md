@@ -5,6 +5,9 @@ doc_type: implementation-plan
 lang: ru
 source: docs/plan/implementation-plan.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, implementation-plan, implementation, реализации]
 ---
 
 # todoc — Пошаговый план реализации (MVP сейчас + перспективы в `.after.md`)

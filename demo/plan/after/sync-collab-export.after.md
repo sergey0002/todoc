@@ -5,6 +5,9 @@ doc_type: after-plan
 lang: ru
 source: docs/plan/sync-collab-export.after.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, after-plan, синхронизация, совместная]
 ---
 
 # Перспектива (НЕ сейчас): Sync, collaboration, export, backup

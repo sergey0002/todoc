@@ -4,6 +4,10 @@ title: "Агентский стейт: state.json в движке (v1 — тек
 doc_type: plan
 lang: ru
 status: active
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, агентский, текущий]
+related: ["[[agent-state]]"]
 ---
 
 # Агентский стейт: state.json в движке (v1 — текущий проект) — план реализации

@@ -5,6 +5,9 @@ doc_type: after-plan
 lang: ru
 source: docs/plan/memory-llm-wiki.after.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, after-plan, профиль, память]
 ---
 
 # Перспектива (НЕ сейчас): Memory / LLM Wiki профиль (Task/Plan/Idea, session, синтез)

@@ -5,6 +5,9 @@ doc_type: after-plan
 lang: ru
 source: docs/plan/plugins-formats-import.after.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, after-plan, форматов, плагины]
 ---
 
 # Перспектива (НЕ сейчас): Плагины, форматы, импорт, watch, AI enrichment

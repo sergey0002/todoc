@@ -5,6 +5,9 @@ doc_type: after-plan
 lang: ru
 source: docs/plan/mcp-adapter.after.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [plan, after-plan, адаптер, after]
 ---
 
 # Перспектива (НЕ сейчас): MCP-адаптер (tools + resources + prompts)

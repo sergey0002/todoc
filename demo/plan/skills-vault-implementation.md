@@ -7,6 +7,7 @@ status: active
 tags: [skills, agent-skills, cli, validation, import, routing, dispatcher]
 updated: 2026-11-25
 related: ["[[skills-engine]]", "[[documentation-system]]", "[[constitution]]"]
+created: 2026-11-26
 ---
 
 # Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер (план) — план реализации
