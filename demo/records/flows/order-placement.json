@@ -20,5 +20,5 @@
     "project": "softdoc-profile",
     "external_id": null
   },
-  "relations": []
+  "relations": [ { "type_id": "depends_on", "target": { "kind": "record", "id": "dep:billing" } }, { "type_id": "depends_on", "target": { "kind": "record", "id": "dep:pricing" } }, { "type_id": "depends_on", "target": { "kind": "record", "id": "dep:payment-gateway" } } ]
 }

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "record_id": "event:order-placed-v1",
+  "entity_type": "domain-event",
+  "title": "Заказ размещён",
+  "past_tense_name": "OrderPlaced",
+  "producer": "orders-api",
+  "consumers": [
+    "billing",
+    "notifications"
+  ],
+  "payload_ref": "repo://services/orders/schemas/OrderPlaced.json",
+  "command": "PlaceOrder",
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": [
+    {
+      "type_id": "belongs_to",
+      "target": {
+        "kind": "record",
+        "id": "flow:order-placement"
+      }
+    },
+    {
+      "type_id": "belongs_to",
+      "target": {
+        "kind": "record",
+        "id": "context:orders"
+      }
+    }
+  ]
+}

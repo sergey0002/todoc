@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "record_id": "event:payment-failed-v1",
+  "entity_type": "domain-event",
+  "title": "Платёж не прошёл",
+  "past_tense_name": "PaymentFailed",
+  "producer": "payment-gateway",
+  "consumers": [
+    "notifications",
+    "fraud"
+  ],
+  "payload_ref": "repo://services/payments/schemas/PaymentFailed.json",
+  "command": "ChargePayment",
+  "origin": {
+    "task": null,
+    "project": "softdoc-profile",
+    "external_id": null
+  },
+  "relations": [
+    {
+      "type_id": "belongs_to",
+      "target": {
+        "kind": "record",
+        "id": "flow:order-placement"
+      }
+    }
+  ]
+}
