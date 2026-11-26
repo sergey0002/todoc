@@ -118,6 +118,8 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
 | `docs tree [--within P] [--match Q] [--max-depth N]` | дерево папок и документов с типами; `--match` фильтрует папки скорингом конфигов |
 | `docs suggest --query Q [--limit N]` | «куда положить / где искать»: скоринг папок по `.config.json` (score ≥ 0.25, reason у каждого кандидата) |
 | `docs edit --id ID --patch-file F [--preview\|--apply] [--if-hash H]` | построчная правка после предпросмотра |
+| `docs flow render --id flow:X [--section state\|table\|mermaid\|lineage\|terms] [--write PATH]` | витрина флоу из записи: state machine, таблица решений (колонка «Режим»), mermaid, lineage, термины по `uses_term`; `--write` — материализация с fm `derived_from` (дрейф ловит `stale`; ручной файл без `derived_from` не перезаписывается) |
+| `docs flow walk --id flow:X [--at NODE] [--all-paths]` | проход дерева решений: ветви по приоритету, props развилок (`mode`/`default_branch`), все ациклические пути до терминалов |
 
 #### Конфиги папок (`.config.json`)
 

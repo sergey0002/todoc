@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import shutil
 import sys
@@ -28,14 +29,16 @@ from todoc.application.changes import (TRANSLIT, apply_change, archive_change, c
                                        collect_deltas, list_changes, load_change,
                                        open_change, record_path, revert_change,
                                        validate_change, verify_change)
+from todoc.application.flow_view import build_flow_view
 from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, build_tree, graph_neighbors, query_records
 from todoc.application.folder_config import load_folder_configs, score_folder_configs
 from todoc.application.state import get_var, load_state, set_var, unset_var
 from todoc.application.search import search_documents
 from todoc.application.skills import scan_skills
-from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
+from todoc.application.staleness import check_all, collect_owners, current_hashes, fragment_hash, plan_ack
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
+from todoc.domain.models import WritePlan
 from todoc.application.validator import (_basename_index, _entity_types_of,
                                          _load_schemas, _wikilink_candidates, stable_id)
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_undo_relation, apply_write_plan,
@@ -1487,6 +1490,120 @@ def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str |
         folders.sort(key=lambda f: rank[f["path"]])
     _emit_ok({"dataset_id": ctx.dataset_id, "folders": folders[:50], "documents": documents[:50],
               "total_folders": len(folders), "total_documents": len(documents), "max_depth": max_depth}, output, None)
+
+
+_FLOW_SECTIONS = ("state", "table", "mermaid", "lineage", "terms")
+# План entity-catalog З8: фрагменты записи flow, по которым --write ставит якоря
+# derived_from (дрейф ловит `todoc stale`); отсутствующие в записи пропускаются.
+_FLOW_ANCHOR_POINTERS = ("/states", "/outcomes", "/tree", "/relations")
+
+
+def _flow_record(payload: dict[str, Any], ctx: DatasetContext, flow_id: str) -> dict[str, Any]:
+    rec = next((r for r in payload["records"]
+                if r.get("record_id") == flow_id and r.get("entity_type") == "flow"), None)
+    if rec is None:
+        raise ValidationError(f"Flow not found: {flow_id}", "docs.flow_not_found")
+    del ctx
+    return rec
+
+
+def _typed_records(payload: dict[str, Any], entity_type: str) -> list[dict[str, Any]]:
+    return [r["data"] for r in payload["records"]
+            if r.get("entity_type") == entity_type and isinstance(r.get("data"), dict)]
+
+
+@docs.group("flow")
+def docs_flow() -> None:
+    """Витрина и навигатор дерева решений флоу (entity-catalog T1/T2)."""
+
+
+@docs_flow.command("render")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--id", "flow_id", required=True)
+@click.option("--section", type=click.Choice(_FLOW_SECTIONS), default=None,
+              help="Одна секция витрины вместо полного markdown.")
+@click.option("--write", "write_path", default=None, help="Материализовать витрину в файл (fm derived_from).")
+def docs_flow_render(roots: tuple[str, ...], output: str, no_input: bool, flow_id: str,
+                     section: str | None, write_path: str | None) -> None:
+    """Витрина флоу из записи: state machine, таблица решений (Режим), mermaid, lineage, термины."""
+    del no_input
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    rec = _flow_record(payload, ctx, flow_id)
+    view = build_flow_view(rec["data"], rules=_typed_records(payload, "rule"),
+                           terms=_typed_records(payload, "term"))
+    if section:
+        if not view["sections"][section].strip():
+            raise ValidationError(f"Section is empty for this flow: {section}", "docs.section_not_found")
+        _emit_ok({"dataset_id": ctx.dataset_id, "id": flow_id, "section": section,
+                  "text": view["sections"][section]}, output, None)
+        return
+    if write_path:
+        rel = write_path.strip("/")
+        _contained_out(ctx.root, rel)  # --write не выходит за DATA_ROOT
+        target = ctx.root / rel
+        expected_hash: str | None = None
+        if target.is_file():
+            existing_fm = parse_markdown(target.read_text(encoding="utf-8")).front_matter
+            if not isinstance(existing_fm, dict) or "derived_from" not in existing_fm:
+                raise ConflictError(
+                    f"Target is not a generated view (no derived_from): {rel}. "
+                    "Ручной файл не перезаписывается.",
+                    "docs.flow_render_not_derived")
+            expected_hash = file_hash(target)
+        # Якоря — текущие хэши фрагментов записи: дрейф после правки видит stale.
+        anchors = []
+        for pointer in _FLOW_ANCHOR_POINTERS:
+            value, status = fragment_hash(ctx.root, {"path": rec["path"], "pointer": pointer})
+            if status == "ok" and value:
+                anchors.append(f'"{rec["path"]}#{pointer}@{value}"')
+        fm = "---\nderived_from: [" + ", ".join(anchors) + "]\n---\n\n"
+        disclaimer = (f"<!-- СГЕНЕРИРОВАНО: `todoc docs flow render --root . --id {flow_id} "
+                      f"--write {rel}`. НЕ ПРАВИТЬ РУКАМИ — правки затрёт следующий рендер; "
+                      "дрейф после правки записи ловит `todoc stale`. -->\n\n")
+        content = fm + disclaimer + view["markdown"] + "\n"
+        new_hash = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+        plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel, new_content=content,
+                         expected_hash=expected_hash, new_hash=new_hash,
+                         basis=f"flow render --write {flow_id}")
+        apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+        ctx.ensure_index()
+        _emit_ok({"dataset_id": ctx.dataset_id, "id": flow_id, "written": rel, "hash": new_hash,
+                  "derived_from": len(anchors)}, output, None,
+                 next_actions=[{"argv": _root_argv(roots) + ["stale", "--root", str(ctx.root)],
+                                "purpose": "Проверить дрейф витрины"}])
+        return
+    _emit_ok({"dataset_id": ctx.dataset_id, "id": flow_id, "title": view["title"], "actor": view["actor"],
+              "sections": view["sections"], "markdown": view["markdown"]}, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["docs", "flow", "walk", "--id", flow_id],
+                            "purpose": "Пройти дерево решений"}])
+
+
+@docs_flow.command("walk")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--id", "flow_id", required=True)
+@click.option("--at", default=None, help="Старт обхода с узла дерева (id узла).")
+@click.option("--all-paths", is_flag=True, help="Все ациклические пути до терминалов вместо основного.")
+def docs_flow_walk(roots: tuple[str, ...], output: str, no_input: bool, flow_id: str,
+                   at: str | None, all_paths: bool) -> None:
+    """Пройти дерево решений флоу: ветви по приоритету, props развилок, пути до терминалов."""
+    del no_input
+    ctx = _contexts(roots)[0]
+    payload = ctx.ensure_index()
+    rec = _flow_record(payload, ctx, flow_id)
+    view = build_flow_view(rec["data"], at=at)
+    data: dict[str, Any] = {"dataset_id": ctx.dataset_id, "id": flow_id, "at": at}
+    if all_paths:
+        data["paths"] = view["walk_all"]["paths"]
+    else:
+        data["steps"] = view["walk"]["steps"]
+    _emit_ok(data, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["docs", "flow", "render", "--id", flow_id],
+                            "purpose": "Показать витрину флоу целиком"}])
 
 
 @docs.command("edit")
