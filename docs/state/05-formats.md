@@ -91,3 +91,13 @@ YAML-lite: пары `key: value`, строки в кавычках, `true`/`fals
 
 - [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) — как ошибки форматов становятся диагностиками.
 - [07-search-and-read.md](07-search-and-read.md) — чтение JSON Pointer и CSV-проекций.
+
+## Дополнение 2026-11-26
+
+- **Контракт YAML-lite front matter** (BUG-015, open): `key: value` + inline-списки `[a, b]`;
+  кавычки — raw (внутри `"…"` символ `"` экранировать НЕЧЕМ — `\"` разбирается как
+  буквальные backslash-ы без предупреждения). Канон датасета: кавычки без вложенных `"`,
+  либо апострофы. Поддержка `\"`/диагностика — предложение в репорте.
+- **Генерация внешних форматов** — не адаптер, а application-слой: `application/interop.py`
+  строит ASL-JSON, DMN 1.3 XML и Rasa NLU YML из записей (чистые генераторы, XML-escaping
+  через `xml.sax.saxutils.escape`). Контракт маппинга и коды ошибок — [19-interop-exports.md](19-interop-exports.md).

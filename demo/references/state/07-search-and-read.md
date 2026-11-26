@@ -5,11 +5,7 @@ doc_type: reference
 lang: ru
 source: docs/state/07-search-and-read.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, состояние, чтение]
 ---
-
 # 07. Поиск и чтение
 
 ## Лексический поиск (`application/search.py`)
@@ -92,3 +88,17 @@ cursor "3"`, первый результат — карточка конкуре
 - [03-cli-reference.md](03-cli-reference.md) — полный набор флагов.
 - [08-records-and-relations.md](08-records-and-relations.md) — запросы к записям.
 - [11-known-issues.md](11-known-issues.md) — известные ограничения поиска.
+
+## Дополнение 2026-11-26: витрины, скоринг, инвентаризация
+
+- **`docs flow render/walk`** (план [entity-catalog](../../plan/entity-catalog-implementation.md)):
+  витрина флоу из записи (state machine, таблица решений «Режим», mermaid, lineage, термины);
+  `--write` материализует с fm `derived_from` на `/states`, `/outcomes`, `/tree`, `/relations`
+  (пропускает отсутствующие — проверено: 4 якоря у демо-флоу); `walk` идёт дерево решений
+  по приоритетам, `--all-paths` — все ациклические пути до терминалов.
+- **`docs suggest` и `docs tree --match`** (план [folder-config](../../plan/folder-config-implementation.md)):
+  скоринг папок по `.config.json` Фазы A — детерминированно (score ≥ 0.25, порядок score → order → путь),
+  кириллица работает.
+- **`docs links`** (BUG-007 fixed): инвентаризация локальных ссылок `{total, broken[]}`, тот же
+  резолв, что в validate; внешние/якорные и пустые цели не считаются.
+- Ограничение ранжирования (частичный bm25) — без изменений, см. «Известные ограничения».

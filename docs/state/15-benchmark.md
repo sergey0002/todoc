@@ -1,5 +1,9 @@
 # 15. Бенчмарк качества и сравнение с конкурентами
 
+> Снимок итерации 2026-11-25 (MVP). Измерения 26.11 не переигрывались; текущие цифры —
+> [01-overview.md](01-overview.md) и [10-testing-and-quality.md](10-testing-and-quality.md),
+> остатки — [16-leftovers-report.md](16-leftovers-report.md).
+
 Дата измерения: **2026-11-25**. Прогон: `python3 bench/run_benchmark.py --venv /tmp/comp`
 (если venv с конкурентами недоступен — `--competitors-from bench/results/benchmark.json`: блок
 конкурентов берётся из прошлого прогона и помечается `reused_from`).

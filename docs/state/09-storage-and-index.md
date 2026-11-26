@@ -220,3 +220,20 @@ front matter полями `stale_acknowledged_at`, `stale_ack_reason`, `stale_ac
 - [11-known-issues.md](11-known-issues.md) — P1-1 и P1-2 закрыты 2026-11-25, остальные открыты.
 - [../plan/history-and-changes.md](../plan/history-and-changes.md) — журнал событий и дельты
   (Фазы 1–3, ещё не реализованы).
+
+## Дополнение 2026-11-26
+
+- **`.todoc/state.json`** — агентский стейт вне данных (план [агентский-стейт v1](../../demo/plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md)):
+  `{schema_version, vars}`, белый список v1 `context.current_project`; атомарная запись.
+  Не индексируется, на validate не влияет. Подробнее — [18-agent-state-and-context.md](18-agent-state-and-context.md).
+- **`exports/`** — derived-артефакты экспортов (план [интероп-экспорты](../../demo/plan/interop-exports-dmn-asl-rasa.md)):
+  markdown с fm `doc_type: export` + `derived_from` на фрагменты записей; перегенерация —
+  та же команда поверх CAS; перезапись разрешена только derived-целей (`interop.target_not_derived`).
+  В демо 5 витрин. Подробнее — [19-interop-exports.md](19-interop-exports.md).
+- **History-ревизии и git** (BUG-012, open): каждая мутирующая команда пишет
+  `.todoc/history/journal.jsonl` + `objects/` → незакоммиченные изменения; процесс
+  сессий: `git checkout -- demo/.todoc/history/journal.jsonl && rm -rf demo/.todoc/history/objects`
+  перед каждым коммитом. Канон (gitignore / `--no-history`) не выбран — предложение в BUG-012.
+- **Re-anchor `derived_from`** (BUG-011, open): смена статуса/тела исходника меняет его sha256 →
+  зависимые становятся stale; перепривязка пока ручная (внешний sha256 + docs edit replace
+  fm-строки). Готовый anchor в diagnostics — предложение в BUG-011.

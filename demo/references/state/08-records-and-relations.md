@@ -5,11 +5,7 @@ doc_type: reference
 lang: ru
 source: docs/state/08-records-and-relations.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, отношения, состояние]
 ---
-
 # 08. Записи, отношения, запросы
 
 ## Что считается записью
@@ -180,3 +176,19 @@ incoming_ids: [24 идентификатора]   completeness: complete
 - [04-config-and-types.md](04-config-and-types.md) — описатели типов и схемы.
 - [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) — коды ошибок.
 - [13-demo-dataset.md](13-demo-dataset.md) — живые примеры записей.
+
+## Дополнение 2026-11-26: статусы, undo, новые relation-типы
+
+- **`records status --set V`** (З2 плана [«скилы-взаимодействия»](../../plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md)):
+  записи иначе create-only; меняется ТОЛЬКО `status`, набор — enum схемы entity_type
+  (pre-check `records.status_not_allowed` — файл не трогается); атомарно поверх CAS,
+  history-ревизия. Чтение без `--set` — `{id, status}`.
+- **`records undo-relation --id ID --pointer /relations/N`** (план [entity-catalog](../../plan/entity-catalog-implementation.md)):
+  точечный откат ребра из ревизий журнала (preview по умолчанию; `--apply` — CAS).
+- **Новые relation-типы** (З3 там же): `implements` (task→document), `subtask_of` (task→task) —
+  16→18; в демо рёбра задач планов созданы ими (`records list --relation "implements=document:…"`,
+  `relations graph` видит оба ребра).
+- **entity_type `task`**: поля `status` enum `[open, in_progress, done, cancelled]`,
+  `origin.project`; в демо 4 задачи (2 — закрытый план интероп-экспортов, fm done).
+- Фильтры query (`$in` с вложенными списками для списочных полей, `$gte`/`$lte`) —
+  документированы теперь в BUG-016-предложении; справка references ещё не дописана (BUG-016 open).

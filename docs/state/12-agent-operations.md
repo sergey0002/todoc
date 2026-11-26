@@ -146,3 +146,18 @@ ID диагностики — SHA-256 от `path + code + message` (`stable_id`)
 - [03-cli-reference.md](03-cli-reference.md) — точные флаги и формы ответа.
 - [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) — коды и фиксы.
 - [11-known-issues.md](11-known-issues.md) — что пока сломано.
+
+## Дополнение 2026-11-26: жизненный цикл, экспорты, стейт, ритуалы
+
+- **Жизненный цикл идеи → план → задачи** исполняют 4 скила `skills/process/todoc-{capture,plan,execute,transitions}`
+  (план [«скилы-взаимодействия»](../../demo/plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md)).
+  Ключевые конвенции: fm-статусы вписываются docs edit-патчем сразу после `docs new`
+  (команда статусов не создаёт поле); терминальный `done` — только по явной фразе пользователя
+  (DESIGN-Q01); тики чекбоксов — в коммите шага.
+- **Экспорт витрин**: `todoc interop export --kind dmn|asl|rasa …` — [19-interop-exports.md](19-interop-exports.md).
+- **Стейт между сессиями**: `state set context.current_project …`, `context --change|--tag`
+  для контекста задачи — [18-agent-state-and-context.md](18-agent-state-and-context.md).
+- **Ритуалы сессии** (из баг-реестра): перед коммитом чистить history-ревизии (BUG-012);
+  после смены исходника проверять `stale` и перепривязывать `derived_from` (BUG-011);
+  проверять `ok` конверта — error-envelope под `2>/dev/null` похож на пустой успех (BUG-013);
+  `docs edit --preview` не показывает нумерацию — сверять строки перечитыванием (BUG-014).

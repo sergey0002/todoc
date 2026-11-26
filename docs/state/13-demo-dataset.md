@@ -17,7 +17,7 @@
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 218 Markdown + 1 CSV + 205 JSON-записей (205 записей) + 15 opaque-вложений — всего 439.
+Состав документов: 221 Markdown + 1 CSV + 205 JSON-записей (205 записей) + 15 opaque-вложений — всего 442 (включая 3 зеркала 17–19).
 Состав записей: `document` 113, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
 `rule` 3, `dep` 3, `guide` 3, `task` 4, `event` 2, `flow` 1, `change` 1, `context` 1.
 
@@ -75,7 +75,7 @@
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 24/31/25/18
-todoc index rebuild --root demo                         # 86 папок, 423 документа, 197 записей, 169 отношений
+todoc index rebuild --root demo                         # 86 папок, 439 документов, 205 записей, 169 отношений
 todoc docs tree --root demo --max-depth 1               # 86 папок
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
@@ -114,3 +114,31 @@ todoc doctor --root demo                                # config/index/python: 3
 
 - [04-config-and-types.md](04-config-and-types.md) — как устроены правила и типы.
 - [08-records-and-relations.md](08-records-and-relations.md) — записи и отношения.
+
+## Происхождение: планы, задачи, баги (снято 2026-11-26)
+
+Все планы-исполнения исполнены и закрыты (fm done, явные фразы пользователя):
+
+| План | Прогресс | PR |
+|---|---|---|
+| [entity-catalog](../../demo/plan/entity-catalog-implementation.md) | 43/43 | #74–#80 |
+| [скилы-взаимодействия](../../demo/plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) | 35/35 | #82/#83 |
+| [документирование-софта](../../demo/plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) | 60 тиков | #77/#78 |
+| [folder-config](../../demo/plan/folder-config-implementation.md) | 38/38 | #84 |
+| [агентский-стейт v1](../../demo/plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) | 20/20 | #84 |
+| [skills-vault](../../demo/plan/skills-vault-implementation.md) | 44/44 | #84 |
+| [интероп-экспорты](../../demo/plan/interop-exports-dmn-asl-rasa.md) | З1–З2, DoD 3/3 | #85/#86 |
+
+Идеи-источники (fm done + пометка «Реализация»): [entity-catalog](../../demo/ideas/entity-catalog.md),
+[folder-config](../../demo/ideas/folder-config.md), [agent-state](../../demo/ideas/agent-state.md),
+[skills-engine](../../demo/ideas/skills-engine.md), [documentation-system](../../demo/ideas/documentation-system.md),
+[interop-exports](../../demo/ideas/interop-exports.md).
+
+Задачи: `task:interop-formats-revision`, `task:interop-converters-cli` (fm done).
+
+Баг-реестр `demo/bugs/` (17 репортов; open — с синопсисом в [11-known-issues.md](11-known-issues.md)):
+BUG-011 re-anchor derived_from, BUG-012 history→git, BUG-013 id/output-контракты,
+BUG-014 preview без нумерации, BUG-015 YAML-lite escape, BUG-016 query-фильтры не документированы;
+DESIGN-Q01 (guard терминальных статусов), DESIGN-Q02 (цена review-first) — дизайн-вопросы
+(`agent_impact: none`, вне friction-реестра). Исправленные: BUG-001…010, BUG-007 linkcheck,
+BUG-008 skills tree, BUG-009 suggest, BUG-010 unicode-escape.

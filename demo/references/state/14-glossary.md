@@ -5,11 +5,7 @@ doc_type: reference
 lang: ru
 source: docs/state/14-glossary.md
 copied: true
-created: 2026-11-26
-updated: 2026-11-26
-tags: [references, reference, глоссарий, состояние]
 ---
-
 # 14. Глоссарий
 
 | Термин | Определение | Где смотреть |
@@ -56,3 +52,15 @@ tags: [references, reference, глоссарий, состояние]
 | ADR | запись архитектурного решения |
 | RFC 6901 / 6902 | JSON Pointer / JSON Patch |
 | P0/P1/P2 | приоритеты дефектов: критичный / важный / незначительный |
+| `allowed_statuses` | закрытый набор статусов doc_type; у записей — enum схемы |
+| derived-артефакт | сгенерированный файл с fm `derived_from` на источник (flow render --write, interop export) |
+| re-anchor | перепривязка якоря `derived_from` на новый хеш исходника (BUG-011) |
+| friction | класс влияния бага на агента: повторные вызовы/обходные пути (`agent_impact`) |
+| DESIGN-Q | дизайн-вопрос (не дефект): решение на уровне конституции/ADR |
+| vault | хранилище скилов `skills/`; секции — префиксы путей, мьют — `!`-префикс |
+| диспетчер-скил | пакет `todoc/`, устанавливаемый `skills attach` в платформенный каталог скилов |
+| state.json | агентский стейт в `.todoc/`, вне данных; v1 — `context.current_project` |
+| u-graph | граф связей записи с точечным undo (`records undo-relation`) |
+| ASL / DMN 1.3 / Rasa NLU | целевые форматы интероп-экспортов (state machine / decision table / интенты) |
+| CAS | сравнение хеша перед записью (WritePlan.expected_hash), review-first |
+| терминальный статус | `done` у задачи/плана: по конвенции — только по явной фразе пользователя |
