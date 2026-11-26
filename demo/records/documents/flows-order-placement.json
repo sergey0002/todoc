@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "record_id": "document:flows-order-placement",
+  "entity_type": "document",
+  "title": "Оформление заказа — флоу-документ",
+  "source_path": "flows/order-placement.md",
+  "doc_type": "flow-doc",
+  "lang": "ru",
+  "origin": "authored",
+  "tags": [
+    "flow-doc",
+    "заказ",
+    "оплата",
+    "витрина"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:constitution"
+      }
+    }
+  ]
+}

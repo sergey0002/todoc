@@ -40,7 +40,7 @@ tags: [demo-readme, датасета, readme]
 ```bash
 todoc validate --root demo --all          # ожидается 0 диагностик
 todoc check --root demo                    # сводка по датасету
-todoc types list --root demo               # 18 dir_types, 23 doc_types, 14 entity_types, 11 relation_types
+todoc types list --root demo               # 22 dir_types, 27 doc_types, 20 entity_types, 15 relation_types
 todoc docs tree --root demo --max-depth 2  # дерево папок с типами
 todoc docs search --root demo --query "портабельность" --limit 3
 todoc docs read --root demo --id "doc:constitution#Принципы"   # fragment в id = --section
@@ -51,6 +51,8 @@ todoc records query --root demo --query-file demo/.todoc/queries/decisions-accep
 todoc records aggregate --root demo --type metric --metric value --group-by aspect
 todoc relations graph --root demo --from decision:no-lsp --depth 2
 todoc relations tree --root demo --from term:dir-type --output markdown
+todoc records list --root demo --type rule --limit 5      # правила пилота с belongs_to
+todoc change show --root demo change:pilot-profil-dokumentirovaniya-softa
 ```
 
 ## Что демонстрирует датасет

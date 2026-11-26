@@ -24,7 +24,7 @@ tags: [moc, содержимого, датасета]
 
 ### Планы (статусы от 25.11.2026)
 
-- [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **не начат** (ждёт команды): 4 doc_types, 6 entity_types, 4 dir_types, 4 relation_types, CRUD-промпты, 5 скилов, приёмочный флоу-документ; он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md).
+- [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **волна 1 исполнена** (задачи 1–7: dir_types flows/reports/specs/changes, entity flow/rule/incident/release/task-snapshot/change, doc_types flow-doc/spec-doc/task-report/release-note + промпты, relation belongs_to/affects/fixes/blocked_by, пилот «оформление заказа», 5 скилов документирования, счётчики); волна 2 — задачи 8–10; он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md).
 - [Конфиг папок](plan/folder-config-implementation.md) — **исполнен** (38/38): `folder.*`, `folder_meta`, `docs suggest`, буст search.
 - [Агентский стейт](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — **исполнен** (20/20): `todoc state set/get/list/unset`, файл вне данных.
 - [Скилы взаимодействия](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — **не начат** (план не аудирован): статусы, 4 скила, relation `implements`.
