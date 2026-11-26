@@ -17,7 +17,8 @@ from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within
 from todoc.adapters.history.journal import read_events
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
-from todoc.adapters.formats.markdown import heading_path_for, parse_markdown
+from todoc.adapters.formats.markdown import (heading_path_for, parse_markdown,
+                                           resolve_link_target)
 from todoc.application.history import (add_tag, blame as history_blame, content_at, diff_texts,
                                        export as history_export_run, gc as history_gc_run,
                                        adopt as history_adopt_run, journal_diagnostics,
@@ -34,7 +35,8 @@ from todoc.application.search import search_documents
 from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
-from todoc.application.validator import _entity_types_of, _load_schemas, stable_id
+from todoc.application.validator import (_basename_index, _entity_types_of,
+                                         _load_schemas, _wikilink_candidates, stable_id)
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_write_plan, create_document_plan,
                                    create_record_plan, load_input_record)
 from todoc.config import init_dataset
@@ -1394,6 +1396,50 @@ def docs_suggest(roots: tuple[str, ...], q: str, limit: int, output: str, no_inp
                             "purpose": "Создать документ в выбранной папке"},
                            {"argv": _root_argv(roots) + ["explain-path", "<путь из кандидатов>"],
                             "purpose": "Объяснить выбранную папку (dir_type + мета)"}])
+
+
+@docs.command("links")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--limit", type=int, default=20, show_default=True)
+@click.option("--no-input", is_flag=True)
+def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int) -> None:
+    """Инвентаризация локальных ссылок: total/broken (BUG-007, тот же резолв, что в validate)."""
+    ctx = _contexts(roots)[0]
+    _folders, documents, _r, _rel, _diags = ctx.scan_and_validate()
+    paths = {d["path"] for d in documents}
+    by_basename, _basenames = _basename_index(paths)
+    total = broken = 0
+    items: list[dict[str, Any]] = []
+    for d in documents:
+        if d.get("format") != "markdown":
+            continue
+        fpath = ctx.root / d["path"]
+        try:
+            text = fpath.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for link in parse_markdown(text).links:
+            if link.is_wikilink:
+                if not link.target:
+                    continue
+                kind = "wikilink"
+                ok = bool(_wikilink_candidates(link.target, by_basename))
+            else:
+                normalized = resolve_link_target(d["path"], link.target)
+                if normalized is None:
+                    continue  # внешние/якорные — не локальный граф
+                kind = "md"
+                ok = normalized in paths
+            total += 1
+            if not ok:
+                broken += 1
+                items.append({"path": d["path"], "target": link.target,
+                              "kind": kind, "line": link.line})
+    truncated = broken > limit
+    items = items[:limit]
+    _emit_ok({"total": total, "broken": broken, "items": items, "truncated": truncated},
+             output, None)
 
 
 @docs.command("tree")
