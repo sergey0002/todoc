@@ -13,7 +13,7 @@
 | Отношений | 138 |
 | Папок | 22 |
 | Диагностик | 0 |
-| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 17 / 21 / 13 / 9 |
+| `dir_types` / `doc_types` / `entity_types` / `relation_types` | 24 / 30 / 25 / 18 |
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 

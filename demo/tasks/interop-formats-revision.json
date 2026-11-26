@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "record_id": "task:interop-formats-revision",
+  "entity_type": "task",
+  "title": "Сверить контракты записей flow/rule/term с целевыми форматами DMN/ASL/Rasa",
+  "source": "user",
+  "status": "open",
+  "created": "2026-11-26",
+  "origin": {
+    "task": null,
+    "project": "lifecycle-skills-scenario",
+    "external_id": null
+  },
+  "relations": [
+    {
+      "type_id": "implements",
+      "target": {
+        "kind": "record",
+        "id": "document:plan-interop-exports"
+      }
+    }
+  ]
+}

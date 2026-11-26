@@ -430,6 +430,27 @@ def _check_meta_fields(dataset_id: str, rel_path: str, front_matter: dict[str, A
     return diags
 
 
+def _check_status_set(dataset_id: str, rel_path: str, front_matter: dict[str, Any],
+                      descriptor: dict[str, Any]) -> list[Diagnostic]:
+    """Статус md-документа должен входить в allowed_statuses его doc_type.
+
+    Документ без статуса и тип без набора валидны (план «скилы-взаимодействия» §3);
+    не-строчный статус тоже вне набора.
+    """
+    allowed = descriptor.get("allowed_statuses")
+    if not isinstance(allowed, list) or not allowed:
+        return []
+    status = front_matter.get("status")
+    if status is None:
+        return []
+    allowed_str = [s for s in allowed if isinstance(s, str)]
+    if not isinstance(status, str) or status not in allowed_str:
+        return [_diag(dataset_id, rel_path, "docs.status_not_allowed",
+                      f"Статус документа вне набора типа: {status!r} не входит в allowed_statuses.",
+                      evidence=f"status: {status!r}; allowed_statuses: {', '.join(map(str, allowed))}")]
+    return []
+
+
 def _check_structure(dataset_id: str, rel_path: str, headings: list[Any],
                      descriptor: dict[str, Any]) -> list[Diagnostic]:
     """Enforce the structure a doc_type declares (required sections, section rules).
@@ -598,6 +619,10 @@ def validate_dataset(
         descriptor = doc_type_descriptors.get(doc_type)
         if descriptor and headings:
             diags.extend(_check_structure(dataset_id, scanned.rel_path, headings, descriptor))
+        # план «скилы-взаимодействия» З1: закрытый набор статусов doc_type.
+        # Только markdown: у JSON-записей статус правит enum их схемы (record.schema_violation).
+        if descriptor and fmt == "markdown":
+            diags.extend(_check_status_set(dataset_id, scanned.rel_path, front_matter, descriptor))
         loaded_schema = doc_schemas.get(doc_type)
         if loaded_schema and front_matter:
             # Front matter документов раньше не проверялся вообще; схема объявляется
