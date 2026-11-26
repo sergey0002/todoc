@@ -5,6 +5,9 @@ doc_type: guide
 lang: ru
 source: docs/guides/mcp-for-agents.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [guides, guide, постулаты, агентов]
 ---
 
 # MCP для агентной работы: постулаты руководства

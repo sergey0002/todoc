@@ -3,6 +3,9 @@ id: glossary:doc-type
 title: doc_type
 doc_type: glossary-entry
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [glossary, glossary-entry, type, doc]
 ---
 
 # doc_type

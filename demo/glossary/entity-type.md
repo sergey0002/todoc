@@ -3,6 +3,9 @@ id: glossary:entity-type
 title: entity_type
 doc_type: glossary-entry
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [glossary, glossary-entry, entity, type]
 ---
 
 # entity_type

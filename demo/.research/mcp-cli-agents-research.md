@@ -5,6 +5,9 @@ doc_type: research-report
 lang: ru
 source: docs/research/mcp-cli-agents.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [research, research-report, агентов, cli]
 ---
 
 # Проектирование MCP- и CLI-интерфейсов для AI-агентов

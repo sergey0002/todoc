@@ -3,6 +3,9 @@ id: doc:architecture-data-model
 title: Модель данных todoc
 doc_type: architecture-doc
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [architecture, architecture-doc, данных, модель]
 ---
 
 # Модель данных `todoc`

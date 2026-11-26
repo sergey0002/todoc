@@ -3,6 +3,9 @@ id: glossary:reserved-basename
 title: Зарезервированное имя
 doc_type: glossary-entry
 lang: ru
+created: 2026-11-26
+updated: 2026-11-26
+tags: [glossary, glossary-entry, зарезервированное, имя]
 ---
 
 # Зарезервированное имя

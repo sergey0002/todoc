@@ -5,6 +5,9 @@ doc_type: research-report
 lang: ru
 source: docs/plan/engineering-draft.md
 copied: true
+created: 2026-11-26
+updated: 2026-11-26
+tags: [research, research-report, engineering, инженерный]
 ---
 
 # План развития `todoc`: типизированная переносимая база знаний и CLI для агентов с будущим человекским веб-интерфейсом
