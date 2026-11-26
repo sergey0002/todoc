@@ -8,8 +8,8 @@
 | Показатель | Значение |
 |---|---|
 | Команд CLI | 51 листовых (27 верхнего уровня, 8 групп) |
-| Тестов | 1186 (все проходят) |
-| Покрытие | 99% — 5725 инструкций, 2146 веток (на новых модулях — 100%) |
+| Тестов | 1191 (все проходят) |
+| Покрытие | 99% — 5748 инструкций, 2156 веток (на новых модулях — 100%) |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
 | Демо-датасет | [`demo/`](demo/README.md): 389 документов, 182 записи, 0 диагностик |
 
@@ -239,7 +239,7 @@ SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, ports, adapters, typing_system, output
-tests/                1186 тестов: unit, cli, integration (покрытие 99%)
+tests/                1191 тестов: unit, cli, integration (покрытие 99%)
 docs/
 ├── README.md         индекс всей документации
 ├── installation.md   установка, проверка, первый датасет
@@ -298,7 +298,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **30.0 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-1186 тестов и покрытие 99%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+1191 тестов и покрытие 99%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 
