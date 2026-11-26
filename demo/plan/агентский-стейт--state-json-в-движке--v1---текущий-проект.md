@@ -24,7 +24,7 @@ status: active
 2. Файл создаётся вне репозитория: `~/.local/state/todoc/state-<dataset_id>.json`
    (уважает `XDG_STATE_HOME`); `git status` демо чист после set/get.
 3. `todoc state set --root demo foo.bar x` → ошибка `state.unknown_key`, код возврата ≠ 0.
-4. `pytest` зелёный (437 + новые), покрытие 100% сохранено; `validate --root demo --all` — 0 диагностик.
+4. `pytest` зелёный (1084 + ~10–15 новых), покрытие нового кода 100%; `validate --root demo --all` — 0 диагностик; метрики README согласованы по факту (урок BUG-003).
 
 ## 2. Вне скоупа
 
@@ -35,8 +35,9 @@ status: active
 
 ## 3. Глобальные ограничения
 
-- Запись только атомарно: переиспользовать `atomic_write` из
-  `src/todoc/adapters/filesystem/scanner.py` (tmp + rename), не писать новое.
+- Запись только атомарно: переиспользовать `atomic_write(path, content: str | bytes)`
+  из `src/todoc/adapters/filesystem/scanner.py` (mkstemp + os.replace, сам создаёт
+  родительский каталог) — не писать новое.
 - Ключи — белый список v1: `("context.current_project",)`; расширение = правка
   списка, не формата файла.
 - Значение — строка ≤256 символов; файл ≤64 КБ, ≤200 ключей.
@@ -52,8 +53,9 @@ status: active
 - Create `src/todoc/application/state.py` — путь к файлу, load/save, set/get/unset,
   валидация ключей/лимитов. Единственная зависимость — stdlib + `atomic_write`.
 - Modify `src/todoc/cli.py` — click-группа `state` с 4 подкомандами; `--root`
-  сводится к `dataset_id` (чтение `<root>/.todoc/dataset.json`), вывод через
-  существующий `_emit_ok`/обработку `TodocError`.
+  → `_contexts(roots)[0]` → `ctx.dataset_id` (уже читает `<root>/.todoc/dataset.json`);
+  вывод через `_emit_ok(data, output, out, next_actions=…)`;
+  `TodocError` ловится общим обработчиком — конверт с диагностикой, exit ≠ 0.
 - Create `tests/unit/test_state.py` — ядро: отсутствующий файл, whitelist, лимиты,
   атомарность, `XDG_STATE_HOME` через monkeypatch + tmp_path.
 - Create `tests/cli/test_cli_state.py` — команды через `CliRunner`.
@@ -86,9 +88,11 @@ def test_set_get_roundtrip(tmp_path, monkeypatch):
     assert get_var("dataset-x", "context.current_project") == "shop"
 
 def test_unknown_key_rejected(tmp_path, monkeypatch):
+    from todoc.errors import ValidationError  # match матчит message, код — в e.value.code
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-    with pytest.raises(ValidationError, match="state.unknown_key"):
+    with pytest.raises(ValidationError) as err:
         set_var("dataset-x", "foo.bar", "x")
+    assert err.value.code == "state.unknown_key"
 
 def test_missing_file_returns_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
@@ -104,8 +108,8 @@ Expected: FAIL/ERROR — модуля `todoc.application.state` не сущес�
   `{"schema_version": 1, "vars": {...}, "updated_at": ISO-8601 UTC}`;
   ключ проверяется по `ALLOWED_KEYS_V1` → `ValidationError("...", "state.unknown_key")`;
   значение — `str`, 1–256 символов → `state.invalid_value`; >200 ключей или файл
-  >64 КБ → `state.limit_exceeded`; запись `atomic_write`, каталог создаётся при
-  первом set; недоступный путь → `state.file_unavailable` с путём в сообщении.
+  >64 КБ → `state.limit_exceeded`; запись `atomic_write`
+  (родительский каталог создаёт сама); недоступный путь → `state.file_unavailable` с путём в сообщении.
 
 - [ ] **Шаг 4: убедиться, что тесты проходят**
 
@@ -127,22 +131,38 @@ git commit -m "feat(state): ядро хранилища стейта (set/get/un
 
 **Интерфейсы:**
 - Consumes: `set_var/get_var/unset_var/load_state` из Задачи 1;
-  `_emit_ok(payload, output, next_actions)` и паттерн `--root`/`_group_roots`
-  из `cli.py`; `dataset_id` из `<root>/.todoc/dataset.json`.
+  `_emit_ok(data, output, out, next_actions=…)` и паттерн групп
+  `@cli.group()` → `@<группа>.command("…")` с опциями `--root/--output/--no-input`
+  (как у `change`/`docs`); `dataset_id` — `ctx.dataset_id` из `_contexts(roots)[0]`.
 - Produces: `todoc state set <key> <value>`, `state get <key>`,
-  `state list [--prefix <секция>]`, `state unset <key>` — все с `--root`/`--output json`.
+  `state list [--prefix <секция>]`, `state unset <key>` — все с
+  `--root/--output json/--no-input` (конвенция движка). Имя группы `state`
+  свободно — конфликтов с 26 существующими командами нет (проверено `--help`).
 
 - [ ] **Шаг 1: написать падающие CLI-тесты**
 
 ```python
+import json
+from click.testing import CliRunner
+from todoc.cli import cli
+from todoc.errors import TodocError
+
+def _run(runner, args):  # house-паттерн (tests/cli/test_cli.py)
+    result = runner.invoke(cli, args)
+    if isinstance(result.exception, TodocError):
+        result.exit_code = result.exception.exit_code
+    return result
+
 def test_state_set_get_roundtrip(tmp_path, monkeypatch):
-    root = tmp_path / "kb"
-    _init_dataset(root)  # существующий хелпер тестов init
+    runner = CliRunner()
+    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
-    r1 = _invoke(["--root", str(root), "state", "set", "context.current_project", "shop"])
-    assert r1.exit_code == 0 and r1.json["ok"] is True
-    r2 = _invoke(["--root", str(root), "state", "get", "context.current_project"])
-    assert r2.exit_code == 0 and r2.json["value"] == "shop"
+    r1 = _run(runner, ["--root", str(tmp_path), "state", "set",
+                       "context.current_project", "shop"])
+    assert r1.exit_code == 0, r1.output
+    assert json.loads(r1.output)["data"]["ok"] is True
+    r2 = _run(runner, ["--root", str(tmp_path), "state", "get", "context.current_project"])
+    assert json.loads(r2.output)["data"]["value"] == "shop"
 ```
 
 - [ ] **Шаг 2: убедиться, что тесты падают**
@@ -172,18 +192,21 @@ git commit -m "feat(state): CLI-группа state set/get/list/unset с JSON-в
 ### Задача 3: синхронизация счётчиков и проверка демо
 
 **Файлы:**
-- Modify: `README.md` (число команд CLI), `docs/state/13-demo-dataset.md`
-  (`cli: 26` → фактическое), `docs/state/01-overview.md` (та же строка)
+- Modify: `README.md` (строка «| Команд CLI | 26 |»),
+  `demo/references/state/03-cli-reference.md` (title «26 команд» + новая
+  секция `### state …` в «## Команды»)
 - Test: ручная проверка командами ниже (данные демо не меняются)
 
 **Интерфейсы:**
 - Consumes: фактическое число команд `todoc --help`.
 - Produces: согласованные счётчики в 3 файлах.
 
-- [ ] **Шаг 1: пересчитать и обновить счётчики** (26 → число после +4 подкоманд)
+- [ ] **Шаг 1: пересчитать и обновить счётчики** (26 → 30 после +4 подкоманд;
+  26 подтверждено аудитом: `todoc --help` и README.md)
 
-Run: `todoc --help | grep -c "^  [a-z]"` и правка трёх файлов
-Expected: одно и то же число везде
+Run: `todoc --help | sed -n '/Commands:/,$p' | grep -c "^  [a-z]"`; править все
+вхождения счётчика (`grep -rn "Команд CLI\|команд" README.md demo/references/state/`)
+Expected: одно и то же число в README и 03-cli-reference
 
 - [ ] **Шаг 2: убедиться, что демо не затронуто**
 
@@ -198,25 +221,26 @@ Expected: все тесты зелёные, покрытие 100%, 0 пропу�
 - [ ] **Шаг 4: коммит**
 
 ```bash
-git add README.md docs/state/01-overview.md docs/state/13-demo-dataset.md
+git add README.md demo/references/state/03-cli-reference.md
 git commit -m "docs: счётчики CLI после добавления группы state"
 ```
 
 ## 6. Definition of Done
 
 - [ ] Все чекбоксы задач 1–3 отмечены; каждая задача уехала отдельным коммитом.
-- [ ] `pytest` — все зелёные (437 + 10–15 новых), `coverage report` — 100%, 0 пропусков.
+- [ ] `pytest` — все зелёные (1084 + 10–15 новых); новый код — 100% покрытие;
+      метрики README (тесты/покрытие) синхронизированы по факту.
 - [ ] `todoc state set/get/list/unset` работают на демо; файл стейта вне репозитория;
   `git status demo/` чист.
 - [ ] `state.unknown_key` на чужом ключе; не-ноль exit; JSON-диагностика.
-- [ ] `todoc validate --root demo --all` — 0 диагностик; счётчики CLI согласованы в 3 файлах.
+- [ ] `todoc validate --root demo --all` — 0 диагностик; счётчики CLI согласованы (README + 03-cli-reference).
 - [ ] Спека (идея agent-state, фазы 1–2 и «План CLI») покрыта задачами — пробелов нет.
 
 ## 7. Риски и митигации
 
 | Риск | В×В | Митигация | Владелец |
 |---|---|---|---|
-| `~/.local/state` недоступен (права/sandbox) | В×Н | код `state.file_unavailable` с путём; тест с read-only каталогом (monkeypatch chmod) | агент |
+| `~/.local/state` недоступен (права/sandbox) | В×Н | код `state.file_unavailable` с путём; тест read-only каталогом (chmod 0o500); в CI под root chmod не блокирует — skipif uid==0, альтернатива: путь, у которого «каталог» — файл | агент |
 | Два корня с одним dataset_id делят стейт | Н×Н | by design (keyed по dataset_id); задокументировано в идее | агент |
 | Параллельные записи двух процессов | Н×С | `atomic_write` (tmp+rename) — атомарная замена, «последний выигрывает»; задокументировано | агент |
 | Отсутствует `.todoc/dataset.json` в root | С×Н | существующая ошибка инициализации CLI, новый код не вводится | агент |
@@ -224,7 +248,27 @@ git commit -m "docs: счётчики CLI после добавления гру
 ## 8. Прогресс и отклонения
 
 - Статус: не начат (2026-11-25). Первая задача — Задача 1, шаг 1.
-- Отклонений нет.
+- 2026-11-25 — финальный аудит перед реализацией (якоря сверены с кодом,
+  план пополнен — шаги не переписывались, правки только уточняющие):
+  (1) Consumes Задачи 2 давал сигнатуру `_emit_ok(payload, output, next_actions)` —
+  фактическая `_emit_ok(data, output, out, diagnostics=None, next_actions=None)`
+  (cli.py, `out` обязателен); сниппет CLI-теста переписан на house-паттерн
+  (`CliRunner` + `_run` с TodocError→exit_code + `json.loads(result.output)` —
+  у CliRunner нет `.json`, хелпер `_init_dataset` не существует — init через CLI);
+  (2) `pytest.raises(..., match=…)` матчит сообщение, а не код — сниппет Задачи 1
+  переведён на `err.value.code` (импорт `todoc.errors.ValidationError`);
+  (3) `atomic_write` принимает `str | bytes` и сам создаёт родительский каталог —
+  отдельный mkdir в state.py не нужен; (4) `dataset_id` — из `ctx.dataset_id`
+  (`_contexts(roots)[0]`), ручное чтение dataset.json не требуется;
+  (5) счётчик команд фактически живёт в README.md («| Команд CLI | 26 |») и title
+  `demo/references/state/03-cli-reference.md` («26 команд»), а не в docs/state/*;
+  Задача 3 переписана: README + 03-cli-reference (26 → 30), в справочник добавляется
+  секция `### state …`; (6) числа тестов актуализированы: 437 → 1084;
+  (7) имя группы `state` свободно (26 команд подтверждены `todoc --help`);
+  (8) chmod-тест: песочница не под root, но для CI добавлен skipif uid==0
+  (альтернатива — «каталог»-файл); (9) у четырёх неисполненных планов записей в
+  demo/records нет — это конвенция, запись плана не создаётся. Отклонений
+  семантики идеи нет: фазы 1–2 покрывают все задачи, DoD полон.
 
 <!-- Формат строки отклонения: `YYYY-MM-DD — задача N, шаг M: что не так → что
      выбрано вместо и почему`. Шаги задним числом не переписывать. -->
