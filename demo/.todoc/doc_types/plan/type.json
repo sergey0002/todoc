@@ -15,5 +15,11 @@
     "## 6. Definition of Done",
     "## 7. Риски и митигации",
     "## 8. Прогресс и отклонения"
+  ],
+  "allowed_statuses": [
+    "active",
+    "in_progress",
+    "done",
+    "superseded"
   ]
 }

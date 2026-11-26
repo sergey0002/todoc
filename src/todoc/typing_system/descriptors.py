@@ -95,7 +95,7 @@ KIND_FIELDS: dict[str, set[str]] = {
     "dir_type": {"schema_version", "type_id", "version", "kind", "description"},
     "doc_type": {"schema_version", "type_id", "version", "kind", "description", "format",
                  "template", "prompts", "required_sections", "section_rules",
-                 "any_of_sections", "schema"},
+                 "any_of_sections", "schema", "allowed_statuses"},
     "entity_type": {"schema_version", "type_id", "version", "kind", "description", "format",
                     "required_fields", "path_template", "views", "metric_fields",
                     "template", "prompts", "schema"},
@@ -210,6 +210,12 @@ def descriptor_diagnostics(root: Path, dataset: dict[str, Any], kind: str,
                 if operation in PROMPT_OPERATIONS and (not isinstance(value, str) or not value):
                     out.append({"code": "config.invalid_schema", "path": rel_config,
                                 "message": f"prompts.{operation} must be a non-empty relative file name."})
+    allowed_statuses = descriptor.get("allowed_statuses")
+    if allowed_statuses is not None:
+        if (not isinstance(allowed_statuses, list) or not allowed_statuses
+                or not all(isinstance(s, str) and s.strip() for s in allowed_statuses)):
+            out.append({"code": "config.invalid_schema", "path": rel_config,
+                        "message": "allowed_statuses must be a non-empty list of non-empty strings."})
     metric_fields = descriptor.get("metric_fields")
     if metric_fields is not None:
         if not isinstance(metric_fields, dict):
