@@ -17,8 +17,8 @@
 | Стартовых шаблонов типов | 34 (21 doc + 13 entity) |
 | CRUD-промптов типов | 136 (34 × 4) |
 
-Состав документов: 210 Markdown + 1 CSV + 197 JSON-записей (197 записей) + 15 opaque-вложений — всего 423.
-Состав записей: `document` 105, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
+Состав документов: 211 Markdown + 1 CSV + 198 JSON-записей (198 записей) + 15 opaque-вложений — всего 425.
+Состав записей: `document` 106, `competitor` 30, `metric` 24, `term` 10, `decision` 10,
 `rule` 3, `dep` 3, `guide` 3, `task` 4, `event` 2, `flow` 1, `change` 1, `context` 1.
 
 У 13 из 21 doc-типов объявлены `required_sections` — они выведены из самого корпуса (заголовки
