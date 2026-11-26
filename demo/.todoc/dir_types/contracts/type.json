@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "type_id": "contracts",
+  "version": "0.1",
+  "kind": "dir_type",
+  "description": "API-контракты и карты эндпоинтов: человекочитаемые api-contract поверх спецификаций в репо сервисов."
+}

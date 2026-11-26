@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "type_id": "postmortem",
+  "version": "0.1",
+  "kind": "doc_type",
+  "description": "Блеймлесс-разбор инцидента: системные факторы, не персональные. Машиночитаемый итог — запись incident с ребром fixes от release (D10).",
+  "format": "markdown",
+  "template": "template.md",
+  "required_sections": [
+    "## Summary",
+    "## Impact",
+    "## Timeline",
+    "## Contributing factors",
+    "## What went well",
+    "## Action items"
+  ]
+}

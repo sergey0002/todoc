@@ -253,6 +253,28 @@
         "dir_type": "changes"
       },
       "priority": 100
+    },
+    {
+      "id": "demo-dir-contracts",
+      "match": {
+        "kind": "directory",
+        "basename": "contracts"
+      },
+      "assign": {
+        "dir_type": "contracts"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-dir-ops",
+      "match": {
+        "kind": "directory",
+        "basename": "ops"
+      },
+      "assign": {
+        "dir_type": "ops"
+      },
+      "priority": 100
     }
   ]
 }

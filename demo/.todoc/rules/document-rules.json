@@ -458,6 +458,39 @@
         "doc_type": "task-report"
       },
       "priority": 100
+    },
+    {
+      "id": "demo-doc-api-contract",
+      "match": {
+        "kind": "file",
+        "glob": "contracts/**"
+      },
+      "assign": {
+        "doc_type": "api-contract"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-runbook",
+      "match": {
+        "kind": "file",
+        "glob": "ops/runbooks/**"
+      },
+      "assign": {
+        "doc_type": "runbook"
+      },
+      "priority": 100
+    },
+    {
+      "id": "demo-doc-postmortem",
+      "match": {
+        "kind": "file",
+        "glob": "ops/postmortems/**"
+      },
+      "assign": {
+        "doc_type": "postmortem"
+      },
+      "priority": 100
     }
   ]
 }
