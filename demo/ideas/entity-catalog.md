@@ -7,7 +7,7 @@ status: captured
 created: 2026-11-26
 updated: 2026-11-26
 tags: [ideas, idea, справочник, сущностей, глоссарий, термины]
-related: ["[[documentation-system]]", "[[folder-config]]", "[[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]", "[[документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы]]"]
+related: ["[[documentation-system]]", "[[folder-config]]", "[[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]", "[[документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы]]", "[[entity-catalog-implementation]]"]
 ---
 
 # Идея: справочник сущностей системы (entity catalog) и генерируемые витрины
