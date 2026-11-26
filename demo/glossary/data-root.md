@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, data, root]
 
 # DATA_ROOT
 
+Запись термина: [[term:data-root]].
+
 Корень переносимой папки данных: ordinary files + `.todoc/`. Всё производное (индекс, кэш) пересобирается из него. Не путать с каталогом Skill (`SKILL.md` + `references/`).
 
 ## Связи

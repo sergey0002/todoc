@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "record_id": "term:<slug>",
+  "entity_type": "term",
+  "title": "<термин>",
+  "term_type": "concept",
+  "definition": "<определение из glossary-страницы, не выдумывать>",
+  "aliases": [],
+  "source_path": "glossary/<slug>.md",
+  "artifacts": [],
+  "relations": []
+}

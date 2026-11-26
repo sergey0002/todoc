@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, entity, type]
 
 # entity_type
 
+Запись термина: [[term:entity-type]].
+
 Тип записи (сущности) JSON: описатель с `required_fields`, `path_template`, `views`, единицами измерения. Записи создаются create-only и валидируются по JSON Schema из `.todoc/entity_types/<entity_type>/schema.json`.
 
 ## Связи

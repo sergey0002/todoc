@@ -323,21 +323,21 @@ Run: `todoc records undo-relation --root demo --id < pilot> --pointer /relations
   incident|release|change|api-endpoint|domain-event; target: term);
   `part_of` (term→term).
 
-- [ ] **Шаг 1: дескрипторы** — entity_type + 2 relation-типа по образцу
+- [x] **Шаг 1: дескрипторы** — entity_type + 2 relation-типа по образцу
   соседних; `todoc types list` — entity 13 → 14, relation 9 → 11.
-- [ ] **Шаг 2 (TDD, красные→зелёные по данным): схемы** — schema.json с
+- [x] **Шаг 2 (TDD, красные→зелёные по данным): схемы** — schema.json с
   additionalProperties: true у корня; превью-валидация каждой записи = 0
   диагностик до apply.
-- [ ] **Шаг 3: 10 записей терминов** — `records create --preview/--apply`;
+- [x] **Шаг 3: 10 записей терминов** — `records create --preview/--apply`;
   source_path = соответствующий glossary/<slug>.md; artifacts — из факта
   (у большинства пусто/по смыслу термина); part_of — где очевидно
   (диагностика ∈ glossary-иерархии — от факта, не выдумывать).
-- [ ] **Шаг 4: mentions в md-витринах** — в теле каждой glossary-страницы
+- [x] **Шаг 4: mentions в md-витринах** — в теле каждой glossary-страницы
   wikilink на запись (форма: двойные квадратные скобки вокруг
   `term:<slug>` — валидатор З1 пропускает record-цели; mention-индекс
   после rebuild несёт 10 упоминаний); `records read --id term:<slug>` —
   mentioned_in показывает витрину.
-- [ ] **Шаг 5: проверить**
+- [x] **Шаг 5: проверить**
 
 Run: `todoc validate --root demo --all` — 0; `todoc records list --root demo --type term --limit 12` — 10;
 `todoc relations tree --root demo --from term:<X>` — витрина в дереве. Коммит

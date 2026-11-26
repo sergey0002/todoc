@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, зарезервированное, имя]
 
 # Зарезервированное имя
 
+Запись термина: [[term:reserved-basename]].
+
 Имя папки с закреплённым `dir_type`: `.research`, `architecture`, `constitution`, `harness`, `glossary`, `plan`. Срабатывает, когда правила не дали результата.
 
 ## Связи

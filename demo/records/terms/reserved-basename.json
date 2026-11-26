@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "record_id": "term:reserved-basename",
+  "entity_type": "term",
+  "title": "Зарезервированное имя",
+  "term_type": "rule",
+  "definition": "Имя папки с закреплённым dir_type: .research, architecture, constitution, harness, glossary, plan. Срабатывает, когда правила не дали результата.",
+  "aliases": [
+    "зарезервированное имя"
+  ],
+  "source_path": "glossary/reserved-basename.md",
+  "artifacts": [],
+  "relations": [
+    {
+      "type_id": "part_of",
+      "target": {
+        "kind": "record",
+        "id": "term:dir-type"
+      }
+    }
+  ]
+}

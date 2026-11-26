@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "type_id": "part_of",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Термин входит в более общий термин глоссария (term → term).",
+  "endpoints": {
+    "source": ["term"],
+    "target": ["term"]
+  }
+}

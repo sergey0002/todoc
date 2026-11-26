@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "term:write-plan",
+  "entity_type": "term",
+  "title": "WritePlan",
+  "term_type": "component",
+  "definition": "План записи до применения: target_path, new_content, expected_hash, new_hash, conflict. Пишется только после review-first подтверждения (--preview → --apply).",
+  "aliases": [
+    "WritePlan"
+  ],
+  "source_path": "glossary/write-plan.md",
+  "artifacts": [],
+  "relations": []
+}

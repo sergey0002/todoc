@@ -40,10 +40,11 @@ tags: [demo-readme, датасета, readme]
 ```bash
 todoc validate --root demo --all          # ожидается 0 диагностик
 todoc check --root demo                    # сводка по датасету
-todoc types list --root demo               # 18 dir_types, 23 doc_types, 13 entity_types, 9 relation_types
+todoc types list --root demo               # 18 dir_types, 23 doc_types, 14 entity_types, 11 relation_types
 todoc docs tree --root demo --max-depth 2  # дерево папок с типами
 todoc docs search --root demo --query "портабельность" --limit 3
 todoc docs read --root demo --id doc:constitution --section "Принципы"
+todoc records list --root demo --type term --limit 12      # 10 терминов глоссария
 todoc records list --root demo --type decision --limit 5
 todoc records query --root demo --query-file demo/.todoc/queries/decisions-accepted.json
 todoc records aggregate --root demo --type metric --metric value --group-by aspect

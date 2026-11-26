@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, поколение, индекса]
 
 # Поколение индекса
 
+Запись термина: [[term:generation]].
+
 Атомарно публикуемый снимок `.todoc/index/generations/<id>/`: folders, documents, records, relations, diagnostics. `CURRENT.json` переключается только после успешной записи.
 
 ## Связи

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "record_id": "term:diagnostic",
+  "entity_type": "term",
+  "title": "Диагностика",
+  "term_type": "component",
+  "definition": "Найденная проблема: code, severity, path, location (line/column), evidence, suggested_fixes. Идентификатор diag_* стабилен только внутри одного запуска.",
+  "aliases": [
+    "диагностика",
+    "diag"
+  ],
+  "source_path": "glossary/diagnostic.md",
+  "artifacts": [],
+  "relations": []
+}

@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, relation, type]
 
 # relation_type
 
+Запись термина: [[term:relation-type]].
+
 Тип направленного ребра графа между записями. `type_id` обязан существовать в реестре, `target.id` обязан указывать на существующую запись.
 
 ## Связи

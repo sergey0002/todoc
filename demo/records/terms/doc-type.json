@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_id": "term:doc-type",
+  "entity_type": "term",
+  "title": "doc_type",
+  "term_type": "concept",
+  "definition": "Тип документа. Присваивается правилами document-rules.json: явное объявление в front matter (приоритет 200) важнее маски папки (приоритет 100). Не равен формату и не равен dir_type.",
+  "aliases": [
+    "doc_type"
+  ],
+  "source_path": "glossary/doc-type.md",
+  "artifacts": [
+    {
+      "path": ".todoc/rules/document-rules.json",
+      "role": "rules-file"
+    }
+  ],
+  "relations": []
+}

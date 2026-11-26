@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "term:entity-type",
+  "entity_type": "term",
+  "title": "entity_type",
+  "term_type": "concept",
+  "definition": "Тип записи (сущности) JSON: описатель с required_fields, path_template, views, единицами измерения. Записи создаются create-only и валидируются по JSON Schema из .todoc/entity_types/<entity_type>/schema.json.",
+  "aliases": [
+    "entity_type"
+  ],
+  "source_path": "glossary/entity-type.md",
+  "artifacts": [],
+  "relations": []
+}

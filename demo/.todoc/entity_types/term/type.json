@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "type_id": "term",
+  "version": "0.1",
+  "kind": "entity_type",
+  "description": "Термин глоссария: словарная единица предметной области с определением, алиасами и витриной-glossary-страницей (source_path).",
+  "format": "json",
+  "required_fields": [
+    "record_id",
+    "entity_type",
+    "title",
+    "term_type",
+    "definition"
+  ],
+  "path_template": "records/terms/{slug}.json",
+  "views": {
+    "summary": ["record_id", "title", "term_type", "source_path"],
+    "full": null
+  },
+  "template": "template.json",
+  "schema": "schema.json"
+}

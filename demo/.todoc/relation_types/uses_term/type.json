@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "type_id": "uses_term",
+  "version": "0.1",
+  "kind": "relation_type",
+  "description": "Запись/документ процесса использует термин глоссария (vitрина-связь: flow, rule, incident, release, change, api-endpoint, domain-event → term).",
+  "endpoints": {
+    "source": ["flow", "rule", "incident", "release", "change", "api-endpoint", "domain-event"],
+    "target": ["term"]
+  }
+}
