@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "term:relation-type",
+  "entity_type": "term",
+  "title": "relation_type",
+  "term_type": "concept",
+  "definition": "Тип направленного ребра графа между записями. type_id обязан существовать в реестре, target.id обязан указывать на существующую запись.",
+  "aliases": [
+    "relation_type"
+  ],
+  "source_path": "glossary/relation-type.md",
+  "artifacts": [],
+  "relations": []
+}

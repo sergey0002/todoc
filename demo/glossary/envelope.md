@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, конверт, ответа]
 
 # Конверт ответа
 
+Запись термина: [[term:envelope]].
+
 Единая форма вывода: `schema_version`, `ok`, `data`, `diagnostics`, `next_actions`. В stdout — ровно один JSON-текст; человекочитаемые режимы `table`/`markdown` рендерят те же факты.
 
 ## Связи

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_id": "term:dir-type",
+  "entity_type": "term",
+  "title": "dir_type",
+  "term_type": "concept",
+  "definition": "Тип папки. Присваивается правилами directory-rules.json по basename или маске, затем зарезервированными именами. Влияет на маршрутизацию и валидацию, но не перемещает файлы.",
+  "aliases": [
+    "dir_type"
+  ],
+  "source_path": "glossary/dir-type.md",
+  "artifacts": [
+    {
+      "path": ".todoc/rules/directory-rules.json",
+      "role": "rules-file"
+    }
+  ],
+  "relations": []
+}

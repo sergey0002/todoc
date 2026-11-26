@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, writeplan]
 
 # WritePlan
 
+Запись термина: [[term:write-plan]].
+
 План записи до применения: `target_path`, `new_content`, `expected_hash`, `new_hash`, `conflict`. Пишется только после review-first подтверждения (`--preview` → `--apply`).
 
 ## Связи

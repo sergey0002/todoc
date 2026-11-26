@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "term:data-root",
+  "entity_type": "term",
+  "title": "DATA_ROOT",
+  "term_type": "concept",
+  "definition": "Корень переносимой папки данных: обычные файлы + .todoc/. Всё производное (индекс, кэш) пересобирается из него. Не путать с каталогом Skill (SKILL.md + references/).",
+  "aliases": [
+    "DATA_ROOT"
+  ],
+  "source_path": "glossary/data-root.md",
+  "artifacts": [],
+  "relations": []
+}

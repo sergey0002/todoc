@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, type, doc]
 
 # doc_type
 
+Запись термина: [[term:doc-type]].
+
 Тип документа. Присваивается правилами `document-rules.json`: явное объявление в front matter (приоритет 200) важнее маски папки (приоритет 100). Не равен формату и не равен `dir_type`.
 
 ## Связи

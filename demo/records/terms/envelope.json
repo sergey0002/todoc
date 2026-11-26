@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "term:envelope",
+  "entity_type": "term",
+  "title": "Конверт ответа",
+  "term_type": "component",
+  "definition": "Единая форма вывода: schema_version, ok, data, diagnostics, next_actions. В stdout — ровно один JSON-текст; человекочитаемые режимы table/markdown рендерят те же факты.",
+  "aliases": [
+    "конверт ответа"
+  ],
+  "source_path": "glossary/envelope.md",
+  "artifacts": [],
+  "relations": []
+}

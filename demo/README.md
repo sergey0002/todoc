@@ -40,14 +40,17 @@ tags: [demo-readme, датасета, readme]
 ```bash
 todoc validate --root demo --all          # ожидается 0 диагностик
 todoc check --root demo                    # сводка по датасету
-todoc types list --root demo               # 18 dir_types, 23 doc_types, 13 entity_types, 9 relation_types
+todoc types list --root demo               # 18 dir_types, 23 doc_types, 14 entity_types, 11 relation_types
 todoc docs tree --root demo --max-depth 2  # дерево папок с типами
 todoc docs search --root demo --query "портабельность" --limit 3
-todoc docs read --root demo --id doc:constitution --section "Принципы"
+todoc docs read --root demo --id "doc:constitution#Принципы"   # fragment в id = --section
+todoc records list --root demo --type term --limit 12      # 10 терминов глоссария
+todoc records read --root demo --id term:envelope          # + mentioned_in: витрина и упоминания
 todoc records list --root demo --type decision --limit 5
 todoc records query --root demo --query-file demo/.todoc/queries/decisions-accepted.json
 todoc records aggregate --root demo --type metric --metric value --group-by aspect
 todoc relations graph --root demo --from decision:no-lsp --depth 2
+todoc relations tree --root demo --from term:dir-type --output markdown
 ```
 
 ## Что демонстрирует датасет
@@ -55,12 +58,17 @@ todoc relations graph --root demo --from decision:no-lsp --depth 2
 1. **Приоритеты резолвера**: front matter `doc_type` (приоритет 200) побеждает маску папки (приоритет 100);
    зарезервированные имена дают `dir_type`, когда правила молчат.
 2. **Записи с единицами измерения**: `records/metrics/*.json` → `records aggregate` возвращает `units` и `formula`.
-3. **Валидация по JSON Schema**: `.todoc/entity_types/<entity_type>/schema.json` применяются к записям;
+3. **Справочник сущностей (термины)**: `records/terms/*.json` (`entity_type: term`) с витринами
+   `glossary/<slug>.md`; упоминания записи в md видны в `records read` → `mentioned_in` и рёбрами
+   `via:mention` в `relations graph`/`relations tree`; иерархия — `part_of` (reserved-basename → dir-type).
+4. **Откат ребра из журнала**: `records undo-relation --id … --pointer /relations/N [--apply]` —
+   план из ревизий (режим restore/remove), apply — сплайс JSON с CAS по `--expected-hash`.
+5. **Валидация по JSON Schema**: `.todoc/entity_types/<entity_type>/schema.json` применяются к записям;
    нарушение даёт `record.schema_violation` с JSON Pointer.
-4. **Отношения**: `documents`, `references`, `analyzes`, `describes`, `supersedes` — цель обязана существовать.
-5. **Ссылки**: обычные Markdown-ссылки проверяются, wikilinks резолвятся по имени файла,
+6. **Отношения**: `documents`, `references`, `analyzes`, `describes`, `supersedes` — цель обязана существовать.
+7. **Ссылки**: обычные Markdown-ссылки проверяются, wikilinks резолвятся по имени файла,
    код в fenced-блоках и инлайновый код ссылками не считаются.
-6. **CSV**: `attachments/docs-inventory.csv` читается через `docs read --columns/--rows/--where`.
+8. **CSV**: `attachments/docs-inventory.csv` читается через `docs read --columns/--rows/--where`.
 
 ## Связь с репозиторием
 

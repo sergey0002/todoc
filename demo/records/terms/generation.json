@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "record_id": "term:generation",
+  "entity_type": "term",
+  "title": "Поколение индекса",
+  "term_type": "component",
+  "definition": "Атомарно публикуемый снимок .todoc/index/generations/<id>/: folders, documents, records, relations, diagnostics. CURRENT.json переключается только после успешной записи.",
+  "aliases": [
+    "поколение индекса"
+  ],
+  "source_path": "glossary/generation.md",
+  "artifacts": [],
+  "relations": []
+}

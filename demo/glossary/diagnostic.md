@@ -10,6 +10,8 @@ tags: [glossary, glossary-entry, диагностика]
 
 # Диагностика
 
+Запись термина: [[term:diagnostic]].
+
 Найденная проблема: `code`, `severity`, `path`, `location` (line/column/end_column), `evidence`, `suggested_fixes`. Идентификатор `diag_*` стабилен только внутри одного запуска.
 
 ## Связи
