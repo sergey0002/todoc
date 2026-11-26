@@ -31,6 +31,7 @@ from todoc.application.changes import (TRANSLIT, apply_change, archive_change, c
 from todoc.application.context import build_context
 from todoc.application.query import aggregate_records, graph_neighbors, query_records
 from todoc.application.folder_config import load_folder_configs, score_folder_configs
+from todoc.application.state import get_var, load_state, set_var, unset_var
 from todoc.application.search import search_documents
 from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, plan_ack
@@ -1940,6 +1941,67 @@ def _emit_error(code: str, message: str, exit_code: int) -> None:
          _group_output, None)
     sys.stderr.write(f"Error [{code}]: {message}\n")
     sys.exit(exit_code)
+
+
+@cli.group()
+def state() -> None:
+    """Агентский стейт сессии (v1): state.json вне данных, XDG_STATE_HOME."""
+
+
+@state.command("set")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("key")
+@click.argument("value")
+def state_set(roots: tuple[str, ...], output: str, no_input: bool, key: str, value: str) -> None:
+    """Записать переменную стейта (белый список v1: context.current_project)."""
+    ctx = _contexts(roots)[0]
+    data = set_var(ctx.dataset_id, key, value)
+    _emit_ok({"ok": True, "key": key, "value": data["vars"][key], "updated_at": data["updated_at"]},
+             output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["state", "get", key],
+                            "purpose": "Перечитать записанное"}])
+
+
+@state.command("get")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("key")
+def state_get(roots: tuple[str, ...], output: str, no_input: bool, key: str) -> None:
+    """Прочитать переменную стейта (value: null — не установлена)."""
+    ctx = _contexts(roots)[0]
+    value = get_var(ctx.dataset_id, key)
+    _emit_ok({"ok": True, "key": key, "value": value}, output, None)
+
+
+@state.command("list")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.option("--prefix", default=None, help="Фильтр по префиксу ключа (секции).")
+def state_list(roots: tuple[str, ...], output: str, no_input: bool, prefix: str | None) -> None:
+    """Переменные стейта датасета (сортировка по ключу)."""
+    ctx = _contexts(roots)[0]
+    data = load_state(ctx.dataset_id)
+    vars_ = {k: v for k, v in sorted(data["vars"].items())
+             if prefix is None or k.startswith(prefix)}
+    _emit_ok({"ok": True, "vars": vars_}, output, None)
+
+
+@state.command("unset")
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--no-input", is_flag=True)
+@click.argument("key")
+def state_unset(roots: tuple[str, ...], output: str, no_input: bool, key: str) -> None:
+    """Удалить переменную стейта (removed: false — не была установлена)."""
+    ctx = _contexts(roots)[0]
+    removed = unset_var(ctx.dataset_id, key)
+    _emit_ok({"ok": True, "key": key, "removed": removed}, output, None,
+             next_actions=[{"argv": _root_argv(roots) + ["state", "list"],
+                            "purpose": "Оставшиеся переменные"}] if removed else None)
 
 
 def main() -> None:
