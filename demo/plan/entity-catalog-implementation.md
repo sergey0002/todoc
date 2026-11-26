@@ -357,13 +357,13 @@ Run: `todoc validate --root demo --all` — 0; `todoc records list --root demo -
   edges[{from, when?, to, priority}]} — по эталону идеи documentation-system
   (P1 account-blocked → P2 no-funds → P3 gateway-down → happy path).
 
-- [ ] **Шаг 1 (gate-проверка):** `todoc records read --id flow:order-placement`
+- [x] **Шаг 1 (gate-проверка):** `todoc records read --id flow:order-placement`
   существует (иначе — останов, волна 2 ждёт softdoc; отметить в §8).
-- [ ] **Шаг 2: tree в запись** — nodes/edges/props по таблице решений пилота;
+- [x] **Шаг 2: tree в запись** — nodes/edges/props по таблице решений пилота;
   превью = 0 диагностик, apply.
-- [ ] **Шаг 3: uses_term** — от flow и правил к терминам (потребитель пишет
+- [x] **Шаг 3: uses_term** — от flow и правил к терминам (потребитель пишет
   ребро); preview/apply.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 4: проверить**
 
 Run: `todoc relations tree --root demo --from term:<X>` — «правило → флоу → термины»;
 `todoc relations graph --from term:<X>` — рёбра uses_term; validate = 0. Коммит
@@ -399,14 +399,14 @@ Run: `todoc validate --root demo --all` — 0; `python3 tools/linkcheck.py demo`
   lineage|terms] [--write PATH]`; `docs flow walk --id flow:X [--at node:ID]
   [--all-paths]`.
 
-- [ ] **Шаг 1 (TDD, красные): тесты** — render: 4 артефакта + Режим + термины
+- [x] **Шаг 1 (TDD, красные): тесты** — render: 4 артефакта + Режим + термины
   из uses_term; walk: корень → ветви по приоритету, props развилки, каждый путь
   до терминала; --write: fm derived_from + дисклеймер, файл валиден;
   повторный --write после правки записи → stale видит дрейф.
-- [ ] **Шаг 2: flow_view.py** — чистая сборка markdown из записи (детерминизм);
+- [x] **Шаг 2: flow_view.py** — чистая сборка markdown из записи (детерминизм);
   --write через atomic_write + journal event.
-- [ ] **Шаг 3: cli** — группа `docs flow` (render, walk); конверт `--output`.
-- [ ] **Шаг 4: проверить**
+- [x] **Шаг 3: cli** — группа `docs flow` (render, walk); конверт `--output`.
+- [x] **Шаг 4: проверить**
 
 Run: `todoc docs flow render --root demo --id flow:order-placement` — витрина;
 `--write flows/order-placement.md` → `todoc stale --root demo` — drift виден
@@ -435,15 +435,15 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
 
 ## 6. Definition of Done
 
-- [ ] Задачи 1–9 исполнены; волны — отдельными коммитами (минимальная
+- [x] Задачи 1–9 исполнены; волны — отдельными коммитами (минимальная
   готовность = волна 1: движок u-graph/undo; полная = волна 3).
-- [ ] Критерии успеха §1.1–1.8 выполнены и проверены командами из шагов.
-- [ ] `todoc validate --root demo --all` = 0; `check` — ok; linkcheck — 0 битых.
-- [ ] pytest зелёный от замера; новый код движка — 100% покрытие; счётчики
+- [x] Критерии успеха §1.1–1.8 выполнены и проверены командами из шагов.
+- [x] `todoc validate --root demo --all` = 0; `check` — ok; linkcheck — 0 битых.
+- [x] pytest зелёный от замера; новый код движка — 100% покрытие; счётчики
   README/state от факта.
-- [ ] Критерии приёмки идеи doc:entity-catalog-idea (1–7) закрыты (7 — в
+- [x] Критерии приёмки идеи doc:entity-catalog-idea (1–7) закрыты (7 — в
   объёме З8: render/walk/undo/mentioned_in; упоминания в витринах и планах).
-- [ ] T10/T12 вне скоупа (зафиксировано §2), стейты статусов планов не меняются
+- [x] T10/T12 вне скоупа (зафиксировано §2), стейты статусов планов не меняются
   (снятие `done` — только по явной фразе пользователя).
 
 ## 7. Риски и митигации
@@ -461,8 +461,10 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
 
 ## 8. Прогресс и отклонения
 
-- Статус: волны 1–2 исполнены (З1–З5, З7, З9 — 2026-11-25). З6/З8 остановлены
-  на gate: softdoc З2/З5 не исполнен (ждёт явной команды).
+- Статус: **план исполнен полностью** (З1–З9 + DoD, 2026-11-26). Волны 1–2 —
+  2026-11-25; gate softdoc открыт (PR #78); З6 (tree + uses_term) и З8
+  (render/write/walk, T1/T2) — 2026-11-26; DoD проверен командами (validate 0,
+  check ok, linkcheck 453/0, pytest зелёный, flow_view 100%).
 - План составлен по идее doc:entity-catalog-idea (321 строка, 10 разделов) —
   все код-якоря проверены чтением (markdown.py:26/62/333, jsonfmt.py:248,
   validator.py:134/621, query.py:116, service.py:180, history.py:162,
@@ -470,6 +472,22 @@ Run: `todoc validate --root demo --all` — 0; `pytest -q` — от замера
   entity 13 / relation 9, документы 376 (188 md).
 - Волна 2 (З6) — gate на softdoc З2/З5: если softdoc не исполнен, З6/З8
   останавливаются на gate-проверке, З1–З5 и З7 (без пилотных рёбер) исполняются.
+- 2026-11-26 — Задача 6 (gate softdoc пройден — PR #78): бизнес-термины пилота
+  (заказ/платёж/шлюз) в глоссарии отсутствуют (10 терминов — механика движка),
+  страницы не выдумывались; uses_term поставлены на фактические механические
+  термины движения пилотных записей — flow → term:entity-type (типизированная
+  запись), term:write-plan (review-first запись через WritePlan); правила без
+  uses_term (шаг опционален). Правка записи — docs edit; первый патч tree был
+  испорчен последовательными ops (replace затёр вставку) — исправлено патчем
+  с учётом сдвига строк + дедупликация рёбер.
+- 2026-11-26 — Задача 8: Run-строка неточна: `--write flows/order-placement.md`
+  на демо не материализуется постоянно — файл ручной (полный fm id/doc_type/tags/
+  related + document-record, guard docs.flow_render_not_derived защищает), а
+  сгенерированная витрина рядом — двойная истина, которую идея запрещает.
+  --write доказан на демо транзиентно (4 якоря derived_from, validate = 0, дрейф
+  staleness.dependency_changed после правки записи, re-render снимает) и
+  юнит-тестами. Семантика walk: минимальный приоритет, висячее ребро — честный
+  останов; belongs_to-правила выведены в Lineage.
 - Отклонений нет. Решения в рамках шагов (2026-11-25): регистр якоря
   не важен (как в Obsidian); у inline-ссылок цель с ":" и без файла трактуется
   как битая record-ссылка (markdown.record_not_found); упоминание записи
