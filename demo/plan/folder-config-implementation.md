@@ -3,9 +3,9 @@ id: doc:plan-folder-config
 title: "Конфиг папок: .config.json — самоописание, дерево с описаниями, suggest-скоринг (план)"
 doc_type: plan
 lang: ru
-status: active
+status: done
 tags: [folder-config, cli, tree, suggest, scoring, search]
-updated: 2026-11-25
+updated: 2026-11-26
 related: ["[[folder-config]]", "[[skills-engine]]", "[[plan-skills-vault]]"]
 created: 2026-11-26
 ---
@@ -468,6 +468,7 @@ git commit -m "docs(folder-config): демо-конфиги 5 папок + до�
 ## 8. Прогресс и отклонения
 
 - Статус: не начат (2026-11-25). Первая задача — Задача 1, шаг 1.
+- fm `status: done` — явная фраза пользователя «закрой все планы и в идеях пометку сделай» (2026-11-26).
 - 2026-11-25 — план создан из идеи folder-config (doc:folder-config-idea) по
   итогам аудита кода: сканер пропускает только `.todoc.json` (scanner.py:96) —
   исключение `.config.json` вошло в Задачу 1; `folders` уже в индексном payload

@@ -3,7 +3,7 @@ id: doc:entity-catalog-idea
 title: "Идея: справочник сущностей системы — термины-записи, генерируемые витрины флоу, связи сущностей через граф"
 doc_type: idea
 lang: ru
-status: captured
+status: done
 created: 2026-11-26
 updated: 2026-11-26
 tags: [ideas, idea, справочник, сущностей, глоссарий, термины]
@@ -16,6 +16,9 @@ related: ["[[documentation-system]]", "[[folder-config]]", "[[теги-доку�
 > [decision-tree-formats](../.research/decision-tree-formats.md) (doc:decision-tree-formats)
 > и план [документирование-софта](../plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md)
 > (doc:plan-softdoc-profile). Идея — кандидат в план после softdoc.
+
+**Реализация:** выполнена (2026-11-26) — план [entity-catalog-implementation](../plan/entity-catalog-implementation.md)
+(doc:plan-entity-catalog, 43/43) исполнен и закрыт (`done`): term-записи, u-graph ссылок, undo рёбер, flow render/walk.
 
 ## Суть
 

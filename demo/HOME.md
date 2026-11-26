@@ -24,13 +24,13 @@ tags: [moc, содержимого, датасета]
 
 ### Планы (статусы от 26.11.2026)
 
-- [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **исполнена волна 1** (задачи 1–7: dir_types flows/reports/specs/changes, entity flow/rule/incident/release/task-snapshot/change, doc_types flow-doc/spec-doc/task-report/release-note + промпты, relation belongs_to/affects/fixes/blocked_by, пилот «оформление заказа», 5 скилов документирования) **и волна 2** (задачи 8–10: api-endpoint/domain-event/bounded-context/slo/dependency + depends_on, api-contract/runbook/postmortem + contracts/ops, событийный срез пилота). Он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md) — gate закрыт (З6/З8 исполнены).
-- [Конфиг папок](plan/folder-config-implementation.md) — **исполнен** (38/38): `folder.*`, `folder_meta`, `docs suggest`, буст search.
-- [Агентский стейт](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — **исполнен** (20/20): `todoc state set/get/list/unset`, файл вне данных.
+- [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **исполнена волна 1** (задачи 1–7: dir_types flows/reports/specs/changes, entity flow/rule/incident/release/task-snapshot/change, doc_types flow-doc/spec-doc/task-report/release-note + промпты, relation belongs_to/affects/fixes/blocked_by, пилот «оформление заказа», 5 скилов документирования) **и волна 2** (задачи 8–10: api-endpoint/domain-event/bounded-context/slo/dependency + depends_on, api-contract/runbook/postmortem + contracts/ops, событийный срез пилота). Он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md) — gate закрыт (З6/З8 исполнены). fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
+- [Конфиг папок](plan/folder-config-implementation.md) — **исполнен** (38/38): `folder.*`, `folder_meta`, `docs suggest`, буст search. fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
+- [Агентский стейт](plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md) — **исполнен** (20/20): `todoc state set/get/list/unset`, файл вне данных. fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
 - [Скилы взаимодействия](plan/скилы-взаимодействия--захват--план--исполнение--переходы--жизненный-цикл.md) — **исполнен** (35/35; **done**): `docs status`/`records status`, allowed_statuses + enum task, 4 скила жизненного цикла в `skills/process/`, relations `implements`/`subtask_of`, сквозной сценарий «идея → план → задачи» на реальном пункте backlog (интероп-экспорты).
 - [Entity-catalog: справочник сущностей](plan/entity-catalog-implementation.md) — **исполнен полностью** (43/43; **done**): фрагменты ссылок, mention-индекс, relations tree, undo-relation, тип `term` + 10 терминов, source_anchor, tree пилотного флоу + uses_term, flow render/walk, DoD закрыт.
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
-- [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой).
+- [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой). fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
 
 ### Хранилище скилов (`skills/`)
 
@@ -90,10 +90,10 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 
 ## Идеи (`ideas/`)
 
-- [Система документирования кодовой базы через агента](ideas/documentation-system.md) — git-дифы и Jira API → типизированные черновики todoc, очередь сбора, версии правил через `supersedes`.
-- [Хранилище-движок скилов на todoc](ideas/skills-engine.md) — скил как dir_type (формат Agent Skills), иерархия-дерево решений, `todoc skills tree` — оглавление с описаниями на лету, мьют через `!`-префикс. **Запланирована** (25.11.2026) → [план](plan/skills-vault-implementation.md).
-- [`.config.json` — самоописание папок](ideas/folder-config.md) — заголовок, описание и порядок папки для CLI-вывода; описания разделов для дерева скилов.
-- [Агентский стейт — state.json в движке](ideas/agent-state.md) — память рабочего состояния между сессиями вне данных; v1: только `context.current_project`.
+- [Система документирования кодовой базы через агента](ideas/documentation-system.md) — git-дифы и Jira API → типизированные черновики todoc, очередь сбора, версии правил через `supersedes`. **Реализована** (fm done, 2026-11-26).
+- [Хранилище-движок скилов на todoc](ideas/skills-engine.md) — скил как dir_type (формат Agent Skills), иерархия-дерево решений, `todoc skills tree` — оглавление с описаниями на лету, мьют через `!`-префикс. **Запланирована** (25.11.2026) → [план](plan/skills-vault-implementation.md). **Реализована** (fm done, 2026-11-26).
+- [`.config.json` — самоописание папок](ideas/folder-config.md) — заголовок, описание и порядок папки для CLI-вывода; описания разделов для дерева скилов. **Реализована** (fm done, 2026-11-26).
+- [Агентский стейт — state.json в движке](ideas/agent-state.md) — память рабочего состояния между сессиями вне данных; v1: только `context.current_project`. **Реализована** (fm done, 2026-11-26).
 
 ## Гайды
 
