@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -162,7 +163,7 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
 
 
 def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
-                   history: Any | None = None) -> str:
+                   history: Any | None = None, bump_updated: bool = False) -> tuple[str, bool]:
     r"""Apply line-based edit ops (BUG-004: не только замена).
 
     Формы op (применяются последовательно; номера строк относятся к состоянию
@@ -180,6 +181,18 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
     if expected_hash is not None and current_hash != expected_hash:
         raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
     lines = target.read_text(encoding="utf-8").splitlines()
+    updated_bumped = False
+    if bump_updated and lines and lines[0] == "---":
+        # План doc-tags З3: бамп updated в той же атомарной записи (до записи файла).
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        for i in range(1, len(lines)):
+            if lines[i] == "---":
+                break  # конец fm
+            if lines[i].startswith("updated:"):
+                if lines[i] != f"updated: {today}":
+                    lines[i] = f"updated: {today}"
+                    updated_bumped = True
+                break
     for op in ops:
         kind = op.get("op", "replace")
         if kind in ("replace", None):
@@ -209,8 +222,8 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
     invalidate_parse_cache(root, rel_path)
     if history is not None:
         history.record(rel_path, before, new_text.encode("utf-8"), "doc.edit",
-                       f"docs edit {len(ops)} ops")
-    return _sha(new_text)
+                       f"docs edit {len(ops)} ops" + (" + bump updated" if updated_bumped else ""))
+    return _sha(new_text), updated_bumped
 
 
 def load_input_record(path: Path) -> dict[str, Any]:
@@ -251,6 +264,16 @@ def create_document_plan(dataset: dict[str, Any], doc_types: dict[str, Any], doc
     content = render_template(template_text, values or {}) if template_text else f"# {title}\n\n"
     if not content.endswith("\n"):
         content += "\n"
+    # План doc-tags З3: движок — единственный писатель created/updated; docs new
+    # строит front matter сам (шаблоны fm не содержат). Опциональные tags/related
+    # оставляются агенту и миграции.
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fm_lines = ["---", f'id: {(values or {}).get("id", f"doc:{target_path}")}',
+                f'title: "{title.replace(chr(34), chr(92) + chr(34))}"']
+    if doc_type_id:
+        fm_lines.append(f"doc_type: {doc_type_id}")
+    fm_lines += ["lang: ru", f"created: {today}", f"updated: {today}", "---", ""]
+    content = "\n".join(fm_lines) + "\n" + content
     descriptor = doc_types.get(doc_type_id or "", {})
     # Review-first, as with records: a document whose own type forbids its shape is
     # refused before anything touches the disk, not reported after the fact.

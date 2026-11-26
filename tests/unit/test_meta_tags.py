@@ -158,3 +158,71 @@ def test_read_output_carries_meta_fields(tmp_path):
     assert d["related"] == ["[[x]]"]
     r2 = _run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:notes/plain-x.md"])
     assert r2.exit_code != 0  # не существует — docs.not_found
+
+
+# --- Задача 3: даты в движке (docs new fm + бамп updated в docs edit) -----------------
+
+def test_docs_new_writes_front_matter_with_dates(tmp_path, monkeypatch):
+    import re
+    runner = CliRunner()
+    _init(runner, tmp_path)
+    r = _run(runner, ["docs", "new", "--root", str(tmp_path), "--title", "Свежая заметка",
+                      "--dir", "inbox", "--template", "note"])
+    assert r.exit_code == 0, r.output
+    text = (tmp_path / "inbox/svezhaya-zametka.md").read_text(encoding="utf-8")
+    assert text.startswith("---\n")
+    assert re.search(r"^id: doc:inbox/svezhaya-zametka\.md$", text, re.M)
+    assert re.search(r'^title: "Свежая заметка"$', text, re.M)
+    assert re.search(r"^doc_type: note$", text, re.M)
+    assert re.search(r"^lang: ru$", text, re.M)
+    today = text.split("created: ")[1].split("\n")[0]
+    assert today == text.split("updated: ")[1].split("\n")[0]
+    assert "## Суть" in text  # тело шаблона на месте
+
+
+def test_docs_edit_apply_bumps_updated(tmp_path):
+    runner = CliRunner()
+    _init(runner, tmp_path)
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes/d.md").write_text(
+        "---\ntitle: D\ncreated: 2026-01-01\nupdated: 2026-02-02\n---\n\n# D\n\nстарая строка\n",
+        encoding="utf-8")
+    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    pf = tmp_path / "p.json"
+    pf.write_text(json.dumps({"ops": [{"line": 6, "text": "новая строка"}]}), encoding="utf-8")
+    r = _run(runner, ["docs", "edit", "--root", str(tmp_path), "--id", "doc:notes/d.md",
+                      "--patch-file", str(pf), "--apply"])
+    d = _json(r)["data"]
+    assert d["updated_bumped"] is True
+    text = (tmp_path / "notes/d.md").read_text(encoding="utf-8")
+    assert "created: 2026-01-01" in text
+    assert f"updated: {text.split('created: ')[1].split(chr(10))[0][:0]}" or True  # форма ниже
+    import re
+    m = re.search(r"^updated: (\d{4}-\d{2}-\d{2})$", text, re.M)
+    assert m and m.group(1) != "2026-02-02"  # бампнута на сегодня
+    assert "новая строка" in text
+
+
+def test_docs_edit_preview_keeps_file_bytes(tmp_path):
+    runner = CliRunner()
+    _init(runner, tmp_path)
+    (tmp_path / "notes").mkdir()
+    body = "---\ntitle: D\ncreated: 2026-01-01\nupdated: 2026-02-02\n---\n\n# D\n\nстрока\n"
+    (tmp_path / "notes/d.md").write_text(body, encoding="utf-8")
+    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    pf = tmp_path / "p.json"
+    pf.write_text(json.dumps({"ops": [{"line": 6, "text": "новая"}]}), encoding="utf-8")
+    r = _run(runner, ["docs", "edit", "--root", str(tmp_path), "--id", "doc:notes/d.md",
+                      "--patch-file", str(pf)])
+    assert _json(r)["data"]["preview"] is True
+    assert (tmp_path / "notes/d.md").read_text(encoding="utf-8") == body  # байт-в-байт
+
+
+def test_apply_edit_ops_bump_without_updated_field(tmp_path):
+    from todoc.application.write import apply_edit_ops
+
+    (tmp_path / "l.md").write_text("# Legacy\n\nнет fm.\n", encoding="utf-8")
+    new_hash, bumped = apply_edit_ops(tmp_path, "l.md", [{"line": 3, "text": "правка"}],
+                                      bump_updated=True)
+    assert bumped is False  # fm нет — бампать нечего
+    assert "правка" in (tmp_path / "l.md").read_text(encoding="utf-8")

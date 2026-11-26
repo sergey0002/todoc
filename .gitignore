@@ -20,3 +20,6 @@ htmlcov/
 **/.todoc/index/
 **/.todoc/cache/
 **/.todoc/generated/
+
+# Obsidian workspace files (план doc-tags З3: vault-настройки — локальные)
+.obsidian/

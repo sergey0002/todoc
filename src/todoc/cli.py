@@ -1519,10 +1519,11 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
     if not apply_:
         _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "preview": True, "ops": ops}, output, None)
         return
-    new_hash = apply_edit_ops(ctx.root, doc["path"], ops, expected_hash=if_hash,
-                             history=ctx.history_recorder())
+    new_hash, updated_bumped = apply_edit_ops(ctx.root, doc["path"], ops, expected_hash=if_hash,
+                                             history=ctx.history_recorder(), bump_updated=True)
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "applied": True, "new_hash": new_hash}, output, None)
+    _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "applied": True,
+              "new_hash": new_hash, "updated_bumped": updated_bumped}, output, None)
 
 
 @cli.group()
