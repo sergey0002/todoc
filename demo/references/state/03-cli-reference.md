@@ -1,6 +1,6 @@
 ---
 id: doc:state-cli
-title: "Состояние: справочник CLI, 26 команд"
+title: "Состояние: справочник CLI, 27 команд"
 doc_type: reference
 lang: ru
 source: docs/state/03-cli-reference.md
@@ -355,6 +355,16 @@ ID диагностики — SHA-256 от `path + code + message`, поэтом
 До первой пересборки `index_built: false`, а `documents`/`records` — `null`, не `0`: нули
 читались как «в датасете ничего нет» (P1-6). В этом случае конверт несёт `next_actions`
 с `todoc index rebuild`.
+
+### `state set KEY VALUE` / `state get KEY` / `state list [--prefix P]` / `state unset KEY`
+
+Агентский стейт сессии: `{XDG_STATE_HOME|~/.local/state}/todoc/state-<dataset_id>.json`
+— вне данных и Git. v1 — белый список ключей `context.current_project`; значение —
+строка 1–256 символов. Конверты: set → `{ok, key, value, updated_at}`; get →
+`{ok, key, value|null}`; list → `{ok, vars}`; unset → `{ok, key, removed}`.
+Коды ошибок: `state.unknown_key` (ключ вне whitelist), `state.invalid_value`,
+`state.limit_exceeded` (>200 ключей или файл >64 КБ), `state.file_unavailable`.
+Запись атомарная (tmp+rename); параллельные записи — «последний выигрывает».
 
 ## Типовые последовательности
 
