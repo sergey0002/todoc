@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "record_id": "document:bug-007-linkcheck-command-missing",
+  "entity_type": "document",
+  "title": "BUG-007: linkcheck из DoD планов не существует как команда CLI:friction, token_overrun:1500",
+  "source_path": "bugs/bug-007--linkcheck-command-missing.md",
+  "doc_type": "bug-report",
+  "lang": "ru",
+  "origin": "authored",
+  "agent_impact": [
+    "friction",
+    "token_overrun"
+  ],
+  "tokens_extra_est": 1500,
+  "tags": [
+    "bug-report",
+    "session-2026-11-25"
+  ],
+  "relations": [
+    {
+      "type_id": "references",
+      "target": {
+        "kind": "record",
+        "id": "document:plan-folder-config"
+      }
+    }
+  ]
+}
