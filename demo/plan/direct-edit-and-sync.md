@@ -268,7 +268,7 @@ git commit -m "feat(core): fix subdir GitBackend.read_at, isolate .todoc/history
    - Если файл существует и изменился (и не заблокирован защитой витрин): для `.md` вызывается `bump_front_matter_updated(text)` и при `bumped == True` выполняется `atomic_write(target, new_text)`. Сбрасывается `invalidate_parse_cache(ctx.root, rel_path)`, при `record_history` вызывается `record_write(ctx.root, rel_path, before_bytes, final_bytes, kind="doc.sync" if suffix == ".md" else "record.sync", basis="todoc sync", backend=backend)`.
    - В конце вызывается `ctx.rebuild_index(force=True, observe=record_history)`, из нового снимка индекса выбираются диагностики по `target_set` (плюс заблокированные витрины). При наличии ошибок с `severity == "error"` возвращается `ok: False` и `guidance` (`"sync.derived_view_blocked"` или `"sync.validation_failed"`).
 
-- [ ] **Шаг 1: написать полный падающий модульный тест** в `tests/unit/test_sync.py`
+- [x] **Шаг 1: написать полный падающий модульный тест** в `tests/unit/test_sync.py`
 
 ```python
 from __future__ import annotations
@@ -416,19 +416,19 @@ def test_envelope_guidance_backward_compatible_and_table_emit(capsys) -> None:
     assert "guidance:" in out
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/pytest tests/unit/test_sync.py -v`
 Expected: FAIL с `ModuleNotFoundError: No module named 'todoc.application.sync'`.
 
-- [ ] **Шаг 3: реализовать `src/todoc/application/sync.py`, обновить `DatasetContext.rebuild_index(..., observe: bool = True)` в `src/todoc/service.py` и `Envelope` в `src/todoc/output/envelope.py`**
+- [x] **Шаг 3: реализовать `src/todoc/application/sync.py`, обновить `DatasetContext.rebuild_index(..., observe: bool = True)` в `src/todoc/service.py` и `Envelope` в `src/todoc/output/envelope.py`**
 
-- [ ] **Шаг 4: убедиться, что модульные тесты проходят со 100% branch coverage**
+- [x] **Шаг 4: убедиться, что модульные тесты проходят со 100% branch coverage**
 
 Run: `.venv/bin/pytest tests/unit/test_sync.py -v --cov=todoc.application.sync --cov=todoc.output.envelope --cov-branch --cov-report=term-missing`
 Expected: PASS, покрытие `src/todoc/application/sync.py` и `src/todoc/output/envelope.py` — `100%` веток (`0` пропущенных).
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/application/sync.py src/todoc/service.py src/todoc/output/envelope.py tests/unit/test_sync.py
