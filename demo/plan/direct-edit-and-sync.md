@@ -451,7 +451,7 @@ git commit -m "feat(sync): implement sync_files engine with updated bump, histor
   ```
   Коды выхода: `0` при `ok: true`, `3` (`EXIT_VALIDATION`) при `ok: false` (ошибки валидации или `docs.derived_edited_directly`), `5` (`EXIT_CONFLICT`) при `ConflictError` (`--if-hash`), `4` (`EXIT_ACCESS`) при выходе пути за пределы `DATA_ROOT`.
 
-- [ ] **Шаг 1: написать полный падающий CLI-тест** в `tests/cli/test_cli_sync.py` (с использованием обёртки `_run(runner, args)` для трансляции `TodocError.exit_code`, как в `tests/cli/test_cli.py:9`)
+- [x] **Шаг 1: написать полный падающий CLI-тест** в `tests/cli/test_cli_sync.py` (с использованием обёртки `_run(runner, args)` для трансляции `TodocError.exit_code`, как в `tests/cli/test_cli.py:9`)
 
 ```python
 from __future__ import annotations
@@ -522,22 +522,22 @@ def test_cli_sync_direct_edit_dirty_derived_block_and_conflicts(tmp_path: Path, 
     assert _run(runner, ["sync", "--root", "kb", "../outside.md"]).exit_code == 4
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/pytest tests/cli/test_cli_sync.py -v`
 Expected: FAIL с `No such command 'sync'` (`exit_code == 2`).
 
-- [ ] **Шаг 3: добавить тонкий обработчик `@cli.command("sync")` в `src/todoc/cli.py`**
+- [x] **Шаг 3: добавить тонкий обработчик `@cli.command("sync")` в `src/todoc/cli.py`**
   - Импортировать `EXIT_VALIDATION` из `todoc.errors` и `sync_files` из `todoc.application.sync`.
   - Поддержать `--out` через существующий `_contained_out(ctx.root, out)`.
   - Сформировать конверт через `make_envelope(res["ok"], {"dataset_id": res["dataset_id"], "synced": res["synced"], "diagnostics_count": len(res["diagnostics"])}, res["diagnostics"], next_actions, guidance=res["guidance"], include_guidance=True)` и при `not res["ok"]` завершать с `sys.exit(EXIT_VALIDATION)`.
 
-- [ ] **Шаг 4: убедиться, что CLI-тесты и весь существующий набор CLI-тестов зелёные**
+- [x] **Шаг 4: убедиться, что CLI-тесты и весь существующий набор CLI-тестов зелёные**
 
 Run: `.venv/bin/pytest tests/cli/test_cli_sync.py tests/cli/ -v --cov=todoc.application.sync --cov-branch`
 Expected: PASS (`100%` branch coverage на `sync.py` и всех новых ветках обработчика `sync` в `cli.py`).
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/cli.py tests/cli/test_cli_sync.py
