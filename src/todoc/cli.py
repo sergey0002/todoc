@@ -43,12 +43,13 @@ from todoc.application.temporal import InvalidInstant, timeline as build_timelin
 from todoc.domain.models import WritePlan
 from todoc.application.validator import (_basename_index, _entity_types_of,
                                          _load_schemas, _wikilink_candidates, stable_id)
+from todoc.application.sync import sync_files
 from todoc.application.write import (apply_edit_ops, apply_fix, apply_undo_relation, apply_write_plan,
                                      create_document_plan, create_record_plan, load_input_record,
                                      plan_undo_relation)
 from todoc.config import init_dataset
-from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, AccessError,
-                          ConflictError, TodocError, ValidationError)
+from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, EXIT_VALIDATION,
+                          AccessError, ConflictError, TodocError, ValidationError)
 from todoc.output.envelope import emit, make_envelope
 from todoc.service import DatasetContext, resolve_roots
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics,
@@ -607,6 +608,52 @@ def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None
                             "purpose": "Пересобрать индекс после импорта"},
                            {"argv": _root_argv(roots) + ["skills", "tree", "--root", str(ctx.root)],
                             "purpose": "Показать дерево после импорта"}])
+
+
+@cli.command("sync")
+@click.option("--root", "roots", multiple=True, help="Dataset root directory.")
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--out", "out_file", default=None, help="Write envelope inside DATA_ROOT.")
+@click.option("--no-input", is_flag=True)
+@click.option("--dirty", is_flag=True, help="Synchronize all locally modified/created/deleted data files.")
+@click.option("--if-hash", default=None, help="Optimistic precondition hash before direct edit.")
+@click.option("--allow-derived", is_flag=True, help="Allow syncing generated views despite derived_from.")
+@click.option("--no-history", is_flag=True, help="Skip writing local history snapshot/journal event.")
+@click.argument("paths", nargs=-1)
+def sync_cmd(roots: tuple[str, ...], output: str, out_file: str | None, no_input: bool,
+             dirty: bool, if_hash: str | None, allow_derived: bool, no_history: bool,
+             paths: tuple[str, ...]) -> None:
+    """Finalize direct file edits: bump updated, record history, refresh index, and validate."""
+    ctx = _contexts(roots)[0]
+    out_target: str | None = None
+    if out_file is not None:
+        resolved_out = _contained_out(ctx.root, out_file)
+        resolved_out.parent.mkdir(parents=True, exist_ok=True)
+        out_target = str(resolved_out)
+    res = sync_files(
+        ctx,
+        paths,
+        dirty=dirty,
+        expected_hash=if_hash,
+        allow_derived=allow_derived,
+        record_history=not no_history,
+        cwd=Path.cwd(),
+    )
+    envelope = make_envelope(
+        res["ok"],
+        {
+            "dataset_id": res["dataset_id"],
+            "synced": res["synced"],
+            "diagnostics_count": len(res["diagnostics"]),
+        },
+        res["diagnostics"],
+        [],
+        guidance=res["guidance"],
+        include_guidance=True,
+    )
+    emit(envelope, output, out_target)
+    if not res["ok"]:
+        sys.exit(EXIT_VALIDATION)
 
 
 @cli.command("stale")

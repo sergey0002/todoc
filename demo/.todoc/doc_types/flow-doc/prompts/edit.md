@@ -1,14 +1,9 @@
 # Правка: `flow-doc`
 
-Правка — review-first: patch + предпросмотр + hash. Обязательные секции не удаляются:
-`## Жизненный цикл`, `## Таблица решений`, `## Диаграмма исходов`, `## Lineage`.
+Если витрина сгенерирована командой `todoc docs flow render --write` (имеет `derived_from` / метку `<!-- СГЕНЕРИРОВАНО:`), **не правь её вручную** — отредактируй исходную запись `flow:<slug>`, запусти `todoc sync --root KB <путь-к-записи>` и пересобери витрину `todoc docs flow render --id flow:<slug> --write <путь>`.
 
-## Как
+Если это ручной эталонный `flow-doc` без `derived_from` — сохраняй обязательные секции (`## Жизненный цикл`, `## Таблица решений`, `## Диаграмма исходов`, `## Lineage`), вноси правку напрямую в файл и сразу финализируй:
 
 ```bash
-todoc docs read --root KB --id doc:<id> --output json       # hash
-todoc docs edit --root KB --id doc:<id> --patch-file patch.txt --preview
-todoc docs edit --root KB --id doc:<id> --patch-file patch.txt --apply --if-hash <hash>
+todoc sync --root KB <путь-к-файлу.md>
 ```
-
-После — `todoc validate --root KB --all` — 0 диагностик; чтение назад — `docs read --section`.

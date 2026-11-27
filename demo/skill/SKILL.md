@@ -6,7 +6,7 @@ lang: en
 source: SKILL.md
 copied: true
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 tags: [skill, agent, todoc]
 ---
 
@@ -48,8 +48,8 @@ Before any non-trivial task run `todoc skills tree --root <PATH>`; pick a skill 
 ## Capture (review-first)
 
 1. Clarify only missing required fields/units/targets. Never invent them.
-2. Preview: `todoc --root <PATH> records create --type <type> --input-file <draft.json> --preview`.
-3. Apply only with explicit consent: `--apply`. Creation is create-only: an existing `record_id` or path is refused (`record.duplicate_id`, exit 5) rather than overwritten, and that is the real guard. `--if-hash-new` is accepted but not enforced, so do not rely on it; hash-based optimistic locking applies to `docs edit --if-hash`. Then re-read + re-validate.
+2. Create new items via CLI templates: `todoc --root <PATH> docs new --type <type> --title "..." --path <dir>/<slug>.md` or `todoc --root <PATH> records create --type <type> --input-file <draft.json> --preview` → `--apply` (create-only: an existing `record_id` or path is refused with `record.duplicate_id`, exit 5).
+3. **Edit existing `.md`, `.json`, and `.csv` files directly** with your native editor tool (never hand-edit `created`/`updated` or generated views with `"generated": true`), then **immediately run `todoc sync --root <PATH> <file_path>`** (optionally `--if-hash <hash>`) to bump `updated`, record history ranges, refresh the index, and validate (`ok: true`, `diagnostics: []`).
 
 ## References
 

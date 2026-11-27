@@ -14,7 +14,7 @@
    ```
 
 3. Наполнить по шаблону (`.todoc/doc_types/api-contract/template.md`); правки —
-   `docs edit --patch-file ... --preview/--apply`; чтение назад — `docs read --section`.
+   прямую правку файла + `todoc sync --root KB <путь>`; чтение назад — `docs read --section`.
 
 - **Источник истины**: spec в репо сервиса; KB хранит карту и смысл, не дубликат файла; spec_url обязателен.
 ## Запрещённые заглушки

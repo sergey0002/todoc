@@ -161,7 +161,7 @@ class DatasetContext:
         return scan_dataset(self.root, follow_symlinks=follow, max_file_bytes=max_bytes,
                             hash_cache=self.store.read_stats())
 
-    def rebuild_index(self, force: bool = True) -> dict[str, Any]:
+    def rebuild_index(self, force: bool = True, observe: bool = True) -> dict[str, Any]:
         """Recompute and publish the snapshot. ``force=False`` reuses a valid one."""
         scanned = self.scan()
         digest = corpus_digest(scanned[1], self.store.config_digest())
@@ -182,7 +182,8 @@ class DatasetContext:
         gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest,
                                     mentions=mentions)
         self.store.write_stats(scanned[1])
-        self.observe_history(scanned[1])
+        if observe:
+            self.observe_history(scanned[1])
         return {"dataset_id": self.dataset_id, "generation_id": gen_id, "corpus_digest": digest,
                 "reused": False, "folders": len(folders), "documents": len(documents),
                 "records": len(records), "relations": len(relations), "diagnostics": len(diagnostics)}

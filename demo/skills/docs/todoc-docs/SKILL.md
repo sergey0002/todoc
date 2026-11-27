@@ -3,7 +3,7 @@ id: doc:skill-todoc-docs
 title: "Скил: поиск и чтение KB датасета через CLI"
 doc_type: agent-skill
 lang: ru
-updated: 2026-11-25
+updated: 2026-11-27
 name: todoc-docs
 description: "Ищет и читает knowledge base датасета todoc через CLI: bounded search/read по конвенции. Use when answering from the KB."
 created: 2026-11-26
@@ -22,7 +22,8 @@ tags: [skill, agent-skill, датасета, чтение]
 2. Точечный поиск: `todoc docs search --root demo --query "<термины>" --limit 5` — возьми пути из выдачи.
 3. Читай bounded, не весь файл: `todoc docs read --root demo --id <id> --section "<заголовок>"` или `--line-range A-B` (дефис, не запятая).
 4. Записи: `todoc records list --root demo --type <type> --limit 10`, фильтры — готовые query-файлы в `demo/.todoc/queries/`.
-5. Шпаргалка команд: references/query-cheatsheet.md рядом с этим SKILL.md.
+5. Правка: редактируй файлы напрямую штатным инструментом и сразу финализируй короткой командой `todoc sync --root demo <путь>`.
+6. Шпаргалка команд: references/query-cheatsheet.md рядом с этим SKILL.md.
 
 ## Pitfalls
 

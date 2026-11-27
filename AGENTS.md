@@ -31,11 +31,14 @@ python3 -m venv .venv                 # PEP 668: глобальный pip в с�
 
 ## Железные правила сессии
 
-1. **Работай только через CLI.** Любая операция с демо-датасетом и знаниями —
-   команды `todoc` (`docs new/read/search/edit/tree`, `records create/list/read`,
-   `validate`, `types …`). Не правь файлы датасета напрямую, когда для этого есть
-   команда. Исключение — наполнение тела свежесозданного скелета (`docs new`),
-   ограничение BUG-004; после наполнения обязательно чтение назад.
+1. **Навигация и шаблоны — через CLI, редактирование — напрямую + `todoc sync`.**
+   Поиск, оглавление и чтение секций (`docs search/read/tree`, `records list/read/query`),
+   а также создание новых каркасов по шаблонам (`docs new`, `records create`) выполняй
+   через CLI `todoc`. **Существующие файлы датасета (`.md`, `.json`, `.csv`) редактируй
+   напрямую штатным инструментом редактора, сразу после чего обязательно запускай короткую
+   команду финализации `todoc sync --root demo <path>`** (она обновит `updated:`, историю,
+   кэш индекса и проверит валидность). Не правь руками даты `created`/`updated` и
+   автособираемые витрины (`export`, рендеры `flow render --write`).
 
 2. **Перепроверяй каждый шаг.** После каждой команды — обратное чтение
    результата (`docs read`, `records read`, `explain-path`); после изменений
@@ -70,9 +73,11 @@ python3 -m venv .venv                 # PEP 668: глобальный pip в с�
    (фрикция) и `…/bugs-token-overrun.json` (перерасход токенов);
    быстрый ранжирующий вариант — `docs search --type bug-report --query "agent_impact friction"`.
 
-4. **Review-first.** Записи — только `records create --preview` → `--apply`
-   (create-only: дубль отклоняется). Правки существующих md — `docs edit
-   --preview` → `--apply` (при конкуренции — `--if-hash`).
+4. **Создание по шаблонам и финализация правок (`todoc sync`).** Новые записи —
+   `records create --preview` → `--apply` (create-only: дубль отклоняется), новые
+   документы — `docs new`. Правки существующих файлов — напрямую в файле + сразу
+   `todoc sync --root demo <path>` (при конкуренции — `--if-hash <hash>`). Команда
+   `docs edit` сохранена для внешних скриптов, но не навязывается агенту.
 
 5. **Счётчики — от факта.** Источник истины — `todoc types list --root demo`
    и фактический вывод команд, не числа в README. Обнаружил расхождение —
@@ -125,12 +130,13 @@ todoc docs tree --root demo --max-depth 2                   # карта пап�
 todoc records list --root demo --type task                  # записи типа
 todoc types list --root demo                                # все типы
 todoc types prompt <тип> --op create --root demo            # стартовый промпт типа
+todoc sync --root demo <путь>                               # финализировать прямую правку файла
 todoc validate --root demo --all                            # 0 диагностик — гейт
 ```
 
 Подводные камни: секция `docs read --section` обрезается до 40 строк
-(смотри `truncated`, дочитывай `--line-range` — BUG-005); `docs edit` умеет
-только замену строк (BUG-004); явный `doc_type` без fm-правила резолвится
+(смотри `truncated`, дочитывай `--line-range` — BUG-005); после прямой правки
+любого файла обязательно запускай `todoc sync --root demo <путь>`; явный `doc_type` без fm-правила резолвится
 в `unknown` (BUG-001 — не создавай новые типы без правил).
 
 ## Границы

@@ -1,7 +1,7 @@
 # Правка: `term`
 
 Термин — живой словарный объект, но правки консервативны: глоссарий — нормативный
-словарь датасета. Правка — review-first: patch + предпросмотр + hash.
+словарь датасета. Правка — прямая правка файла с обязательной финализацией `todoc sync`.
 
 ## Типичные правки
 
@@ -14,11 +14,7 @@
 ## Как
 
 ```bash
-todoc records read --root KB --id term:<slug> --output json      # текущий hash/содержимое
-# подготовить patch-file с построчными заменами
-todoc docs edit --root KB --id <document_id> --patch-file patch.txt --preview
-todoc docs edit --root KB --id <document_id> --patch-file patch.txt --apply --if-hash <hash>
+todoc records read --root KB --id <record_id> --output json   # прочитать текущее содержимое и схему
+# внести изменения напрямую в JSON-файл записи, сохранив record_id и entity_type
+todoc sync --root KB <путь-к-файлу.json>                      # обновит историю, индекс и проверит 0 диагностик
 ```
-
-Поля `record_id`/`entity_type` не меняются (идентичность термина); slug переименованием
-не правится — вместо этого новая запись + supersedes/удаление старой.

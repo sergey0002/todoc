@@ -19,7 +19,7 @@ def _config_digest(root: Path) -> str:
     todoc_dir = root / ".todoc"
     if todoc_dir.is_dir():
         for path in sorted(todoc_dir.rglob("*.json")):
-            if "index" in path.parts or "cache" in path.parts or "generated" in path.parts:
+            if "index" in path.parts or "cache" in path.parts or "generated" in path.parts or "history" in path.parts:
                 continue
             try:
                 h.update(path.read_bytes())

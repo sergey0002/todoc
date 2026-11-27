@@ -4,7 +4,7 @@ title: "Скил: идея → план → задачи"
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 name: todoc-plan
 description: "Use when the user approves an idea for implementation ("make a plan", "let's do it") or asks to break an approved plan into tasks. Checks the idea readiness (open questions), creates a plan doc of type plan with spec link and derived_from edge, sets idea status planned, creates task records with implements edges and subtask_of for children."
 ---
@@ -19,7 +19,7 @@ description: "Use when the user approves an idea for implementation ("make a pla
 ## Procedure
 
 1. Проверка готовности: статус идеи `captured` (`todoc docs status --root KB --id doc:<idea>`) и открытые вопросы закрыты; иначе — стоп и вопрос пользователю «делаем как есть?».
-2. Создание плана: `todoc docs new --root KB --type plan --title "<Название>" --path plan/<slug>.md` → заполнить 8 секций шаблона; в шапке `Спека:` = id идеи; в fm плана — `status: active` и `derived_from` на файл идеи (якорь `путь@sha256`) — тем же docs edit-патчем.
+2. Создание плана: `todoc docs new --root KB --type plan --title "<Название>" --path plan/<slug>.md` → напрямую заполнить 8 секций шаблона; в шапке `Спека:` = id идеи; в fm плана — `status: active` и `derived_from` на файл идеи (якорь `путь@sha256`), затем выполнить `todoc sync --root KB plan/<slug>.md`.
 3. Статус идеи: `todoc docs status --root KB --id doc:<idea> --set planned`.
 4. Задачи (по запросу пользователя): одна `records create --type task` на задачу раздела 5 плана; в relations — ребро `implements` на document-запись плана (records/documents/<plan-slug>.json); крупные задачи → родитель + дети с рёбрами `subtask_of`; каждая задача — review-first: --preview → --apply.
 5. `todoc validate --root KB --all` — 0 диагностик после каждого шага.

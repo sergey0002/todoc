@@ -4,11 +4,10 @@ Entity type plan.
 
 ## Как править
 
-1. `todoc records read --id <record_id> --view full` — запомнить текущее содержимое и `hash`.
-2. Изменить копию JSON, сохранив `record_id` и `entity_type`.
-3. Удалить старый файл и создать новый через
-   `todoc records create --type plan --input-file <file.json> --preview`, затем `--apply`.
-   Записи создаются, а не перезаписываются — это намеренно.
+1. `todoc records read --id <record_id> --view full` — прочитать текущее содержимое, схему и путь файла.
+2. Отредактировать JSON-файл записи напрямую штатным редактором, сохранив `record_id` и `entity_type`.
+3. Сразу после прямой правки выполнить короткую команду финализации:
+   `todoc sync --root KB <путь-к-файлу.json>` — она обновит историю, индекс и проверит JSON Schema и связи.
 
 ## Что нельзя ломать
 
@@ -18,5 +17,5 @@ Entity type plan.
 
 ## После правки
 
-- `todoc validate --all` — 0 диагностик.
+- `todoc sync --root KB <путь>` — `ok: true`, `diagnostics: []`.
 - `todoc relations graph --id <record_id>` — связи не оборвались.

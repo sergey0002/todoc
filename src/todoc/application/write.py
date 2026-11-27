@@ -164,6 +164,28 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
     return _sha(new_text)
 
 
+def bump_front_matter_updated(text: str, today: str | None = None) -> tuple[str, bool]:
+    """Bump ``updated: YYYY-MM-DD`` inside closed YAML front matter when older than ``today``."""
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return text, False
+    close_idx: int | None = None
+    for i in range(1, len(lines)):
+        if lines[i] == "---":
+            close_idx = i
+            break
+    if close_idx is None:
+        return text, False
+    stamp = today or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for i in range(1, close_idx):
+        if lines[i].startswith("updated:"):
+            if lines[i] != f"updated: {stamp}":
+                lines[i] = f"updated: {stamp}"
+                return "\n".join(lines) + "\n", True
+            return text, False
+    return text, False
+
+
 def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
                    history: Any | None = None, bump_updated: bool = False) -> tuple[str, bool]:
     r"""Apply line-based edit ops (BUG-004: не только замена).
@@ -182,19 +204,11 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
     current_hash = file_hash(target)
     if expected_hash is not None and current_hash != expected_hash:
         raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
-    lines = target.read_text(encoding="utf-8").splitlines()
+    raw_text = target.read_text(encoding="utf-8")
     updated_bumped = False
-    if bump_updated and lines and lines[0] == "---":
-        # План doc-tags З3: бамп updated в той же атомарной записи (до записи файла).
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        for i in range(1, len(lines)):
-            if lines[i] == "---":
-                break  # конец fm
-            if lines[i].startswith("updated:"):
-                if lines[i] != f"updated: {today}":
-                    lines[i] = f"updated: {today}"
-                    updated_bumped = True
-                break
+    if bump_updated:
+        raw_text, updated_bumped = bump_front_matter_updated(raw_text)
+    lines = raw_text.splitlines()
     for op in ops:
         kind = op.get("op", "replace")
         if kind in ("replace", None):

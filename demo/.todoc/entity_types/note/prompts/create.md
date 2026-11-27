@@ -8,7 +8,8 @@ Entity type note.
 2. Подготовить входной файл и создать запись (create-only):
    `todoc records create --type note --input-file <file.json> --preview`,
    затем то же с `--apply`.
-3. Путь файла определит тип: `records/note/{slug}.json`.
+3. Путь файла определит тип: `records/note/{slug}.json`. Дальнейшие точечные правки созданного
+   JSON-файла можно делать напрямую в файле с последующим `todoc sync --root KB <путь>`.
 
 ## Обязательные поля
 
@@ -21,5 +22,4 @@ Entity type note.
 
 ## Чего не делать
 
-- Не писать JSON прямо в DATA_ROOT: любой `.json` с `record_id` станет записью.
-- Не рассчитывать на перезапись: существующий `record_id` даёт `record.duplicate_id` и exit 5.
+- Не рассчитывать на перезапись при `records create`: существующий `record_id` даёт `record.duplicate_id` и exit 5.

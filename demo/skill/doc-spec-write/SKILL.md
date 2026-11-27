@@ -5,7 +5,7 @@ description: >
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 tags: [skill, documentation, agent]
 ---
 
@@ -25,7 +25,7 @@ tags: [skill, documentation, agent]
    Requirement: «Система SHALL <проверяемое>» + «Проверка: <тест/команда>»;
    сценарии `#### Scenario: N` с `- **WHEN** / - **THEN**`.
 4. Дельта в изменение: SHALL-строки → `requirements_delta` записи `change:<slug>`
-   (added/modified/removed) через `docs edit --preview/--apply`.
+   (added/modified/removed) прямой правкой файла + `todoc sync --root KB <путь>`.
 5. Проверка: `validate --all` — 0 диагностик; скан заглушек; THEN наблюдаем.
 
 ## Стоп-условия
