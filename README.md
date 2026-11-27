@@ -7,9 +7,9 @@
 
 | Показатель | Значение |
 |---|---|
-| Команд CLI | 51 листовых (27 верхнего уровня, 8 групп) |
-| Тестов | 1191 (все проходят) |
-| Покрытие | 99% — 5748 инструкций, 2156 веток (на новых модулях — 100%) |
+| Команд CLI | 64 листовых (29 верхнего уровня, 10 групп) |
+| Тестов | 1316 |
+| Покрытие | 100% — 6481 инструкций, 2432 веток |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
 | Демо-датасет | [`demo/`](demo/README.md): 465 документов, 205 записей, 0 диагностик |
 
@@ -58,7 +58,8 @@ todoc validate --root ./knowledge --all
 ```bash
 todoc docs search --root demo --query "…" --limit 5          # найти
 todoc docs read --root demo --id doc:… --section "…"          # прочитать (bounded)
-todoc records create --root demo --type … --input-file F --preview  # записать (review-first)
+todoc records create --root demo --type … --input-file F --preview  # создать запись (review-first)
+todoc sync --root demo <путь>                                # финализировать прямую правку файла (updated, history, index, validate)
 todoc types prompt <тип> --op create --root demo              # стартовый промпт типа
 todoc validate --root demo --all                              # 0 диагностик — обязательный гейт
 ```
@@ -102,6 +103,7 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
 | `check-config` | загрузить конфигурацию и реестр типов |
 | `check [--strict]` | сводка: документы, ошибки, предупреждения |
 | `scan` | обход датасета без публикации индекса |
+| `sync [PATHS...] [--dirty] [--if-hash H] [--allow-derived] [--no-history]` | финализация после прямой правки файлов: бамп `updated:`, фиксация ревизии в `history`, защита автособираемых витрин (`guidance`), пересборка индекса и валидация |
 | `validate [--all]` | полная валидация с точными локациями |
 | `index status` / `index rebuild` | состояние и пересборка поколения индекса |
 | `explain-path PATH` | почему путь получил свой тип (`rule_source`) |
@@ -226,8 +228,8 @@ todoc records query --root KB --query-file KB/.todoc/queries/decisions-accepted.
 ## Демо-датасет
 
 [`demo/`](demo/README.md) — готовый DATA_ROOT со всей документацией проекта, разложенной по типам
-папок и документов: 18 `dir_types`, 23 `doc_types`, 13 `entity_types`, 9 `relation_types`,
-170 записей, 152 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
+папок и документов: 24 `dir_types`, 31 `doc_types`, 25 `entity_types`, 18 `relation_types`,
+205 записей, 169 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
 
 ```bash
 todoc validate --root demo --all                       # 0 диагностик
@@ -244,7 +246,7 @@ SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, ports, adapters, typing_system, output
-tests/                1191 тестов: unit, cli, integration (покрытие 99%)
+tests/                1316 тестов: unit, cli, integration (покрытие 100%)
 docs/
 ├── README.md         индекс всей документации
 ├── installation.md   установка, проверка, первый датасет
@@ -303,7 +305,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **30.0 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-1191 тестов и покрытие 99%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+1316 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 

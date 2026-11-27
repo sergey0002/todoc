@@ -90,7 +90,10 @@ def test_sync_blocks_generated_views_unless_allow_derived_and_allows_plan_with_d
     exp = kb / "exports" / "view.md"
     exp.write_text(exp.read_text(encoding="utf-8").replace("v1", "ручная правка"), encoding="utf-8")
     plan = kb / "plan" / "p1.md"
-    plan.write_text(plan.read_text(encoding="utf-8").replace("Шаг 1", "Шаг 1 выполнен"), encoding="utf-8")
+    plan.write_text(
+        plan.read_text(encoding="utf-8").replace("Шаг 1", "Шаг 1 выполнен (проверка `<!-- СГЕНЕРИРОВАНО:`)"),
+        encoding="utf-8",
+    )
 
     fm_gen = kb / "notes" / "fm-gen.md"
     fm_gen.write_text(

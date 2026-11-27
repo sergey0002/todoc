@@ -607,7 +607,7 @@ git commit -m "feat(prompts): switch default type create/edit prompts from docs 
 - Consumes: работающая команда `.venv/bin/todoc sync --root demo`, обновлённый `build_prompts`
 - Produces: консистентные правила, скилы и промпты всех `56` типов без принудительного `docs edit --patch-file` и тест-инвариант `test_demo_prompts_policy.py`, защищающий от регрессии.
 
-- [ ] **Шаг 1: написать падающий тест политики промптов и правил** в `tests/unit/test_demo_prompts_policy.py`
+- [x] **Шаг 1: написать падающий тест политики промптов и правил** в `tests/unit/test_demo_prompts_policy.py`
 
 ```python
 from __future__ import annotations
@@ -653,12 +653,12 @@ def test_rules_contracts_and_skills_reference_todoc_sync_without_patch_file_mand
         assert "todoc sync" in text, f"{rel} must document todoc sync"
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/pytest tests/unit/test_demo_prompts_policy.py -v`
 Expected: FAIL (промпты и скилы ещё содержат `--patch-file` и не упоминают `todoc sync`).
 
-- [ ] **Шаг 3: обновить правила, скилы, все `56` типов в `demo/.todoc/`, закрыть `BUG-012` и прогнать `todoc sync --root demo` на живом датасете**
+- [x] **Шаг 3: обновить правила, скилы, все `56` типов в `demo/.todoc/`, закрыть `BUG-012` и прогнать `todoc sync --root demo` на живом датасете**
   1. Обновить `AGENTS.md` (правила 1 и 4 + таблица команд), `SKILL.md`, `demo/skill/SKILL.md`, `demo/notes/agent-contract.md`, `demo/skills/docs/todoc-docs/SKILL.md`, `demo/skills/process/{todoc-capture,todoc-plan,todoc-execute}/SKILL.md` и `demo/skill/{doc-flow-capture,doc-spec-write}/SKILL.md`.
   2. Обновить `12` стандартных и `43` кастомных `prompts/{create,edit}.md` в `demo/.todoc/` (сохранив все доменные правила типов), а в `export/prompts/edit.md` и `flow-doc/prompts/edit.md` зафиксировать правку источника + пересборку витрины.
   3. Перевести `demo/bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md` в `status: fixed`.
@@ -668,7 +668,7 @@ Expected: FAIL (промпты и скилы ещё содержат `--patch-fi
      ```
   5. Выполнить живую dogfooding-проверку: `.venv/bin/todoc sync --root demo` и убедиться, что `git status --porcelain` не содержит `.todoc/history/`.
 
-- [ ] **Шаг 4: прогнать полный end-to-end гейт репозитория**
+- [x] **Шаг 4: прогнать полный end-to-end гейт репозитория**
 
 Run: `.venv/bin/pytest -v --cov=todoc --cov-branch && .venv/bin/todoc check-config --root demo && .venv/bin/todoc validate --root demo --all && .venv/bin/todoc stale --root demo && .venv/bin/python tools/linkcheck.py`
 Expected:
@@ -677,7 +677,7 @@ Expected:
 - `stale`: `"stale": 0`;
 - `linkcheck.py`: `broken 0`.
 
-- [ ] **Шаг 5: финальный коммит**
+- [x] **Шаг 5: финальный коммит**
 
 ```bash
 git add AGENTS.md SKILL.md README.md demo/ tests/unit/test_demo_prompts_policy.py
@@ -686,12 +686,12 @@ git commit -m "docs(rules,prompts): adopt direct file editing + todoc sync acros
 
 ## 6. Definition of Done
 
-- [ ] Все 5 задач раздела 5 выполнены и отмечены `[x]`.
-- [ ] Новый модуль `src/todoc/application/sync.py` и все затронутые файлы `src/todoc/` имеют **`100%` branch coverage** в `pytest --cov=todoc --cov-branch`.
-- [ ] В `src/todoc/application/sync.py` нет импорта `click` и прямого ввода-вывода в консоль (соблюдён шов под модульный рефакторинг CLI).
-- [ ] Прямая правка `.md` и `.json` в `demo/` с последующим `todoc sync --root demo <path>` проверена end-to-end: обновляет `updated:`, историю и индекс за один вызов, блокирует ручную правку автособираемых витрин с заполненным `guidance`, не блокирует планы с `derived_from` и оставляет `git status` чистым от `.todoc/history/`.
-- [ ] `todoc check-config --root demo` (`0` диагностик), `todoc validate --root demo --all` (`0` диагностик), `todoc stale --root demo` (`0` устаревших), `tools/linkcheck.py` (`0` битых ссылок).
-- [ ] Счётчики команд (`64` листовых), тестов и документов в корневом `README.md` сверены с фактическим выводом CLI.
+- [x] Все 5 задач раздела 5 выполнены и отмечены `[x]`.
+- [x] Новый модуль `src/todoc/application/sync.py` и все затронутые файлы `src/todoc/` имеют **`100%` branch coverage** в `pytest --cov=todoc --cov-branch`.
+- [x] В `src/todoc/application/sync.py` нет импорта `click` и прямого ввода-вывода в консоль (соблюдён шов под модульный рефакторинг CLI).
+- [x] Прямая правка `.md` и `.json` в `demo/` с последующим `todoc sync --root demo <path>` проверена end-to-end: обновляет `updated:`, историю и индекс за один вызов, блокирует ручную правку автособираемых витрин с заполненным `guidance`, не блокирует планы с `derived_from` и оставляет `git status` чистым от `.todoc/history/`.
+- [x] `todoc check-config --root demo` (`0` диагностик), `todoc validate --root demo --all` (`0` диагностик), `todoc stale --root demo` (`0` устаревших), `tools/linkcheck.py` (`0` битых ссылок).
+- [x] Счётчики команд (`64` листовых), тестов и документов в корневом `README.md` сверены с фактическим выводом CLI.
 - [ ] После явного подтверждения пользователя идея `doc:ideas/direct-edit-and-git-sync.md` и этот план `doc:plan/direct-edit-and-sync.md` переводятся в статус `done`.
 
 ## 7. Риски и митигации
@@ -707,4 +707,5 @@ git commit -m "docs(rules,prompts): adopt direct file editing + todoc sync acros
 
 - `2026-11-27` — План создан на основе зафиксированной и согласованной спеки `doc:ideas/direct-edit-and-git-sync.md` (`status: planned`).
 - `2026-11-27` — Проведён финальный предреализационный аудит плана против реального кода репозитория (`src/todoc/`, `tests/`, `demo/.todoc/`): устранены 7 скрытых ловушек (утечка `.todoc/history/refs.json` в `registry.py:_config_digest`, детекция рендеров `flow render --write` вне папки `flows/` по метке `<!-- СГЕНЕРИРОВАНО:`, точная сигнатура `@dataclass Envelope`, хелпер `_run` для `TodocError` в `CliRunner`, точные пути скилов в `demo/skill/` и отсутствие `export/prompts/edit.md` — все `56` типов учтены, полные коды всех тестов без текстовых сокращений, фактический счётчик `64` листовых команд CLI для `README.md`). План на `100%` готов к пошаговой реализации с Задачи 1.
+- `2026-11-26` — Выполнены Задачи 1–5 end-to-end (коммиты `ae23822`, `c99381f`, `d385b16`, `098198d` + финальный коммит Задачи 5): реализованы ядро `src/todoc/application/sync.py` и команда `todoc sync`, исключён `**/.todoc/history/` из Git (`BUG-012` → `fixed`), добавлена блокировка ручной правки автособираемых витрин (`"generated": true` + `guidance` `P15`), переведены правила, скилы и все `56` типов в `demo/.todoc/`. Покрытие `src/todoc/` — `100%` инструкций и веток (`6481` stmts, `2432` branches). В тестовом окружении вместо отсутствующего плагина `pytest-cov` для замера покрытия использован установленный пакет `coverage run --branch --source=todoc -m pytest`.
 

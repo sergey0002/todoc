@@ -1,14 +1,12 @@
 # Правка: `agent-skill`
 
-Правка скила — review-first: patch + предпросмотр + hash. `name` и папка не меняются
+Правка скила — прямая правка файла `SKILL.md` с обязательной финализацией `todoc sync`. `name` и папка не меняются
 (идентичность скила); `description` правится, если сменился охват «что + когда».
 
 ## Как
 
 ```bash
-todoc docs read --root KB --path skill/<имя>/SKILL.md --output json   # hash
-todoc docs edit --root KB --path skill/<имя>/SKILL.md --patch-file patch.txt --preview
-todoc docs edit --root KB --path skill/<имя>/SKILL.md --patch-file patch.txt --apply --if-hash <hash>
+todoc docs read --root KB --id doc:<id> --output json   # при необходимости прочитать секцию/hash
+# внести изменения напрямую в .md-файл (не трогая created и updated)
+todoc sync --root KB <путь-к-файлу.md>                  # обновит updated, историю, индекс и проверит 0 диагностик
 ```
-
-После — `todoc validate --root KB --all` — 0 диагностик; поиск находит по новым словам.

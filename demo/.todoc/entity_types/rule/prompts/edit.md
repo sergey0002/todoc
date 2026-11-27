@@ -7,9 +7,7 @@
 ## Как
 
 ```bash
-todoc records read --root KB --id <record_id> --output json   # hash/содержимое
-todoc docs edit --root KB --id <document_id> --patch-file patch.txt --preview
-todoc docs edit --root KB --id <document_id> --patch-file patch.txt --apply --if-hash <hash>
+todoc records read --root KB --id <record_id> --output json   # прочитать текущее содержимое и схему
+# внести изменения напрямую в JSON-файл записи, сохранив record_id и entity_type
+todoc sync --root KB <путь-к-файлу.json>                      # обновит историю, индекс и проверит 0 диагностик
 ```
-
-Одна правка = один патч; после — `todoc validate --root KB --all` — 0 диагностик.

@@ -112,7 +112,7 @@ def _is_generated_view(ctx: "DatasetContext", rel_path: str, text: str) -> tuple
     is_gen = bool(
         descriptor.get("generated") is True
         or fm.get("generated") is True
-        or GENERATED_MARKER in text
+        or any(line.startswith(GENERATED_MARKER) for line in text.splitlines())
         or (doc_type == "flow-doc" and "derived_from" in fm)
     )
     return is_gen, sources

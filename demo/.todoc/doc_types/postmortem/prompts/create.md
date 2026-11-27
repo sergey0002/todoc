@@ -14,7 +14,7 @@
    ```
 
 3. Наполнить по шаблону (`.todoc/doc_types/postmortem/template.md`); правки —
-   `docs edit --patch-file ... --preview/--apply`; чтение назад — `docs read --section`.
+   прямую правку файла + `todoc sync --root KB <путь>`; чтение назад — `docs read --section`.
 
 - **Порядок**: запись incident создаётся после утверждения разбора; ребро fixes — от release, когда фикс поедет.
 ## Запрещённые заглушки

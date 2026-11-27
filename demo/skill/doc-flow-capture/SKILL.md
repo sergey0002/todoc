@@ -5,7 +5,7 @@ description: >
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 tags: [skill, documentation, agent]
 ---
 
@@ -26,7 +26,7 @@ tags: [skill, documentation, agent]
    (явный латинский путь), наполнить 4 секции: Жизненный цикл (stateDiagram из states),
    Таблица решений (строки из examples правил; колонка «Режим»: auto | ask-user | пусто),
    Диаграмма исходов (flowchart = визуализация таблицы), Lineage (поле/откуда/ответственный).
-4. Обновление существующего: `docs edit --patch-file ... --preview` → `--apply --if-hash`.
+4. Обновление существующего: если это сгенерированная витрина (`flow render --write`) — правь запись-источник `flow:*`, запусти `todoc sync --root KB <путь-к-записи>` и пересобери витрину; если ручной `flow-doc` без `derived_from` — правь напрямую и выполни `todoc sync --root KB <путь>`.
 5. Ревизия правил: правило изменилось — новая запись `rule:<имя>-vN+1` + ребро
    `supersedes`; существующую не редактировать.
 6. Проверка: `todoc validate --root KB --all` — 0 диагностик; `docs read --section`

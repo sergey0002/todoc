@@ -4,14 +4,15 @@ title: "BUG-012: history-ревизии мутирующих команд заг
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 bug_id: BUG-012
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 500
 component: cli
 found: 2026-11-26
+related: ["[[direct-edit-and-sync]]"]
 ---
 
 # BUG-012: history-ревизии мутирующих команд загрязняют git-статус
@@ -78,3 +79,4 @@ $ git checkout -- demo/.todoc/history/journal.jsonl && rm -rf demo/.todoc/histor
 
 - Не баг самой history (CAS/ревизии корректны) — баг отсутствия git-конвенции.
 - Связан с BUG-004 (ревизии появились вместе с line-ops-патчем).
+- `fixed 2026-11-26, commit ae23822` (план [[direct-edit-and-sync]]): паттерн `**/.todoc/history/` добавлен в `.gitignore`, отслеживаемый `demo/.todoc/history/journal.jsonl` убран из Git-индекса, в `_config_digest` исключён `.todoc/history/`, а новая команда `todoc sync` поддерживает флаг `--no-history` и возвращает `revision` в данных ответа.

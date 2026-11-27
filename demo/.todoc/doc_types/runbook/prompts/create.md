@@ -14,7 +14,7 @@
    ```
 
 3. Наполнить по шаблону (`.todoc/doc_types/runbook/template.md`); правки —
-   `docs edit --patch-file ... --preview/--apply`; чтение назад — `docs read --section`.
+   прямую правку файла + `todoc sync --root KB <путь>`; чтение назад — `docs read --section`.
 
 - **Свежесть**: после применения по живому инциденту — обновить `Last verified` в шапке; runbook без проверки — черновик.
 ## Запрещённые заглушки

@@ -16,7 +16,7 @@
 
 2. **Capture-уровень (OpenSpec-интероп)** — заполнить `requirements_delta`:
    SHALL-строки из дифа требований по операциям `added`/`modified`/`removed`.
-   Правка через `docs edit --preview/--apply` по `document_id` записи.
+   Правка прямой правкой JSON-файла + `todoc sync --root KB <путь>`.
 
 ## Правила качества
 
