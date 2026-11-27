@@ -3,7 +3,7 @@ id: doc:ideas/direct-edit-and-git-sync.md
 title: "Идея: прямое редактирование файлов без дорогого docs edit, короткая команда финализации todoc sync <path> и замена правил/промптов"
 doc_type: idea
 lang: ru
-status: in_progress
+status: done
 created: 2026-11-27
 updated: 2026-11-27
 tags: [ideas, idea, direct-edit, sync, rules, prompts, git, guidance]
@@ -137,3 +137,7 @@ todoc sync --root KB <path> --if-hash sha256:...
 - [`BUG-004`: `docs edit` не умеет вставку и удаление строк](../bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md)
 - [`BUG-012`: ревизии мутирующих команд в `.todoc/history/` загрязняют `git status`](../bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md)
 - [`BUG-014`: `docs edit --preview` не показывает нумерацию результата](../bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md)
+
+## Статус
+
+- **Этап 1 реализован (`status: done`, 2026-11-26)** по плану [`direct-edit-and-sync`](../plan/direct-edit-and-sync.md) (Задачи 1–5, DoD 7/7, `BUG-012` → `fixed`). Этап 2 (`--from-git`, `auto-docs`, `auto-review`) отложен в следующую волну.

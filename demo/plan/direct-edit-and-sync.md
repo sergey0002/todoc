@@ -5,7 +5,7 @@ doc_type: plan
 lang: ru
 created: 2026-11-27
 updated: 2026-11-27
-status: in_progress
+status: done
 covers: ["doc:ideas/direct-edit-and-git-sync.md"]
 derived_from: ["ideas/direct-edit-and-git-sync.md#section:Суть@sha256:1505299b674277e48f5ea8a2592df3c3d93618ecc032f4c69bf42d11ab9df0c5", "ideas/direct-edit-and-git-sync.md#section:Предложение@sha256:885618969a8d226b352d3e58468f182fbf6d711a560f10d3839c956328f7909f", "ideas/direct-edit-and-git-sync.md#section:Решённые вопросы (закрыты при переходе в план)@sha256:9335031491c3e57caf2040d9e061f3c2afc0bb6751adf3abfc88631cf70f9d66"]
 tags: [plan, direct-edit, sync, cli, prompts, rules, history, guidance]
@@ -692,7 +692,7 @@ git commit -m "docs(rules,prompts): adopt direct file editing + todoc sync acros
 - [x] Прямая правка `.md` и `.json` в `demo/` с последующим `todoc sync --root demo <path>` проверена end-to-end: обновляет `updated:`, историю и индекс за один вызов, блокирует ручную правку автособираемых витрин с заполненным `guidance`, не блокирует планы с `derived_from` и оставляет `git status` чистым от `.todoc/history/`.
 - [x] `todoc check-config --root demo` (`0` диагностик), `todoc validate --root demo --all` (`0` диагностик), `todoc stale --root demo` (`0` устаревших), `tools/linkcheck.py` (`0` битых ссылок).
 - [x] Счётчики команд (`64` листовых), тестов и документов в корневом `README.md` сверены с фактическим выводом CLI.
-- [ ] После явного подтверждения пользователя идея `doc:ideas/direct-edit-and-git-sync.md` и этот план `doc:plan/direct-edit-and-sync.md` переводятся в статус `done`.
+- [x] После явного подтверждения пользователя идея `doc:ideas/direct-edit-and-git-sync.md` и этот план `doc:plan/direct-edit-and-sync.md` переводятся в статус `done`.
 
 ## 7. Риски и митигации
 
