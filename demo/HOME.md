@@ -4,7 +4,7 @@ title: "HOME: карта содержимого демо-датасета"
 doc_type: moc
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 tags: [moc, содержимого, датасета]
 ---
 
@@ -88,6 +88,8 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [Инженерный набросок](.research/engineering-plan.md)
 - [Исследование MCP и CLI](.research/mcp-cli-agents-research.md)
 - [Сравнительный аудит Agent Skills](.research/comparative-audit.md)
+- [Лучшие паки скилов и скриптов для мозговых штурмов и ресёрча](.research/agent-brainstorming-and-research-packs.md)
+- [Python-библиотеки BM25/BM25F и двуязычного стемминга (`RU+EN`) для ранжирования выборок](.research/bm25-ranking-python-libs.md)
 
 ## Идеи (`ideas/`)
 
@@ -97,6 +99,16 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [Агентский стейт — state.json в движке](ideas/agent-state.md) — память рабочего состояния между сессиями вне данных; v1: только `context.current_project`. **Реализована** (fm done, 2026-11-26).
 
 - [Интероп-экспорты: DMN, ASL, Rasa](ideas/interop-exports.md) — конвертеры flow→ASL, rule→DMN 1.3, term→Rasa NLU без новых зависимостей. **Реализована** (fm done, 2026-11-26) — [план](plan/interop-exports-dmn-asl-rasa.md) исполнен (DoD 3/3), витрины в `exports/`.
+- [`.todocignore` — исключение посторонних файлов и папок по синтаксису gitignore](ideas/todocignore.md) — пакет `pathspec` (`GitIgnoreSpec`) и каскадные `.todocignore` вместо жёстких списков в коде; сквозной учёт в сканере, валидаторе, поиске, скилах, `explain-path` и `linkcheck`. **Зафиксирована** (fm captured, 2026-11-26).
+- [`todoc docs move` — транзакционный перенос документа с автоправкой ссылок и связей](ideas/docs-move.md) — перенос/переименование одной командой (`--preview`/`--apply`) с пересчётом всех входящих/исходящих ссылок, wikilinks, `relations`/`source_path` записей, `derived_from` и индекса. **Зафиксирована** (fm captured, 2026-11-26).
+- [Раздельные часы `valid_at` и `known_at` для би-темпоральных выборок](ideas/bitemporal-clocks.md) — учёт `observed_at`, разделение времени истинности (`--valid-at`) и времени знания (`--known-at`), скрытие закрытых `superseded_at` по умолчанию (`--include-superseded`). **Зафиксирована** (fm captured, 2026-11-26).
+- [`todoc folderize` — преобразование любой сущности в папку-домен с `.config.json`](ideas/entity-to-folder.md) — разворачивание документа или записи в одноимённую папку на том же месте, автогенерация `.config.json`, перенос сущности в корень с автоправкой ссылок и вложенный поиск `--within` по идее/плану/задачам. **Зафиксирована** (fm captured, 2026-11-26).
+- [Настраиваемое логирование действий и вызовов CLI (`error` / `warning` / `notice` / `all`)](ideas/action-logging.md) — структурированный JSONL-лог вне данных (`~/.local/state/todoc/logs/`) с ротацией, метриками всех вызовов для отладки и группой `todoc trace`. **Зафиксирована** (fm captured, 2026-11-26).
+- [Стандарт именования типов (`1–2` слова `snake_case`) и тип папки `state` (`AS-IS`)](ideas/type-naming-and-state-dir.md) — жёсткий формат `^[a-z][a-z0-9]*(?:_[a-z0-9]+)?$` для всех `dir_type`/`entity_type`/`doc_type` и триада `idea → plan → state` для реальной картины мира. **Зафиксирована** (fm captured, 2026-11-26).
+- [Сквозная система тегов (`todoc tags`, граф `has_tag` и фильтр `--tag-in`)](ideas/unified-tags-and-tag-graph.md) — единые теги для документов, записей и папок, двухшаговая разметка (`tags list` → `tags set`, порог `200` тегов), рёбра связей по тегам и выборки `--tag-in "x|y|z"` во всех командах. **Зафиксирована** (fm captured, 2026-11-26).
+- [`todoc tree` — типизированная проекция дерева в CLI со схлопыванием промежуточных папок](ideas/typed-tree-projection.md) — выборка в директории по `--dir-type`, `--doc-type`, `--entity-type`, `--format` через `|` со сжатием папок других типов и сохранением иерархии (`--within` / `--lineage-for`). **Зафиксирована** (fm captured, 2026-11-26).
+- [Переключаемые драйверы хранения кэша поиска и истории (`SQLite + FTS5 BM25` vs `JSON`/`JSONL`)](ideas/sqlite-storage-drivers.md) — раздельные БД `index.sqlite` (инкрементальный кэш `O(Δ)`, `FTS5 bm25()` + стемминг `RU+EN`, ранжирование выборок `-q ... --sort relevance --limit 100`) и `history.sqlite` с независимым переключением контуров. **Зафиксирована** (fm captured, 2026-11-26).
+
 ## Гайды
 
 - [CLI для агентов](guides/cli-for-agents.md)
