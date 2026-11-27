@@ -32,6 +32,8 @@ tags: [moc, содержимого, датасета]
 - [Теги документов как aliases поиска](plan/теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter.md) — created/updated/tags/related во front matter, веса поиска.
 - [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой). fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
 - [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **исполнен** (Задачи 1–2, DoD 3/3; **done**): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
+- [Пакет скилов волнового планирования без переделок (`BMAD v6/v7` + `GSD` + `Spec Kit` + `OpenSpec`) и CLI-механика волн](plan/bmad-wave-planning-skills.md) — **активен** (`status: active`, 9 задач): `doc_type: roadmap`, CLI-команды `todoc stale anchor/reanchor`, `todoc plan portfolio/bind`, секционный `docs edit` и 6 скилов `process/bmad/*` со связкой из `todoc-plan`.
+- [Самодокументируемый CLI: единые виды вывода и фильтры — план реализации](plan/unified-cli-output-implementation.md) — целевой контракт `--view flat|tree|graph`, read-only чистота выборок и модульный CLI.
 
 ### Хранилище скилов (`skills/`)
 
@@ -90,6 +92,7 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [Сравнительный аудит Agent Skills](.research/comparative-audit.md)
 - [Лучшие паки скилов и скриптов для мозговых штурмов и ресёрча](.research/agent-brainstorming-and-research-packs.md)
 - [Python-библиотеки BM25/BM25F и двуязычного стемминга (`RU+EN`) для ранжирования выборок](.research/bm25-ranking-python-libs.md)
+- [Скилы волнового синтеза идей и защиты от переделок (`BMAD Method v6.12.4/v7`, `GSD`, `Evolutionary Seams`)](.research/bmad-v6-wave-planning-skills.md)
 
 ## Идеи (`ideas/`)
 
@@ -108,6 +111,11 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [Сквозная система тегов (`todoc tags`, граф `has_tag` и фильтр `--tag-in`)](ideas/unified-tags-and-tag-graph.md) — единые теги для документов, записей и папок, двухшаговая разметка (`tags list` → `tags set`, порог `200` тегов), рёбра связей по тегам и выборки `--tag-in "x|y|z"` во всех командах. **Зафиксирована** (fm captured, 2026-11-26).
 - [`todoc tree` — типизированная проекция дерева в CLI со схлопыванием промежуточных папок](ideas/typed-tree-projection.md) — выборка в директории по `--dir-type`, `--doc-type`, `--entity-type`, `--format` через `|` со сжатием папок других типов и сохранением иерархии (`--within` / `--lineage-for`). **Зафиксирована** (fm captured, 2026-11-26).
 - [Переключаемые драйверы хранения кэша поиска и истории (`SQLite + FTS5 BM25` vs `JSON`/`JSONL`)](ideas/sqlite-storage-drivers.md) — раздельные БД `index.sqlite` (инкрементальный кэш `O(Δ)`, `FTS5 bm25()` + стемминг `RU+EN`, ранжирование выборок `-q ... --sort relevance --limit 100`) и `history.sqlite` с независимым переключением контуров. **Зафиксирована** (fm captured, 2026-11-26).
+- [Отключаемые правила харнеса (`doc_type: rules`, `enable`/`disable` и фильтр `--include-disabled`)](ideas/toggleable-rules.md) — замыкание триады `skills + flows + rules`: тип файла и папки `rules` с переключателем `enabled: true|false` и скрытием отключённых правил/флоу/скилов во всех CLI-выборках без спецфлага. **Зафиксирована** (fm captured, 2026-11-26).
+- [Мульти-проектное рабочее пространство (`projects/*`, системный проект `core` и параллельный скоуп CLI через `state.json`)](ideas/multi-project-workspace.md) — единая структура `projects/<slug>/` с всегда доступным на чтение ядром `projects/core/`, параллельной работой над связкой проектов (`context.projects = "core|billing|auth"`), каскадным харнесом и разбором 12 архитектурных подводных камней. **Зафиксирована** (fm captured, 2026-11-26).
+- [CLI-команды волнового планирования (`todoc stale anchor/reanchor`, `todoc plan portfolio` и пакетный `todoc plan bind`)](ideas/wave-planning-cli-helpers.md) — детерминированная механика якорей свежести, рентгена сирот/дублей/файловых коллизий волн, секционных правок `docs edit` и сверки `git diff → state/`. **В плане** (fm planned, покрыта [bmad-wave-planning-skills](plan/bmad-wave-planning-skills.md), 2026-11-27).
+- [Самодокументируемое поле `guidance` для моделей во всех выводах CLI и переключаемый `i18n`-каталог подсказок](ideas/cli-model-guidance-and-hint-catalog.md) — принцип Конституции `P15`: коды ситуаций в коде, рекомендации со ссылками на скилы/доки в переключаемом каталоге (`JSON` + `CSV`), минимальный шум на успехе и подробная опора при ошибках. **В плане** (fm planned, покрыта [bmad-wave-planning-skills](plan/bmad-wave-planning-skills.md), 2026-11-27).
+- [Самодокументируемый CLI: единые виды вывода и фильтры](ideas/unified-cli-output.md) — единые виды `flat/tree/graph`, предсказуемые умолчания и подсказки в ответе CLI.
 
 ## Гайды
 
