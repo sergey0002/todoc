@@ -559,7 +559,7 @@ git commit -m "feat(cli): add 'todoc sync' command for post-direct-edit finaliza
   - `edit_prompt("doc_type")`: при необходимости прочитать секцию через `todoc docs read --section` → отредактировать файл напрямую штатным редактором (не трогая `created`/`updated`; для автособираемых витрин `"generated": true` править источник, а не витрину) → `todoc sync --root KB <путь>` (убедиться, что `ok: true` и `diagnostics: []`).
   - `edit_prompt("entity_type")`: прочитать запись `todoc records read --id <record_id> --view full` → отредактировать JSON-файл записи напрямую, сохранив `record_id` и `entity_type` (больше никакого анти-паттерна «удалить старый файл, чтобы пересоздать через `records create`»!) → `todoc sync --root KB <путь>`.
 
-- [ ] **Шаг 1: обновить тест в `tests/unit/test_type_assets.py` и убедиться в его падении**
+- [x] **Шаг 1: обновить тест в `tests/unit/test_type_assets.py` и убедиться в его падении**
 
 ```python
 def test_build_prompts_uses_direct_edit_and_todoc_sync():
@@ -572,19 +572,19 @@ def test_build_prompts_uses_direct_edit_and_todoc_sync():
     assert "Удалить старый файл" not in rec_edit
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/pytest tests/unit/test_type_assets.py -k "prompts" -v`
 Expected: FAIL (`assert "todoc sync" in doc_edit`).
 
-- [ ] **Шаг 3: обновить `read_prompt`, `create_prompt` и `edit_prompt` в `src/todoc/typing_system/prompts.py`**
+- [x] **Шаг 3: обновить `read_prompt`, `create_prompt` и `edit_prompt` в `src/todoc/typing_system/prompts.py`**
 
-- [ ] **Шаг 4: убедиться, что все тесты `test_type_assets.py` проходят со 100% покрытием**
+- [x] **Шаг 4: убедиться, что все тесты `test_type_assets.py` проходят со 100% покрытием**
 
 Run: `.venv/bin/pytest tests/unit/test_type_assets.py -v --cov=todoc.typing_system.prompts --cov-branch`
 Expected: PASS (`100%` branch coverage на `prompts.py`).
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add src/todoc/typing_system/prompts.py tests/unit/test_type_assets.py

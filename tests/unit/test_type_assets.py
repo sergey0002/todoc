@@ -297,9 +297,22 @@ def test_build_prompts_covers_four_operations_for_both_kinds():
             assert len(text) > 200, operation
     assert "docs read" in build_prompts("spec", "doc_type", "d", SPEC)["read"]
     assert "records create" in build_prompts("note", "entity_type", "d", {"type_id": "note"})["create"]
-    assert "docs edit" in build_prompts("spec", "doc_type", "d", SPEC)["edit"]
+    assert "todoc sync" in build_prompts("spec", "doc_type", "d", SPEC)["edit"]
     assert "records read" in build_prompts("note", "entity_type", "d", {"type_id": "note"})["edit"]
     assert "supersedes" in build_prompts("spec", "doc_type", "d", SPEC)["delete"]
+
+
+def test_build_prompts_uses_direct_edit_and_todoc_sync():
+    doc_create = build_prompts("spec", "doc_type", "d", SPEC)["create"]
+    assert "todoc sync" in doc_create
+
+    doc_edit = build_prompts("spec", "doc_type", "d", SPEC)["edit"]
+    assert "todoc sync" in doc_edit
+    assert "--patch-file" not in doc_edit
+
+    rec_edit = build_prompts("note", "entity_type", "d", {"type_id": "note"})["edit"]
+    assert "todoc sync" in rec_edit
+    assert "Удалить старый файл" not in rec_edit
 
 
 def test_sections_block_without_required_sections_lists_rules_only():

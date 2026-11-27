@@ -97,7 +97,7 @@ def read_prompt(type_id: str, kind: str, description: str, descriptor: dict[str,
 ## Чего не делать
 
 - Не угадывать `record_id`: сначала `records list`.
-- Не менять запись без чтения текущей: правка идёт через hash-предусловие.
+- Не менять запись вслепую без чтения текущих полей и связей (`records read`).
 """
 
 
@@ -113,10 +113,13 @@ def create_prompt(type_id: str, kind: str, description: str, descriptor: dict[st
 ## Как создавать
 
 1. Взять стартовый шаблон: он лежит в `.todoc/doc_types/{type_id}/{template}`.
-2. Создать документ одной командой (create-only, без перезаписи):
-   `todoc docs new --type {type_id} --title "<Заголовок>" --dir <папка>`.
+2. Создать каркас документа одной командой (create-only, без перезаписи):
+   `todoc docs new --type {type_id} --title "<Заголовок>" --path <папка>/<english-slug>.md`.
    Шаблоны подставляются как текст: {PLACEHOLDER_HELP}.
-3. Заполнить разделы по назначению, убрать подсказки в `<!-- ... -->`.
+3. Наполнить разделы напрямую штатным редактором файлов, убрать подсказки в `<!-- ... -->`
+   (не редактируя поля `created` и `updated` во front matter).
+4. Завершить правку короткой командой `todoc sync --root KB <путь>` — она обновит индекс,
+   историю и проверит валидность (`ok: true`, `diagnostics: []`).
 
 ## Структура, которую проверит валидатор
 
@@ -124,14 +127,14 @@ def create_prompt(type_id: str, kind: str, description: str, descriptor: dict[st
 
 ## После создания
 
-- `todoc validate --all` — должно быть 0 диагностик.
-- Если документ нарушает структуру типа, `docs new` откажет с `types.template_invalid`
+- `todoc sync --root KB <путь>` (или `todoc validate --all`) — должно быть 0 диагностик.
+- Если шаблон нарушает структуру типа, `docs new` откажет с `types.template_invalid`
   и ничего не запишет: чините шаблон, а не обходите проверку.
 
 ## Чего не делать
 
-- Не создавать файл руками в обход `docs new`: потеряете шаблон и проверку структуры.
-- Не оставлять подсказки для модели в готовом документе.
+- Не создавать файл руками в обход `docs new`: потеряете шаблон и стартовые метаданные.
+- Не оставлять подсказки `<!-- ... -->` в готовом документе и не править руками `created`/`updated`.
 """
     fields = _fields_block(descriptor)
     path_template = descriptor.get("path_template") or f"records/{type_id}/{{slug}}.json"
@@ -145,7 +148,8 @@ def create_prompt(type_id: str, kind: str, description: str, descriptor: dict[st
 2. Подготовить входной файл и создать запись (create-only):
    `todoc records create --type {type_id} --input-file <file.json> --preview`,
    затем то же с `--apply`.
-3. Путь файла определит тип: `{path_template}`.
+3. Путь файла определит тип: `{path_template}`. Дальнейшие точечные правки созданного
+   JSON-файла можно делать напрямую в файле с последующим `todoc sync --root KB <путь>`.
 
 ## Обязательные поля
 
@@ -158,13 +162,12 @@ def create_prompt(type_id: str, kind: str, description: str, descriptor: dict[st
 
 ## Чего не делать
 
-- Не писать JSON прямо в DATA_ROOT: любой `.json` с `record_id` станет записью.
-- Не рассчитывать на перезапись: существующий `record_id` даёт `record.duplicate_id` и exit 5.
+- Не рассчитывать на перезапись при `records create`: существующий `record_id` даёт `record.duplicate_id` и exit 5.
 """
 
 
 def edit_prompt(type_id: str, kind: str, description: str, descriptor: dict[str, Any]) -> str:
-    """`prompts/edit.md` — how to change one item, review-first."""
+    """`prompts/edit.md` — how to change one item directly and finalize with `todoc sync`."""
     if kind == "doc_type":
         structure = _sections_block(descriptor)
         return f"""# Правка: `{type_id}`
@@ -173,24 +176,25 @@ def edit_prompt(type_id: str, kind: str, description: str, descriptor: dict[str,
 
 ## Как править
 
-1. Прочитать целевой раздел и запомнить `hash` из ответа `docs read`.
-2. Подготовить патч вида `{{"ops": [{{"line": 12, "text": "новый текст"}}]}}`
-   (номера строк — из `line_start`/`lines` ответа).
-3. Сначала предпросмотр: `todoc docs edit --id doc:<путь> --patch-file patch.json --preview`.
-4. Применить с предусловием:
-   `todoc docs edit --id doc:<путь> --patch-file patch.json --if-hash <hash> --apply`.
+1. Прочитать целевой раздел через `todoc docs read --id doc:<путь> --section "<заголовок>"`
+   (если нужна сверка конкурентных правок — запомнить `hash`).
+2. Внести изменения напрямую в файл штатным редактором (не трогая поля `created` и `updated`
+   во front matter).
+3. Сразу после прямой правки выполнить короткую команду финализации:
+   `todoc sync --root KB <путь>` (при необходимости с `--if-hash <hash>`), убедившись,
+   что `ok: true` и `diagnostics: []`.
 
 ## Что нельзя ломать
 
 {structure or "Структурные правила для типа не заданы."}
 
 - Заголовки, по которым документ ищется: меняя заголовок, меняйте и ссылки на него.
-- Ссылки на другие документы: после правки `todoc validate --all` должен быть чист.
+- Ссылки на другие документы: `todoc sync` проверит целостность и обновит `updated` и историю.
 
 ## Чего не делать
 
-- Не править без `--if-hash`: файл мог измениться, и патч ляжет не туда.
-- Не переписывать весь документ, когда нужен один раздел.
+- Не забывать вызывать `todoc sync --root KB <путь>` после прямой правки файла.
+- Не править вручную автособираемые витрины (`"generated": true`) — правьте их запись-источник.
 """
     fields = _fields_block(descriptor)
     return f"""# Правка: `{type_id}`
@@ -199,11 +203,10 @@ def edit_prompt(type_id: str, kind: str, description: str, descriptor: dict[str,
 
 ## Как править
 
-1. `todoc records read --id <record_id> --view full` — запомнить текущее содержимое и `hash`.
-2. Изменить копию JSON, сохранив `record_id` и `entity_type`.
-3. Удалить старый файл и создать новый через
-   `todoc records create --type {type_id} --input-file <file.json> --preview`, затем `--apply`.
-   Записи создаются, а не перезаписываются — это намеренно.
+1. `todoc records read --id <record_id> --view full` — прочитать текущее содержимое, схему и путь файла.
+2. Отредактировать JSON-файл записи напрямую штатным редактором, сохранив `record_id` и `entity_type`.
+3. Сразу после прямой правки выполнить короткую команду финализации:
+   `todoc sync --root KB <путь-к-файлу.json>` — она обновит историю, индекс и проверит JSON Schema и связи.
 
 ## Что нельзя ломать
 
@@ -213,7 +216,7 @@ def edit_prompt(type_id: str, kind: str, description: str, descriptor: dict[str,
 
 ## После правки
 
-- `todoc validate --all` — 0 диагностик.
+- `todoc sync --root KB <путь>` — `ok: true`, `diagnostics: []`.
 - `todoc relations graph --id <record_id>` — связи не оборвались.
 """
 
