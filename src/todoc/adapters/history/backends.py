@@ -76,8 +76,9 @@ class GitBackend:  # implements HistoryBackend
             return None
         if shutil.which("git") is None:
             return None
+        clean_rel = rel_path.lstrip("./")
         try:
-            proc = subprocess.run(("git", "show", f"{revision}:{rel_path}"), cwd=str(self.root),
+            proc = subprocess.run(("git", "show", f"{revision}:./{clean_rel}"), cwd=str(self.root),
                                   capture_output=True, timeout=30)
         except (OSError, subprocess.SubprocessError):
             return None

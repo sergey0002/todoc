@@ -95,7 +95,7 @@ KIND_FIELDS: dict[str, set[str]] = {
     "dir_type": {"schema_version", "type_id", "version", "kind", "description"},
     "doc_type": {"schema_version", "type_id", "version", "kind", "description", "format",
                  "template", "prompts", "required_sections", "section_rules",
-                 "any_of_sections", "schema", "allowed_statuses"},
+                 "any_of_sections", "schema", "allowed_statuses", "generated"},
     "entity_type": {"schema_version", "type_id", "version", "kind", "description", "format",
                     "required_fields", "path_template", "views", "metric_fields",
                     "template", "prompts", "schema"},
@@ -237,6 +237,9 @@ def descriptor_diagnostics(root: Path, dataset: dict[str, Any], kind: str,
                         out.append({"code": "config.invalid_schema", "path": rel_config,
                                     "message": f"metric_fields.{field_name}.{key} must be a "
                                                f"non-empty string."})
+    if "generated" in descriptor and not isinstance(descriptor["generated"], bool):
+        out.append({"code": "config.invalid_schema", "path": rel_config,
+                    "message": "generated must be a boolean."})
     required = descriptor.get("required_sections")
     if required is not None:
         if not isinstance(required, list) or not all(isinstance(item, str) and item.strip() for item in required):

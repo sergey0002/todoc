@@ -92,7 +92,7 @@ related: ["[[direct-edit-and-git-sync]]", "[[cli-model-guidance-and-hint-catalog
   - `"generated"` в `KIND_FIELDS["doc_type"]` (валидируется как `bool`: не-`bool` даёт диагностику `config.invalid_schema`)
   - `bump_front_matter_updated(text: str, today: str | None = None) -> tuple[str, bool]` в `src/todoc/application/write.py`
 
-- [ ] **Шаг 1: написать падающий тест** в `tests/unit/test_sync_foundations.py`
+- [x] **Шаг 1: написать падающий тест** в `tests/unit/test_sync_foundations.py`
 
 ```python
 from __future__ import annotations
@@ -182,12 +182,12 @@ def test_bump_front_matter_updated_handles_present_same_unclosed_and_absent_fm()
     assert no_fm == "# Plain\n"
 ```
 
-- [ ] **Шаг 2: убедиться, что тест падает**
+- [x] **Шаг 2: убедиться, что тест падает**
 
 Run: `.venv/bin/pytest tests/unit/test_sync_foundations.py -v`
 Expected: FAIL (`ImportError: cannot import name 'bump_front_matter_updated'`, а после добавления заглушки — падение `read_at` в подпапке, изменение `config_digest` и `Unknown field 'generated'`).
 
-- [ ] **Шаг 3: реализовать изменения в `registry.py`, `backends.py`, `descriptors.py`, `write.py`, `export/type.json` и `.gitignore`**
+- [x] **Шаг 3: реализовать изменения в `registry.py`, `backends.py`, `descriptors.py`, `write.py`, `export/type.json` и `.gitignore`**
   1. В `src/todoc/application/registry.py:21` добавить `"history"` в условие пропуска служебных папок: `if any(p in path.parts for p in ("index", "cache", "generated", "history")): continue`.
   2. В `src/todoc/adapters/history/backends.py:82` нормализовать путь `clean_rel = rel_path.lstrip("./")` и вызывать `("git", "show", f"{revision}:./{clean_rel}")`.
   3. В `src/todoc/typing_system/descriptors.py` добавить `"generated"` в `KIND_FIELDS["doc_type"]`, а в `descriptor_diagnostics` проверить: если `"generated" in descriptor` и `not isinstance(descriptor["generated"], bool)`, добавить диагностику `config.invalid_schema` (`"generated must be a boolean."`).
@@ -195,12 +195,12 @@ Expected: FAIL (`ImportError: cannot import name 'bump_front_matter_updated'`, �
   5. В `demo/.todoc/doc_types/export/type.json` добавить `"generated": true` и создать `demo/.todoc/doc_types/export/prompts/edit.md` (так как у `export` раньше не было `edit.md`!).
   6. В `.gitignore` добавить строку `**/.todoc/history/` сразу под `**/.todoc/generated/` и выполнить `git rm --cached demo/.todoc/history/journal.jsonl` (оставив локальный файл на диске).
 
-- [ ] **Шаг 4: убедиться, что тесты проходят со 100% покрытием**
+- [x] **Шаг 4: убедиться, что тесты проходят со 100% покрытием**
 
 Run: `.venv/bin/pytest tests/unit/test_sync_foundations.py tests/unit/test_history.py tests/unit/test_type_assets.py -v --cov=todoc.adapters.history.backends --cov=todoc.application.registry --cov=todoc.typing_system.descriptors --cov=todoc.application.write --cov-branch`
 Expected: PASS, `.venv/bin/todoc check-config --root demo` возвращает `"ok": true` и `0` диагностик.
 
-- [ ] **Шаг 5: коммит**
+- [x] **Шаг 5: коммит**
 
 ```bash
 git add .gitignore src/todoc/application/registry.py src/todoc/adapters/history/backends.py src/todoc/typing_system/descriptors.py src/todoc/application/write.py demo/.todoc/doc_types/export/ tests/unit/test_sync_foundations.py
