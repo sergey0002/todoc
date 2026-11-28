@@ -4,7 +4,7 @@ title: "BUG-055: Неизвестный --type/--within в docs search даёт 
 doc_type: bug-report
 lang: ru
 bug_id: BUG-055
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 tokens_extra_est: 3000
@@ -79,3 +79,5 @@ $ todoc docs search --root demo --query "archive" --within no/such/dir --limit 1
 - Связано с идеей [«Тип папки `archive` и семантика поиска по архиву»](../ideas/archive-dir-type.md) — там же предложены `--dir-type`/`--scope` и общий парсер `|`-фильтров.
 - Пересечение по теме: BUG-022 (обзор знаний одним запросом), BUG-054 (дрейф справки поиска).
 - Закрытие: смена `status` во front matter с датой и коммитом.
+
+- 2026-11-28: `fixed` — коммит `9895249`. `docs search` отклоняет неизвестный `--type` (`docs.unknown_type`) и несуществующую папку в `--within` (`usage.path_not_found`, exit 2); существующая папка без совпадений остаётся чистым пустым результатом, OR и повторяемые `--type` сохранены. Проверка: `tools/bug_acceptance.py --only BUG-055` → `fixed`. Тесты: `tests/cli/test_unified_docs.py::test_search_rejects_unknown_type_and_missing_scope`, `test_search_keeps_or_and_repeated_type_flags`.

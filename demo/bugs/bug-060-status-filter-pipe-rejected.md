@@ -4,7 +4,7 @@ title: "BUG-060: docs list --status не принимает альтернати
 doc_type: bug-report
 lang: ru
 bug_id: BUG-060
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 1200
@@ -102,3 +102,5 @@ todoc --root demo docs list --type idea --status 'captured|planned' --status-mis
 BUG-016 (фильтры не документированы), BUG-055 (`--type` в search). Связанные:
 BUG-013 (контракты фильтров), BUG-016. В плане
 `plan/open-bug-backlog-closure.md` — задача 3.10.
+
+- 2026-11-28: `fixed` — коммит `9895249`. `docs list --status` разбивает значения по `|` до валидации и фильтрации, поэтому документированная форма `a|b` эквивалентна повтору флага; неизвестный статус в списке даёт `docs.unknown_status`. Проверка: `tools/bug_acceptance.py --only BUG-060` → `fixed` (`pipe total` = `repeated total`). Тест: `tests/cli/test_unified_docs.py::test_docs_list_status_accepts_pipe_and_repeated_flags`.
