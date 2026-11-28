@@ -21,4 +21,4 @@ copied: true
 
 Для проверки состояния фактов на дату используйте `records query --as-of`. Для ленты истории используйте `timeline` с темпоральным и путевым фильтром.
 
-[Синтаксис](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md) · [Время и отношения](08-records-and-relations.md) · [История](09-storage-and-index.md)
+Синтаксис · [Время и отношения](08-records-and-relations.md) · [История](09-storage-and-index.md)

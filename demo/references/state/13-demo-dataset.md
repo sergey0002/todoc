@@ -23,12 +23,12 @@ todoc --root demo skills tree
 
 | Раздел | Что демонстрирует |
 |---|---|
-| [Идеи](https://github.com/sergey0002/todoc/tree/master/demo/ideas) и [планы](https://github.com/sergey0002/todoc/tree/master/demo/plan) | Типизированные Markdown-документы, статусы, метаданные и выборки |
-| [Баги](https://github.com/sergey0002/todoc/tree/master/demo/bugs) | Воспроизводимость, состояние дефекта и фиксы |
-| [Записи](https://github.com/sergey0002/todoc/tree/master/demo/records) и [изменения](https://github.com/sergey0002/todoc/tree/master/demo/changes) | Типы сущностей, отношения, дельты и проверяемый apply |
-| [Скилы](https://github.com/sergey0002/todoc/tree/master/demo/skills) | Вложенное хранилище, конфигурация разделов, mute и навигация |
-| [Экспорты](https://github.com/sergey0002/todoc/tree/master/demo/exports) | Производные артефакты и `derived_from` |
-| [Профиль метаданных](https://github.com/sergey0002/todoc/blob/master/demo/.todoc/document-metadata.schema.json) | Общие поля Markdown и JSON-документов |
+| Идеи и планы | Типизированные Markdown-документы, статусы, метаданные и выборки |
+| Баги | Воспроизводимость, состояние дефекта и фиксы |
+| Записи и изменения | Типы сущностей, отношения, дельты и проверяемый apply |
+| Скилы | Вложенное хранилище, конфигурация разделов, mute и навигация |
+| Экспорты | Производные артефакты и `derived_from` |
+| Профиль метаданных | Общие поля Markdown и JSON-документов |
 
 История и артефакты демо не входят в числа командных возможностей. Подробности завершённого плана единого CLI перенесены в [сводку выпуска](../../notes/unified-cli-release.md).
 

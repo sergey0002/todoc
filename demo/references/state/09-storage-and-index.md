@@ -200,4 +200,4 @@ front matter полями `stale_acknowledged_at`, `stale_ack_reason`, `stale_ac
 - `--if-hash` связывает применение с исходником, `--if-plan-hash` — с планом.
 - Повторный `record_id` и занятая цель отклоняются при создании. Параллельное занятие пути может вернуть `write.target_exists`.
 
-[Архитектура](02-architecture.md) · [Контекст](18-agent-state-and-context.md) · [Точные опции](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md)
+[Архитектура](02-architecture.md) · [Контекст](18-agent-state-and-context.md) · Точные опции

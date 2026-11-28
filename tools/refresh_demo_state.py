@@ -48,40 +48,64 @@ DELINK = {
     # Repo-level docs index and installation guide: not copied into the demo.
     "../README.md",
     "../installation.md",
+    # Guides are repo-only.
+    "../guides/python-api-for-agents.md",
+    # The generated Click reference is not mirrored into the demo dataset.
+    "cli.md",
+    # Config lives under .todoc, which is not part of the document index.
+    "../../demo/.todoc/document-metadata.schema.json",
     # The history/changes plan is deliberately not mirrored into the demo dataset.
     "../plan/history-and-changes.md",
     # Repo source is not copied into the demo dataset either.
     "../../src/todoc/adapters/formats/jsonfmt.py",
 }
 
+#: Prefixes whose targets never exist inside the demo dataset.
+DELINK_PREFIXES = ("../../src/", "../guides/")
+
 LINK = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)(?P<rest>[^)]*)\)")
+
+#: Generated sources that deliberately have no demo mirror: ``cli.md`` is rendered
+#: from the Click tree by ``tools/render_cli_reference.py``, so requiring a copy
+#: here would block every refresh.
+EXCLUDE = {"cli.md"}
+
+
+def sources() -> list[pathlib.Path]:
+    return sorted(p for p in SRC.glob("*.md") if p.name not in EXCLUDE)
 
 
 def remap_link(match: re.Match[str]) -> str:
     target = match.group("target")
     text = match.group("text")
     rest = match.group("rest")
-    if target in DELINK:
+    if target in DELINK or target.startswith(DELINK_PREFIXES):
         return text
     after = AFTER.match(target)
     demo_asset = DEMO_ASSET.match(target)
     if after:
         target = f"../../plan/after/{after.group('name')}"
     elif demo_asset:
-        target = f"../../{demo_asset.group('rest')}"
+        rest_path = demo_asset.group("rest")
+        if (DST.parents[1] / rest_path).is_dir():
+            # The validator resolves links to documents; a folder has no document
+            # counterpart in the copy, so keep the text and drop the link.
+            return text
+        target = f"../../{rest_path}"
     else:
         target = REMAP.get(target, target)
     return f"[{text}]({target}{rest})"
 
 
 def main() -> int:
-    missing = sorted(p.name for p in SRC.glob("*.md") if not (DST / p.name).is_file())
+    mirrored = sources()
+    missing = sorted(p.name for p in mirrored if not (DST / p.name).is_file())
     if missing:
         print(f"no demo copy for: {missing}", file=sys.stderr)
         return 1
 
     changed: list[str] = []
-    for source in sorted(SRC.glob("*.md")):
+    for source in mirrored:
         target = DST / source.name
         body = source.read_text(encoding="utf-8")
         new_body = LINK.sub(remap_link, body)
@@ -101,8 +125,12 @@ def main() -> int:
                 print(f"{target}: front matter has no {key!r}", file=sys.stderr)
                 return 1
 
-        front = "\n".join([
-            "---",
+        # Dates belong to the copy: keep them so a refresh is not a history event.
+        front_lines = ["---"]
+        for key in ("created", "updated"):
+            if key in fields:
+                front_lines.append(f"{key}: {fields[key]}")
+        front_lines.extend([
             f"id: {fields['id']}",
             f"title: {fields['title']}",
             f"doc_type: {fields.get('doc_type', 'reference')}",
@@ -111,12 +139,12 @@ def main() -> int:
             "copied: true",
             "---",
         ])
-        rendered = f"{front}\n{new_body}"
+        rendered = "\n".join(front_lines) + "\n\n" + new_body.lstrip("\n")
         if rendered != original:
             target.write_text(rendered, encoding="utf-8")
             changed.append(source.name)
 
-    print(f"refreshed {len(changed)} of {len(list(SRC.glob('*.md')))}: {changed}")
+    print(f"refreshed {len(changed)} of {len(mirrored)}: {changed}")
     return 0
 
 

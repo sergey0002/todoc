@@ -32,4 +32,4 @@ PYTHONPATH=src .venv/bin/python bench/run_benchmark.py --skip-competitors --resu
 с кодом 0, поэтому проверяйте статусы всех критериев. Проверки используют
 PyYAML для K8 и coverage для K29.
 
-[Критерии K1–K30](https://github.com/sergey0002/todoc/blob/master/bench/criteria.md) · [Исторический отчёт](https://github.com/sergey0002/todoc/blob/master/bench/results/benchmark.md) · [Тестовый гейт](10-testing-and-quality.md)
+Критерии K1–K30 · Исторический отчёт · [Тестовый гейт](10-testing-and-quality.md)

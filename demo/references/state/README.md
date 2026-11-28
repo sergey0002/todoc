@@ -27,8 +27,8 @@ copied: true
 | [01-overview.md](01-overview.md) | Что такое `todoc`, границы продукта, статус | человек + агент |
 | [02-architecture.md](02-architecture.md) | Слои, модули, поток данных, порты | человек + агент |
 | [03-cli-reference.md](03-cli-reference.md) | Контракт CLI, фильтры, конверт и примеры | агент (основной) |
-| [cli.md](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md) | Полный справочник CLI: путь, атрибуты, вывод, примеры, применение в скилах/правилах/сущностях | человек + агент |
-| [cli.md](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md) | Полный справочник команд и опций из Click | человек + агент |
+| cli.md | Полный справочник CLI: путь, атрибуты, вывод, примеры, применение в скилах/правилах/сущностях | человек + агент |
+| cli.md | Полный справочник команд и опций из Click | человек + агент |
 | [04-config-and-types.md](04-config-and-types.md) | `dataset.json`, правила, типы, резолвер, статусы | человек + агент |
 | [05-formats.md](05-formats.md) | Адаптеры Markdown/JSON/CSV, контракт YAML-lite | человек + агент |
 | [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) | Каталог диагностик, фиксы | агент |
@@ -54,18 +54,18 @@ copied: true
 
 ## Связанные документы
 
-- Установка и первый запуск: [docs/installation.md](https://github.com/sergey0002/todoc/blob/master/docs/installation.md).
-- Индекс всей документации: [docs/README.md](https://github.com/sergey0002/todoc/blob/master/docs/README.md).
-- Норматив: [конституция](https://github.com/sergey0002/todoc/blob/master/docs/plan/constitution.md), [план реализации](https://github.com/sergey0002/todoc/blob/master/docs/plan/implementation-plan.md).
-- Аудит с полным списком находок: [аудит реализации](https://github.com/sergey0002/todoc/blob/master/docs/plan/audit-implementation.md).
+- Установка и первый запуск: docs/installation.md.
+- Индекс всей документации: docs/README.md.
+- Норматив: [конституция](../../plan/constitution.md), [план реализации](../../plan/implementation-plan.md).
+- Аудит с полным списком находок: [аудит реализации](../../plan/audit-implementation.md).
 - Живой пример: [`demo/`](../../README.md) — полноценный DATA_ROOT, проверяемый тем же CLI.
-- Точка входа навыка: [SKILL.md](https://github.com/sergey0002/todoc/blob/master/SKILL.md) и [`references/`](https://github.com/sergey0002/todoc/blob/master/references/workflow.md).
+- Точка входа навыка: [SKILL.md](../../skill/SKILL.md) и [`references/`](../workflow.md).
 
 ## Как обновлять этот каталог
 
 1. Любой факт (число, код, поведение) добавляется только после проверки командой.
 2. Числа в [10-testing-and-quality.md](10-testing-and-quality.md) обновляются при каждом изменении кода.
 3. Новый дефект попадает в [11-known-issues.md](11-known-issues.md) и в `demo/bugs/` с командой воспроизведения.
-4. Если меняются команды, обновите [cli.md](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md) через `PYTHONPATH=src python tools/render_cli_reference.py`.
+4. Если меняются команды, обновите cli.md через `PYTHONPATH=src python tools/render_cli_reference.py`.
    Сверьте смысл контракта с [03-cli-reference.md](03-cli-reference.md).
 5. Новая подсистема получает свой раздел (17–19 — образец) со ссылками на план-источник.

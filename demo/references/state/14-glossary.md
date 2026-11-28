@@ -14,7 +14,7 @@ copied: true
 | Термин | Определение | Где смотреть |
 |---|---|---|
 | **DATA_ROOT** | Корень переносимой папки данных: ordinary files + `.todoc/`. Индекс и кэш пересобираются из файлов. История хранится отдельно | [02](02-architecture.md) |
-| **Skill** | Каталог навыка: `SKILL.md` + `references/` + `assets/`. Может храниться в vault датасета | [SKILL.md](https://github.com/sergey0002/todoc/blob/master/SKILL.md) |
+| **Skill** | Каталог навыка: `SKILL.md` + `references/` + `assets/`. Может храниться в vault датасета | [SKILL.md](../../skill/SKILL.md) |
 | **`dataset_id`** | Идентификатор датасета из `dataset.json`; генерируется при `init` | [04](04-config-and-types.md) |
 | **`dir_type`** | Тип папки; присваивается правилами или зарезервированным именем | [04](04-config-and-types.md) |
 | **`doc_type`** | Тип документа; front matter важнее маски папки | [04](04-config-and-types.md) |
@@ -26,7 +26,7 @@ copied: true
 | **Конверт** | `{schema_version, ok, data, diagnostics, next_actions, guidance}` | [03](03-cli-reference.md) |
 | **Диагностика** | `{code, severity, path, location, evidence, suggested_fixes}` | [06](06-validation-and-diagnostics.md) |
 | **`location`** | `{line, column, end_column, is_wikilink}` или `{pointer}` для схем | [06](06-validation-and-diagnostics.md) |
-| **`evidence`** | Фрагмент источника, например `[текст](https://github.com/sergey0002/todoc/blob/master/docs/state/цель)` | [06](06-validation-and-diagnostics.md) |
+| **`evidence`** | Фрагмент источника, например `[текст](цель)` | [06](06-validation-and-diagnostics.md) |
 | **`suggested_fix`** | `{kind, replacement, basis, autofixable, requires_review}` | [06](06-validation-and-diagnostics.md) |
 | **Поколение индекса** | Проверяемый снимок коллекций folders/documents/records/relations/diagnostics/mentions | [09](09-storage-and-index.md) |
 | **`CURRENT.json`** | Указатель на текущее поколение и `config_digest` | [09](09-storage-and-index.md) |
@@ -44,7 +44,7 @@ copied: true
 | **`relevance_method`** | Метод ранжирования текстового поиска | [07](07-search-and-read.md) |
 | **Hard-excludes** | `.todoc`, `.git`, `__pycache__`, `node_modules`, `.obsidian`, `.venv`, `venv`, `tmp_kb_skills_audit` | [02](02-architecture.md) |
 | **Containment** | Проверка области файловой операции относительно DATA_ROOT или явно выбранной внешней цели | [11](11-known-issues.md) |
-| **AFTER-план** | Пост-MVP план направления: `*.after.md` | [AFTER-планы](https://github.com/sergey0002/todoc/blob/master/docs/plan/mcp-adapter.after.md) |
+| **AFTER-план** | Пост-MVP план направления: `*.after.md` | [AFTER-планы](../../plan/after/mcp-adapter.after.md) |
 | **Курсор** | Позиция страницы, привязанная к запросу и снимку источников | [07](07-search-and-read.md) |
 | **Порт хранения** | Контракт индекса, кэша или истории с подставляемым адаптером | [09](09-storage-and-index.md) |
 | **Фильтр метаданных** | Предикат по полю, вычисляемый до пагинации | [07](07-search-and-read.md) |
