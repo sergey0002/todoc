@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, contract-tests, flow]
 bug_id: BUG-053
 status: fixed
 severity: minor

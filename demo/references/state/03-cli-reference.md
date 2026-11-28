@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/03-cli-reference.md
 copied: true
+tags: [references, reference, справочник, состояние]
 ---
 
 # 03. Контракт CLI и примеры

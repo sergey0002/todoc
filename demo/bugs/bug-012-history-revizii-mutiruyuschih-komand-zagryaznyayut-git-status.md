@@ -4,7 +4,8 @@ title: "BUG-012: history-ревизии мутирующих команд заг
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-27
+updated: 2026-11-28
+tags: [bugs, bug-report, history, git-status]
 bug_id: BUG-012
 status: fixed
 severity: minor

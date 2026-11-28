@@ -10,6 +10,7 @@ agent_impact: friction
 tokens_extra_est: 3000
 created: 2026-11-28
 updated: 2026-11-28
+tags: [bugs, bug-report, search, validation]
 ---
 
 # BUG-055: Неизвестный `--type`/`--within` в `docs search` даёт тихий пустой результат

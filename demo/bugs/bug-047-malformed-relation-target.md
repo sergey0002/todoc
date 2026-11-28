@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, relations, validation]
 bug_id: BUG-047
 status: fixed
 severity: major

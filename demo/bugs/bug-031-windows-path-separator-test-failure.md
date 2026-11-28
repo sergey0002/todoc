@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-28
 updated: 2026-11-28
+tags: [bugs, bug-report, windows, tests]
 bug_id: BUG-031
 status: open
 severity: minor

@@ -7,3 +7,5 @@
 ```bash
 todoc sync --apply --root KB <путь-к-файлу.md>
 ```
+
+> **Даты и связи:** поле `updated` во front matter бампит движок при `todoc sync` — руками не трогать. Связал документ с другим — добавь/обнови `related`-wikilink (`[[имя-без-.md]]`).

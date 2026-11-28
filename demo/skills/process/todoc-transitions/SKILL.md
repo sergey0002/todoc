@@ -4,7 +4,8 @@ title: "Скил: переходы статуса"
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
+tags: [skill, agent-skill, status, transitions]
 name: todoc-transitions
 description: "Use when any entity changes state — idea realized without a plan, guide outdated, decision cancelled, version replaced. Runs the consistency check first (edge exists, status stale), changes status via docs status / records status, keeps edge+status in one commit, never sets done/rejected/superseded without an explicit user phrase."
 ---

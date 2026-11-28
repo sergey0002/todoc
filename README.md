@@ -7,11 +7,11 @@
 
 | Показатель | Значение |
 |---|---|
-| Команд CLI | 64 листовых (29 верхнего уровня, 10 групп) |
-| Тестов | 1316 |
-| Покрытие | 100% — 6481 инструкций, 2432 веток |
+| Команд CLI | 67 листовых (29 верхнего уровня, 10 групп) |
+| Тестов | 1821 |
+| Покрытие | 100% — 8971 инструкций, 3376 ветвей |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
-| Демо-датасет | [`demo/`](demo/README.md): 465 документов, 205 записей, 0 диагностик |
+| Демо-датасет | [`demo/`](demo/README.md): 524 документов, 205 записей, 0 диагностик |
 
 ## Установка
 
@@ -228,7 +228,7 @@ todoc records query --root KB --query-file KB/.todoc/queries/decisions-accepted.
 ## Демо-датасет
 
 [`demo/`](demo/README.md) — готовый DATA_ROOT со всей документацией проекта, разложенной по типам
-папок и документов: 24 `dir_types`, 31 `doc_types`, 25 `entity_types`, 18 `relation_types`,
+папок и документов: 25 `dir_types`, 31 `doc_types`, 25 `entity_types`, 18 `relation_types`,
 205 записей, 169 отношений, JSON Schema для каждого типа записи, сохранённые запросы и CSV-инвентарь.
 
 ```bash
@@ -246,7 +246,7 @@ SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, ports, adapters, typing_system, output
-tests/                1316 тестов: unit, cli, integration (покрытие 100%)
+tests/                1821 тестов: unit, cli, integration (покрытие 100%)
 docs/
 ├── README.md         индекс всей документации
 ├── installation.md   установка, проверка, первый датасет
@@ -305,7 +305,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **30.0 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-1316 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+1821 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 

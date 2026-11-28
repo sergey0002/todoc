@@ -3,7 +3,7 @@ id: doc:ideas/multi-project-workspace.md
 title: "Идея: мульти-проектное рабочее пространство (projects/*, системный проект core и параллельный скоуп CLI через state.json)"
 doc_type: idea
 lang: ru
-status: captured
+status: planned
 created: 2026-11-26
 updated: 2026-11-28
 tags: [ideas, idea, projects, workspace, harness, state, cli, микросервисы]
@@ -15,7 +15,7 @@ related: ["[[agent-state]]", "[[folder-config]]", "[[skills-engine]]", "[[toggle
 - Тип: `idea`
 - Создан: 2026-11-26
 - Идентификатор: `doc:ideas/multi-project-workspace.md`
-- Статус: `captured` (идея зафиксирована, не перешла в план)
+- Статус: `planned` (план: [multi-project-workspace](../plan/multi-project-workspace.md), 2026-11-28)
 
 ## Суть
 
@@ -239,6 +239,7 @@ related: ["[[agent-state]]", "[[folder-config]]", "[[skills-engine]]", "[[toggle
 
 ## Связанные документы
 
+- [План реализации: мульти-проектное рабочее пространство](../plan/multi-project-workspace.md)
 - [Идея: агентский стейт — `state.json` в движке (v1 — текущий проект)](agent-state.md)
 - [Идея: `.config.json` — самоописание папок](folder-config.md)
 - [Идея: хранилище-движок скилов (`skills-engine`)](skills-engine.md)

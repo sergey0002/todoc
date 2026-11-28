@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-28
 updated: 2026-11-28
+tags: [bugs, bug-report, skills-tree, duplicate]
 bug_id: BUG-035
 status: duplicate
 severity: major

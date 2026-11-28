@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, skills-tree, crash]
 bug_id: BUG-027
 status: fixed
 severity: major

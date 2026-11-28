@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, guidance, usage-errors]
 bug_id: BUG-021
 status: fixed
 severity: minor

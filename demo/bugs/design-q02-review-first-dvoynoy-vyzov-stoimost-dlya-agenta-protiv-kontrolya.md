@@ -4,7 +4,8 @@ title: "DESIGN-Q02: review-first двойной вызов — стоимост�
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
+tags: [bugs, bug-report, design-question, review-first]
 bug_id: DESIGN-Q02
 status: open
 severity: docs

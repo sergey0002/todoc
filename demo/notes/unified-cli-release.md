@@ -5,6 +5,7 @@ doc_type: note
 lang: ru
 created: 2026-11-28
 updated: 2026-11-28
+tags: [notes, note, cli, release]
 ---
 
 # Единый CLI: выпуск и результаты приёмки

@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, search, cursor]
 bug_id: BUG-050
 status: fixed
 severity: minor

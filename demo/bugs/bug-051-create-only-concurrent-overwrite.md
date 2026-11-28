@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, create-only, concurrency]
 bug_id: BUG-051
 status: fixed
 severity: critical

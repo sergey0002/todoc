@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/09-storage-and-index.md
 copied: true
+tags: [references, reference, поколения, состояние]
 ---
 
 # 09. Хранилище: индекс, снимок, кэш

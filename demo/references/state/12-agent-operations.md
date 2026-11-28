@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/12-agent-operations.md
 copied: true
+tags: [references, reference, состояние, работать]
 ---
 
 # 12. Работа агента с датасетом

@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/10-testing-and-quality.md
 copied: true
+tags: [references, reference, состояние, качество]
 ---
 
 # 10. Тестирование и приёмка

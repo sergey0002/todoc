@@ -35,3 +35,5 @@
 
 - `todoc docs search --root KB --query "<слова из description>"` находит скил.
 - `todoc explain-path --root KB skill/<имя>/SKILL.md` — `doc_type: agent-skill`.
+
+> **Метаданные:** `created` и `updated` во front matter ставит движок (`docs new`) — руками не заполнять. Заполни `tags` (2–8 kebab-тегов: папка + тип + тематические) и, если есть явные связи, `related`-wikilinks (`[[имя-без-.md]]`).

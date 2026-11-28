@@ -10,6 +10,7 @@ agent_impact: friction
 tokens_extra_est: 4000
 created: 2026-11-28
 updated: 2026-11-28
+tags: [bugs, bug-report, tags, cli]
 ---
 
 # BUG-056: Нужна CLI-команда для списка тегов и фильтра записей по тегу (команды нет)

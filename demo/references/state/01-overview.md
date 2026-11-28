@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/01-overview.md
 copied: true
+tags: [references, reference, состояние, продукта]
 ---
 
 # 01. Обзор todoc

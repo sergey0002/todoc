@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-28
 updated: 2026-11-28
+tags: [bugs, bug-report, windows, paths]
 bug_id: BUG-032
 status: open
 severity: minor

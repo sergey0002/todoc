@@ -5,6 +5,7 @@ doc_type: agent-skill
 lang: ru
 created: 2026-11-26
 updated: 2026-11-28
+tags: [skill, agent-skill, capture, ideas]
 name: todoc-capture
 description: "Use when the user says «save this idea / put it as a todo / take a note» in chat. Routes the request to idea (docs new --type idea), task (records create --type task, minimal title+source:user), or note; checks duplicates via docs search first; always ends with validate --all = 0."
 ---

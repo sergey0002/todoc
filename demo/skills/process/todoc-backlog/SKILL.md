@@ -5,6 +5,7 @@ doc_type: agent-skill
 lang: ru
 created: 2026-11-28
 updated: 2026-11-28
+tags: [skill, agent-skill, backlog, reports]
 name: todoc-backlog
 description: "Use when asked «what is still open / what is not fixed / what to do next» over bug reports, ideas, or plans. Builds the list in one docs list call with --status/--fields, separates md documents from records/documents JSON mirrors, and reports counts with the source of each number. Never uses records list for doc_type and never greps front matter."
 ---

@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/04-config-and-types.md
 copied: true
+tags: [references, reference, конфигурация, состояние]
 ---
 
 # 04. Конфигурация, типы и общая схема

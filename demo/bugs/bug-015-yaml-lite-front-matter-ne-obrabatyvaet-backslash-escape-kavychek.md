@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-26
 updated: 2026-11-28
+tags: [bugs, bug-report, front-matter, yaml]
 bug_id: BUG-015
 status: fixed
 severity: minor

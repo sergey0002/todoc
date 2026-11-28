@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, preview, edit-ops]
 bug_id: BUG-049
 status: fixed
 severity: major

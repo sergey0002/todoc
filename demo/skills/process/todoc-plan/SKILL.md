@@ -5,6 +5,7 @@ doc_type: agent-skill
 lang: ru
 created: 2026-11-26
 updated: 2026-11-28
+tags: [skill, agent-skill, plan, tasks]
 name: todoc-plan
 description: "Use when the user approves an idea for implementation («make a plan», «let's do it») or asks to break an approved plan into tasks. Checks the idea readiness (open questions), creates a plan doc of type plan with spec link and derived_from edge, sets idea status planned, creates task records with implements edges and subtask_of for children."
 ---

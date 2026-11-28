@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/07-search-and-read.md
 copied: true
+tags: [references, reference, состояние, чтение]
 ---
 
 # 07. Обзор, поиск и чтение

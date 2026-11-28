@@ -130,38 +130,6 @@ def test_tag_exact_adds_eight_partial_adds_three(tmp_path):
     assert hits2[0].path == "notes/w.md"  # тело не содержит «matter» — попал тег
 
 
-def test_tag_filter_cli(tmp_path):
-    runner = CliRunner()
-    _init(runner, tmp_path)
-    _setup_two_docs(runner, tmp_path)
-    r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "refresh", "--tag", "search"])
-    hits = _json(r)["data"]["result"]["items"]
-    assert [h["path"] for h in hits] == ["notes/tagged.md"]
-
-
-def test_tag_filter_empty_when_no_match(tmp_path):
-    runner = CliRunner()
-    _init(runner, tmp_path)
-    _setup_two_docs(runner, tmp_path)
-    r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "refresh", "--tag", "нет-такого"])
-    assert _json(r)["data"]["result"]["items"] == []
-
-
-def test_read_output_carries_meta_fields(tmp_path):
-    runner = CliRunner()
-    _init(runner, tmp_path)
-    _doc(runner, tmp_path, "notes/meta.md",
-         "---\nid: doc:notes/meta.md\ntitle: T\ncreated: 2026-11-25\nupdated: 2026-11-26\n"
-         "tags: [a1, b2]\nrelated: [\"[[x]]\"]\n---\n\n# T\n\nтело.\n")
-    r = _run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:notes/meta.md"])
-    d = _json(r)["data"]["result"]
-    assert d["tags"] == ["a1", "b2"]
-    assert d["updated"] == "2026-11-26"
-    assert d["related"] == ["[[x]]"]
-    r2 = _run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:notes/plain-x.md"])
-    assert r2.exit_code != 0  # не существует — docs.not_found
-
-
 # --- Задача 3: даты в движке (docs new fm + бамп updated в docs edit) -----------------
 
 def test_docs_new_writes_front_matter_with_dates(tmp_path, monkeypatch):

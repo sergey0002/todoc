@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/11-known-issues.md
 copied: true
+tags: [references, reference, известные, состояние]
 ---
 
 # 11. Реестр известных дефектов

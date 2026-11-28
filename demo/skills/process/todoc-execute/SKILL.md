@@ -5,6 +5,7 @@ doc_type: agent-skill
 lang: ru
 created: 2026-11-26
 updated: 2026-11-28
+tags: [skill, agent-skill, execute, plan]
 name: todoc-execute
 description: "Use when starting a work session on a plan or task («continue», «what's next», «work on the plan»). Finds the first unchecked checkbox or open task, executes bite-sized steps with verification, logs deviations to plan section 8, closes tasks only with explicit user confirmation."
 ---

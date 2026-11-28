@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-27
 updated: 2026-11-28
+tags: [bugs, bug-report, skills, discovery]
 bug_id: BUG-029
 status: fixed
 severity: docs

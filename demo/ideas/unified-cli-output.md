@@ -5,6 +5,7 @@ doc_type: idea
 lang: ru
 created: 2026-11-26
 updated: 2026-11-28
+tags: [ideas, idea, cli, output]
 status: done
 ---
 

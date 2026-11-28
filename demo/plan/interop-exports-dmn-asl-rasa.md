@@ -4,7 +4,8 @@ title: "Интероп-экспорты: DMN, ASL, Rasa (план реализа
 doc_type: plan
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
+tags: [plan, interop, exports, dmn]
 status: done
 derived_from: ["ideas/interop-exports.md@sha256:31e0868d6bf0ca30f53fe0706473ca4df8d12bb207e176c5215cb3bdc88cfb8e"]
 derived_from: ["ideas/interop-exports.md@sha256:8d928c77d10d763a4a9a39dad8a34f5cb27446f2fd57cf1c7beb67078917f073"]

@@ -4,7 +4,8 @@ title: "BUG-011: дрейф derived_from при смене статуса/тел
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
+tags: [bugs, bug-report, derived-from, drift]
 bug_id: BUG-011
 status: open
 severity: minor

@@ -41,3 +41,5 @@
 - Русский `title`, файл — на английском (слова-дефисы, латиница), канон:
   `notes/agent-contract.md`; папка — по типу: flows/ (flow-doc), specs/ (spec-doc),
   reports/ (task-report и release-note).
+
+> **Метаданные:** `created` и `updated` во front matter ставит движок (`docs new`) — руками не заполнять. Заполни `tags` (2–8 kebab-тегов: папка + тип + тематические) и, если есть явные связи, `related`-wikilinks (`[[имя-без-.md]]`).

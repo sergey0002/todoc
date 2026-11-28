@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/13-demo-dataset.md
 copied: true
+tags: [references, reference, состояние, датасет]
 ---
 
 # 13. Демо-датасет

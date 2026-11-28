@@ -7,6 +7,7 @@ doc_type: reference
 lang: ru
 source: docs/state/README.md
 copied: true
+tags: [references, reference, оглавление, состояние]
 ---
 
 # Состояние системы `todoc` — документация

@@ -5,6 +5,7 @@ doc_type: bug-report
 lang: ru
 created: 2026-11-26
 updated: 2026-11-28
+tags: [bugs, bug-report, records-query, docs]
 bug_id: BUG-016
 status: fixed
 severity: docs
