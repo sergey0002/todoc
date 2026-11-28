@@ -73,6 +73,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-058: Инструкции и маршрутизация скилов не выводят на обзор статусов](../../demo/bugs/bug-058-routing-docs-gap.md) | open |
 | [BUG-059: tools/refresh_demo_state.py не запускается и расходится с demo-копиями](../../demo/bugs/bug-059-refresh-demo-state-broken.md) | open |
 | [BUG-060: docs list --status не принимает альтернативы через pipe](../../demo/bugs/bug-060-status-filter-pipe-rejected.md) | open |
+| [BUG-064: usage.missing_root отдаёт exit 3 вместо обещанных 2](../../demo/bugs/bug-064-missing-root-exit-code.md) | fixed |
 | [DESIGN-Q01: терминальный статус записи — guard процедурный, движок молчит](../../demo/bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md) | open |
 | [DESIGN-Q02: review-first двойной вызов — стоимость для агента против контроля](../../demo/bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md) | open |
 | [BUG-001: Явный doc_type без fm-правила резолвится в unknown](../../demo/records/documents/bug-001-fm-doc-type-unknown.json) | поле отсутствует |
