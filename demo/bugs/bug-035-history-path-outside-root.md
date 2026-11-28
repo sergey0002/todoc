@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-035
-status: open
+status: fixed
 severity: major
 agent_impact: none
 component: cli
@@ -109,3 +109,5 @@ $ todoc diff --root demo --path ../README.md --output json
 "history show path outside"` — совпадений по containment нет (BUG-012 — git status,
 BUG-031/032 — Windows-пути). Связанные: BUG-034 (запись вне корня через
 `change apply`), BUG-036 (skills import).
+
+- 2026-11-28: `fixed` — коммит `06d2a7b`/`22db1df` (решение по преемникам). Вложенных `history show/diff/blame` больше нет: старый вызов даёт `usage.error` (exit 2). Заменяющие их верхнеуровневые `show/diff/blame` отклоняют путь вне DATA_ROOT (`docs.invalid_scope`/`access.outside_data_root`) до чтения, а `history export` проверяет границу отдельно. Проверка: `tools/bug_acceptance.py --only BUG-035-history` → `fixed`. Регрессия: `tests/cli/test_cli_history.py::test_history_successors_refuse_paths_outside_root`.

@@ -57,7 +57,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-033: History revert не сохраняет line endings (CRLF на Windows)](../../bugs/bug-033-history-revert-line-endings-windows.md) | open |
 | [BUG-034: change apply пишет за пределы DATA_ROOT по target дельты](../../bugs/bug-034-change-apply-target-outside-root.md) | fixed |
 | [BUG-034: Тесты истории падают на Windows из-за chmod и line endings](../../bugs/bug-034-history-tests-windows-chmod-line-endings.md) | open |
-| [BUG-035: history show/diff/blame читают файлы вне DATA_ROOT по --path](../../bugs/bug-035-history-path-outside-root.md) | open |
+| [BUG-035: history show/diff/blame читают файлы вне DATA_ROOT по --path](../../bugs/bug-035-history-path-outside-root.md) | fixed |
 | [BUG-035: DUPLICATE of BUG-027: skills tree падает при наличии SKILL.md в корне vault](../../bugs/bug-035-skills-tree-crash-root-skill-md.md) | duplicate |
 | [BUG-036: skills import --into выходит за пределы DATA_ROOT](../../bugs/bug-036-skills-import-outside-root.md) | fixed |
 | [BUG-037: глобальный --output игнорируется подкомандами](../../bugs/bug-037-global-output-ignored.md) | fixed |

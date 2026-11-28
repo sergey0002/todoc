@@ -392,9 +392,12 @@ def probe_bug_034_change(ctx: Ctx) -> tuple[str, str]:
 def probe_bug_035_history(ctx: Ctx) -> tuple[str, str]:
     root = ctx.temp_root()
     code, body, _ = call(root, "history", "show", "--path", "notes/a.md")
-    ok = code == 2 and "usage.error" in codes(body)
-    return (STALE if ok else OPEN,
-            f"history show exit={code} codes={codes(body)} (report names removed nested commands)")
+    old_gone = code == 2 and "usage.error" in codes(body)
+    code2, body2, _ = call(root, "show", "--path", "../outside.md")
+    successors_refuse = code2 == 2 and "docs.invalid_scope" in codes(body2)
+    ok = old_gone and successors_refuse
+    return (FIXED if ok else OPEN,
+            f"nested history show exit={code}; successor show refuses escaping path exit={code2}")
 
 
 def probe_bug_035_skills(ctx: Ctx) -> tuple[str, str]:

@@ -513,3 +513,11 @@ def test_history_adopt_preview_does_not_publish_and_detects_changes(root, sample
     result = runner.invoke(cli, [*args, "--apply", "--if-plan-hash", preview["plan_hash"]])
     assert result.exception.code == "write.hash_mismatch"
     assert not (root / ".todoc/history/journal.jsonl").exists()
+
+
+@pytest.mark.parametrize("command", ["show", "diff", "blame"])
+def test_history_successors_refuse_paths_outside_root(root, kb, command, tmp_path):
+    for bad in ("../outside.md", str(tmp_path / "outside.md")):
+        result = _run(CliRunner(), ["--root", str(root), command, "--path", bad])
+        assert isinstance(result.exception, TodocError), bad
+        assert result.exception.code == "docs.invalid_scope", bad
