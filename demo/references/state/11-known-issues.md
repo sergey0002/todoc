@@ -46,11 +46,11 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-022: нет обзорной выборки по типу документа](../../bugs/bug-022-no-type-overview-query.md) | fixed |
 | [BUG-023: CLI недоступен из харнеса — нет venv и entrypoint](../../bugs/bug-023-cli-not-reachable-from-harness.md) | open |
 | [BUG-024: индекс демо зашумлён 51 unknown-документом скилов, .todocignore отсутствует](../../bugs/bug-024-skills-noise-no-todocignore.md) | open |
-| [BUG-025: решение плана об отложенной идее не связано с самой идеей](../../bugs/bug-025-idea-plan-deferral-unlinked.md) | open |
+| [BUG-025: решение плана об отложенной идее не связано с самой идеей](../../bugs/bug-025-idea-plan-deferral-unlinked.md) | fixed |
 | [BUG-026: doctor --scope environment рапортует pass без проверки окружения](../../bugs/bug-026-doctor-environment-checks-hardcoded-pass.md) | fixed |
 | [BUG-027: skills tree падает traceback на vault с SKILL.md в корне](../../bugs/bug-027-skills-tree-crash-on-root-skill-md.md) | fixed |
 | [BUG-028: нет runtime-контракта для Windows/WSL-харнесса — пути и кодировка](../../bugs/bug-028-no-runtime-contract-for-windows-wsl-harness.md) | open |
-| [BUG-029: два хранилища скилов без единой команды обзора](../../bugs/bug-029-two-skill-stores-no-unified-listing.md) | open |
+| [BUG-029: два хранилища скилов без единой команды обзора](../../bugs/bug-029-two-skill-stores-no-unified-listing.md) | fixed |
 | [BUG-030: UnicodeEncodeError на Windows при выводе JSON/table с не-ASCII символами](../../bugs/bug-030-unicode-encode-error-windows-stdout.md) | open |
 | [BUG-031: Тест test_open_reports_path_and_status падает на Windows из-за разделителей путей](../../bugs/bug-031-windows-path-separator-test-failure.md) | open |
 | [BUG-032: CLI возвращает Windows-пути с backslash в JSON вместо POSIX](../../bugs/bug-032-cli-returns-windows-paths-with-backslash.md) | open |

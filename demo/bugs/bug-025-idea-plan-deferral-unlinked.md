@@ -4,7 +4,7 @@ title: "BUG-025: решение плана об отложенной идее н
 doc_type: bug-report
 lang: ru
 bug_id: BUG-025
-status: open
+status: fixed
 severity: docs
 agent_impact: friction
 tokens_extra_est: 2000
@@ -107,3 +107,5 @@ BUG-022 (нет обзорной выборки по статусу — из-з�
 2026-11-28. Отложенный объём action-logging указан в самой идее.
 Исторический план доступен через [сводку выпуска](../notes/unified-cli-release.md).
 Отдельное поле deferred_by и обязательная схема отсрочки остаются в объёме этого репорта.
+
+- 2026-11-28: `fixed` — коммит `7b671e0`. Идея `ideas/action-logging.md` явно фиксирует отсрочку и ссылается на `notes/unified-cli-release.md`; сводка выпуска ссылается обратно в разделе «Связанные работы». Проверка: `tools/bug_acceptance.py --only BUG-025` → `fixed`.

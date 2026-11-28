@@ -4,9 +4,9 @@ title: "BUG-029: два хранилища скилов без единой ко
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-029
-status: open
+status: fixed
 severity: docs
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 2500
@@ -127,3 +127,5 @@ ValueError: ... (падение, см. BUG-027)
 - Поиск перед созданием (2026-11-27): `--type bug-report --query vault` →
   только BUG-007 (упоминание `skills-vault` в DoD); `--query skills` →
   BUG-008, BUG-024 — про счётчики и индекс, не про отсутствие единого обзора.
+
+- 2026-11-28: `fixed` — коммит `7b671e0` (вариант «документированный маршрут»). `docs/state/17-skills-and-vault.md` и `demo/notes/agent-contract.md` дают рабочие команды для `--vault skills` и `--vault skill`, поясняют отсутствие единого обзора и legacy-статус `skill/`. Проверка: `tools/bug_acceptance.py --only BUG-029` → `fixed`.
