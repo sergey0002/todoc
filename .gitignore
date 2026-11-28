@@ -24,3 +24,8 @@ htmlcov/
 
 # Obsidian workspace files (план doc-tags З3: vault-настройки — локальные)
 .obsidian/
+
+# Local scratch and vendored audit snapshots (not part of the dataset)
+tmp_kb_skills_audit/
+tmp_check_filters.py
+tmp_pytest*.log

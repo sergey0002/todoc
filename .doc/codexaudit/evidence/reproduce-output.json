@@ -1,0 +1,479 @@
+﻿{
+  "delta_outside_validate": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "change",
+      "validate",
+      "traversal"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-bd9f3179",
+        "change_id": "traversal",
+        "applicable": true,
+        "errors": 0,
+        "warnings": 0
+      },
+      "diagnostics": [],
+      "next_actions": []
+    }
+  },
+  "delta_outside_apply": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "change",
+      "apply",
+      "traversal",
+      "--apply"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-bd9f3179",
+        "change_id": "traversal",
+        "applied": true,
+        "status": "applied",
+        "files": [
+          {
+            "path": "../outside.md",
+            "current_hash": "sha256:8420f0d42406a44a5e6dc0ea5f750d2e939188754f45992b523081a20f95ee69",
+            "new_hash": "sha256:ef4a7460897e4b2bc52c1dcbd4357d6c40e8584620cca8445466962a8ec47fc9"
+          }
+        ]
+      },
+      "diagnostics": [],
+      "next_actions": []
+    }
+  },
+  "delta_outside_content": {
+    "outside_modified": true
+  },
+  "malformed_relation": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "validate",
+      "--all"
+    ],
+    "exit_code": 1,
+    "exception": "AttributeError(\"'str' object has no attribute 'get'\")",
+    "envelope": null
+  },
+  "invalid_utf8_validate": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "validate",
+      "--all"
+    ],
+    "exit_code": 3,
+    "exception": "SystemExit(3)",
+    "envelope": {
+      "schema_version": 1,
+      "ok": false,
+      "data": {
+        "datasets": [
+          {
+            "dataset_id": "dataset-63436cdb",
+            "documents": 1,
+            "diagnostics": [
+              {
+                "dataset_id": "dataset-63436cdb",
+                "id": "diag_b5f9939c52c6",
+                "code": "file.unreadable",
+                "severity": "error",
+                "path": "bad.md",
+                "location": {},
+                "evidence": "",
+                "message": "Cannot read file as UTF-8.",
+                "suggested_fixes": []
+              }
+            ]
+          }
+        ]
+      },
+      "diagnostics": [
+        {
+          "dataset_id": "dataset-63436cdb",
+          "id": "diag_b5f9939c52c6",
+          "code": "file.unreadable",
+          "severity": "error",
+          "path": "bad.md",
+          "location": {},
+          "evidence": "",
+          "message": "Cannot read file as UTF-8.",
+          "suggested_fixes": []
+        }
+      ],
+      "next_actions": [
+        {
+          "argv": [
+            "todoc",
+            "fix",
+            "--diagnostic",
+            "diag_b5f9939c52c6",
+            "--preview"
+          ],
+          "purpose": "�������� ���� ����������� ������ �����������"
+        }
+      ]
+    }
+  },
+  "invalid_utf8_search": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "search",
+      "--query",
+      "bad"
+    ],
+    "exit_code": 1,
+    "exception": "UnicodeDecodeError('utf-8', b'# bad\\n\\xff', 6, 7, 'invalid start byte')",
+    "envelope": null
+  },
+  "invalid_patch_preview": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "edit",
+      "--id",
+      "doc:note.md",
+      "--patch-file",
+      "C:\\Users\\NewUser\\AppData\\Local\\Temp\\todoc-audit-pg9hmxe9\\patch.json",
+      "--preview"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-c03be893",
+        "id": "doc:note.md",
+        "path": "note.md",
+        "preview": true,
+        "ops": [
+          {
+            "line": "not-an-integer",
+            "text": "new"
+          }
+        ]
+      },
+      "diagnostics": [],
+      "next_actions": []
+    }
+  },
+  "invalid_patch_apply": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "edit",
+      "--id",
+      "doc:note.md",
+      "--patch-file",
+      "C:\\Users\\NewUser\\AppData\\Local\\Temp\\todoc-audit-pg9hmxe9\\patch.json",
+      "--apply"
+    ],
+    "exit_code": 1,
+    "exception": "ValueError(\"invalid literal for int() with base 10: 'not-an-integer'\")",
+    "envelope": null
+  },
+  "zero_limit_search": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "search",
+      "--query",
+      "test",
+      "--limit",
+      "0"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-c03be893",
+        "total": 1,
+        "returned": 0,
+        "truncated": true,
+        "cursor": "0",
+        "items": []
+      },
+      "diagnostics": [],
+      "next_actions": []
+    }
+  },
+  "zero_limit_search_again": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "search",
+      "--query",
+      "test",
+      "--limit",
+      "0",
+      "--cursor",
+      "0"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-c03be893",
+        "total": 1,
+        "returned": 0,
+        "truncated": true,
+        "cursor": "0",
+        "items": []
+      },
+      "diagnostics": [],
+      "next_actions": []
+    }
+  },
+  "positive_pagination_first": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "search",
+      "--query",
+      "test",
+      "--limit",
+      "1"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-c03be893",
+        "total": 2,
+        "returned": 1,
+        "truncated": true,
+        "cursor": "1",
+        "items": [
+          {
+            "id": "doc:note.md",
+            "path": "note.md",
+            "title": "test",
+            "heading_path": [
+              "test"
+            ],
+            "rank": 1,
+            "relevance": {
+              "method": "lexical",
+              "matched_by": [
+                "lexical"
+              ]
+            },
+            "matched_terms": [
+              "test"
+            ],
+            "snippet": {
+              "text": "--- id: doc:note.md title: \"test\" lang: ru created: 2026-11-28 updated: 2026-11-28 ---  # test",
+              "line_start": 1,
+              "line_end": 11,
+              "snippet_truncated": false
+            }
+          }
+        ]
+      },
+      "diagnostics": [],
+      "next_actions": [
+        {
+          "argv": [
+            "todoc",
+            "--root",
+            "C:\\Users\\NewUser\\AppData\\Local\\Temp\\todoc-audit-pg9hmxe9\\edit",
+            "docs",
+            "read",
+            "--id",
+            "doc:note.md",
+            "--output",
+            "json"
+          ],
+          "purpose": "��������� ��������� ��������"
+        }
+      ]
+    }
+  },
+  "positive_pagination_second": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "search",
+      "--query",
+      "test",
+      "--limit",
+      "1",
+      "--cursor",
+      "1"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-c03be893",
+        "total": 2,
+        "returned": 1,
+        "truncated": false,
+        "cursor": null,
+        "items": [
+          {
+            "id": "doc:note2.md",
+            "path": "note2.md",
+            "title": "test two",
+            "heading_path": [
+              "test two"
+            ],
+            "rank": 2,
+            "relevance": {
+              "method": "lexical",
+              "matched_by": [
+                "lexical"
+              ]
+            },
+            "matched_terms": [
+              "test"
+            ],
+            "snippet": {
+              "text": "--- id: doc:note2.md title: \"test two\" lang: ru created: 2026-11-28 updated: 2026-11-28 ---  # test two",
+              "line_start": 1,
+              "line_end": 11,
+              "snippet_truncated": false
+            }
+          }
+        ]
+      },
+      "diagnostics": [],
+      "next_actions": [
+        {
+          "argv": [
+            "todoc",
+            "--root",
+            "C:\\Users\\NewUser\\AppData\\Local\\Temp\\todoc-audit-pg9hmxe9\\edit",
+            "docs",
+            "read",
+            "--id",
+            "doc:note2.md",
+            "--output",
+            "json"
+          ],
+          "purpose": "��������� ��������� ��������"
+        }
+      ]
+    }
+  },
+  "csv_filter_before_limit": {
+    "argv": [
+      "todoc",
+      "--root",
+      "<temporary-root>",
+      "docs",
+      "read",
+      "--id",
+      "doc:data.csv",
+      "--rows",
+      "1",
+      "--where",
+      "key=yes"
+    ],
+    "exit_code": 0,
+    "exception": null,
+    "envelope": {
+      "schema_version": 1,
+      "ok": true,
+      "data": {
+        "dataset_id": "dataset-c03be893",
+        "id": "doc:data.csv",
+        "path": "data.csv",
+        "format": "csv",
+        "doc_type": "unknown",
+        "hash": "sha256:5009329555e56441ed73de5b655398a3095f1231db7cf8abbab9f53a338933ce",
+        "columns": [
+          "key",
+          "value"
+        ],
+        "rows": [
+          {
+            "key": "yes",
+            "value": "second"
+          }
+        ],
+        "total": 2,
+        "matched": 1,
+        "truncated": false
+      },
+      "diagnostics": [],
+      "next_actions": []
+    }
+  },
+  "create_only_race": {
+    "returned": "unused",
+    "final_content": "first writer\n",
+    "competing_content_lost": true,
+    "method": "deterministic interleaving at atomic_write; no concurrent process"
+  },
+  "snapshot_failure": {
+    "before_readable": true,
+    "failure": "audit injected rename failure",
+    "after_readable": false,
+    "current_dir_exists": false,
+    "method": "injected failure at staging-directory rename"
+  },
+  "contract_inventory": {
+    "actual_leaves": 63,
+    "contract_inventory": 62,
+    "missing": [
+      [
+        "docs",
+        "flow",
+        "render"
+      ],
+      [
+        "docs",
+        "flow",
+        "walk"
+      ]
+    ],
+    "nonleaves": [
+      [
+        "docs",
+        "flow"
+      ]
+    ]
+  }
+}

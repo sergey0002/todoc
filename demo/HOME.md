@@ -34,7 +34,7 @@ tags: [moc, содержимого, датасета]
 - [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **исполнен** (Задачи 1–2, DoD 3/3; **done**): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
 - [Пакет скилов волнового планирования без переделок (`BMAD v6/v7` + `GSD` + `Spec Kit` + `OpenSpec`) и CLI-механика волн](plan/bmad-wave-planning-skills.md) — **активен** (`status: active`, 9 задач): `doc_type: roadmap`, CLI-команды `todoc stale anchor/reanchor`, `todoc plan portfolio/bind`, секционный `docs edit` и 6 скилов `process/bmad/*` со связкой из `todoc-plan`.
 - [Самодокументируемый CLI: единые виды вывода и фильтры — план реализации](plan/unified-cli-output-implementation.md) — целевой контракт `--view flat|tree|graph`, read-only чистота выборок и модульный CLI.
-- [Исследование обзора документов по статусу](plan/metadata-overview-and-harness-efficiency.md) — исторический план, объединён с основным планом единого CLI.
+- [Обзор знаний за один запрос: исследование BUG-022](plan/metadata-overview-and-harness-efficiency.md) — **объединён с основным планом** 2026-11-28 (`superseded`), сохранён для истории; отдельного исполнения нет. Требования и проверки перенесены в [единый CLI](plan/unified-cli-output-implementation.md), З1–З5/З8/З9 и уточнение в разделе 8.
 - [Прямое редактирование файлов, команда финализации `todoc sync` и отказ от обязательного `docs edit` в правилах и промптах](plan/direct-edit-and-sync.md) — **исполнен** (Задачи 1–5, DoD 7/7; fm **done**, закрыт по явному подтверждению пользователя, 2026-11-26): ядро `sync_files` и команда `todoc sync`, защита автособираемых витрин (`"generated": true` + `guidance` `P15`), скрытие `.todoc/history/` из Git (`BUG-012` → `fixed`) и перевод всех правил, скилов и 56 типов на прямую правку + `todoc sync`.
 
 ### Хранилище скилов (`skills/`)
@@ -118,6 +118,7 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [CLI-команды волнового планирования (`todoc stale anchor/reanchor`, `todoc plan portfolio` и пакетный `todoc plan bind`)](ideas/wave-planning-cli-helpers.md) — детерминированная механика якорей свежести, рентгена сирот/дублей/файловых коллизий волн, секционных правок `docs edit` и сверки `git diff → state/`. **В плане** (fm planned, покрыта [bmad-wave-planning-skills](plan/bmad-wave-planning-skills.md), 2026-11-27).
 - [Самодокументируемое поле `guidance` для моделей во всех выводах CLI и переключаемый `i18n`-каталог подсказок](ideas/cli-model-guidance-and-hint-catalog.md) — принцип Конституции `P15`: коды ситуаций в коде, рекомендации со ссылками на скилы/доки в переключаемом каталоге (`JSON` + `CSV`), минимальный шум на успехе и подробная опора при ошибках. **В плане** (fm planned, покрыта [bmad-wave-planning-skills](plan/bmad-wave-planning-skills.md), 2026-11-27).
 - [Самодокументируемый CLI: единые виды вывода и фильтры](ideas/unified-cli-output.md) — единые виды `flat/tree/graph`, предсказуемые умолчания и подсказки в ответе CLI.
+- [Тип папки `archive` и семантика поиска по архиву в CLI](ideas/archive-dir-type.md) — зарезервированный `dir_type: archive`, правило `**/archive` и query-атрибуты `--dir-type`/`--scope` вместо `--within` для отделения актуального знания от истории. **Зафиксирована** (fm captured, 2026-11-28).
 - [Прямое редактирование файлов без дорогого `docs edit`, короткая команда финализации `todoc sync --apply <path>` и замена правил/промптов](ideas/direct-edit-and-git-sync.md) — отказ от принудительного построчного `docs edit --patch-file` во всех правилах/скилах/`prompts/edit.md` (`56` типов) в пользу прямой правки и одной короткой команды `todoc sync --apply <path>` (`updated:`, `history`, `parse_cache`, защита витрин + `guidance` `P15`, исключение `.todoc/history/` из Git). **Реализована** (Этап 1, fm **done**, 2026-11-26 — [план](plan/direct-edit-and-sync.md) исполнен; Этап 2 `--from-git`/`auto-docs`/`auto-review` отложен).
 - [Агентные флоу (`agent_flow`) — исполняемые деревья решений для агента поверх `flow`, квиз из рёбер и скил `flow-runner`](ideas/agent-flows.md) — специализированный исполняемый наследник `flow` (в любой папке по `P4`, с `enabled: bool` и `todoc flows clone`), пошаговый навигатор `todoc flows step` (`~100` токенов/шаг), стандартный квиз `ask-user` прямо из рёбер `edges` и универсальный скил `flow-runner` для любых доменов (ТРИЗ, Карпаты, ресёрч, штурм, разработка). **Зафиксирована** (fm captured, 2026-11-27).
 - [Сквозной флоу разработки на базе `agent_flow` и папок-доменов `folderize` (от идеи до петли аудита полноты)](ideas/dev-lifecycle-flow.md) — модульный граф `agent_flow:dev-lifecycle` с превращением идеи и плана в изолированные папки-домены (`todoc folderize` + `--within`), двойным аудитом свежести против мира, четырёхтактным циклом задачи (`task-exec`) и обязательной обратной петлёй аудита полноты перед `done`. **Зафиксирована** (fm captured, 2026-11-27).
@@ -191,3 +192,17 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
   запись с `mentioned_in`; `relations tree --from term:<slug>` — витрина и `part_of`.
 - CSV-инвентарь: [docs-inventory.csv](attachments/docs-inventory.csv).
 - Заметки: [как читать демо](notes/how-to-read-this-demo.md), [token economy](notes/token-economy.md), [контракт CLI](notes/agent-contract.md).
+
+## Аудит Codex — 2026-11-28
+
+Новые отчёты комплексного аудита; статус каждого — в его front matter.
+- [BUG-047: Неверная форма target отношения обрушает валидацию](bugs/bug-047-malformed-relation-target.md) — `major`, open.
+- [BUG-048: Поиск падает на файле с невалидным UTF-8](bugs/bug-048-invalid-utf8-search-crash.md) — `major`, open.
+- [BUG-049: Preview правки одобряет неисполнимый патч](bugs/bug-049-edit-preview-invalid-ops.md) — `major`, open.
+- [BUG-050: Нулевой limit зацикливает курсор поиска](bugs/bug-050-zero-limit-search-cursor.md) — `minor`, open.
+- [BUG-051: Конкурентное создание нарушает гарантию create-only](bugs/bug-051-create-only-concurrent-overwrite.md) — `critical`, open.
+- [BUG-052: Сбой rename при публикации уничтожает предыдущий снимок индекса](bugs/bug-052-index-publish-loses-snapshot.md) — `major`, open.
+- [BUG-053: Контрактные тесты пропускают вложенные команды flow](bugs/bug-053-contract-tests-missing-nested-leaves.md) — `minor`, open.
+- [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](bugs/bug-054-current-docs-search-csv-drift.md) — `docs`, open.
+- [BUG-055: Неизвестный --type/--within в docs search даёт тихий пустой результат](bugs/bug-055-unknown-search-filter-silent-empty.md) — `major`, open, friction.
+- [BUG-056: Нет CLI-команды для списка тегов и фильтра записей по тегу](bugs/bug-056-no-tag-listing-or-record-filter.md) — `major`, open, friction.

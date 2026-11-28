@@ -36,7 +36,8 @@
 |---|---|
 | [01-overview.md](state/01-overview.md) | Продукт, границы, статус MVP |
 | [02-architecture.md](state/02-architecture.md) | Слои, модули, поток данных |
-| [03-cli-reference.md](state/03-cli-reference.md) | Все 46 команд: флаги, вход, выход, коды выхода |
+| [03-cli-reference.md](state/03-cli-reference.md) | Все 63 команды: флаги, вход, выход, коды выхода |
+| [cli.md](state/cli.md) | Полный справочник CLI: атрибуты, вывод, примеры, применение |
 | [04-config-and-types.md](state/04-config-and-types.md) | `dataset.json`, правила, типы, резолвер |
 | [05-formats.md](state/05-formats.md) | Адаптеры Markdown/JSON/CSV |
 | [06-validation-and-diagnostics.md](state/06-validation-and-diagnostics.md) | Каталог диагностик, фиксы |

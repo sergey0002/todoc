@@ -50,6 +50,7 @@ SKIP_DIRS = {
     "cache",
     # Snapshots of third-party repositories kept as research material.
     "skills-audit",
+    "tmp_kb_skills_audit",
 }
 
 

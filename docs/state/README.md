@@ -16,6 +16,7 @@
 | [01-overview.md](01-overview.md) | Что такое `todoc`, границы продукта, статус | человек + агент |
 | [02-architecture.md](02-architecture.md) | Слои, модули, поток данных, порты | человек + агент |
 | [03-cli-reference.md](03-cli-reference.md) | Все 63 команды: флаги, вход, выход, коды выхода | агент (основной) |
+| [cli.md](cli.md) | Полный справочник CLI: путь, атрибуты, вывод, примеры, применение в скилах/правилах/сущностях | человек + агент |
 | [04-config-and-types.md](04-config-and-types.md) | `dataset.json`, правила, типы, резолвер, статусы | человек + агент |
 | [05-formats.md](05-formats.md) | Адаптеры Markdown/JSON/CSV, контракт YAML-lite | человек + агент |
 | [06-validation-and-diagnostics.md](06-validation-and-diagnostics.md) | Каталог диагностик, фиксы | агент |

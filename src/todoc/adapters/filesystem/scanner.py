@@ -9,7 +9,7 @@ from pathlib import Path
 
 from todoc.errors import IncompleteError
 
-HARD_EXCLUDE_DIRS = {".todoc", ".git", "__pycache__", "node_modules", ".obsidian", ".venv", "venv"}
+HARD_EXCLUDE_DIRS = {".todoc", ".git", "__pycache__", "node_modules", ".obsidian", ".venv", "venv", "tmp_kb_skills_audit"}
 
 FORMAT_BY_SUFFIX: dict[str, str] = {
     ".md": "markdown",
