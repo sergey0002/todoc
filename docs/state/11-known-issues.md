@@ -75,6 +75,8 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-060: docs list --status не принимает альтернативы через pipe](../../demo/bugs/bug-060-status-filter-pipe-rejected.md) | open |
 | [BUG-064: usage.missing_root отдаёт exit 3 вместо обещанных 2](../../demo/bugs/bug-064-missing-root-exit-code.md) | fixed |
 | [BUG-065: change_id без валидации грамматики](../../demo/bugs/bug-065-change-id-grammar.md) | fixed |
+| [BUG-066: derived_from читает файлы вне DATA_ROOT без проверки границы](../../demo/bugs/bug-066-derived-from-outside-root.md) | fixed |
+| [BUG-067: stale --ack перезаписывает CRLF и завершающий newline тела](../../demo/bugs/bug-067-stale-ack-line-endings.md) | fixed |
 | [DESIGN-Q01: терминальный статус записи — guard процедурный, движок молчит](../../demo/bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md) | open |
 | [DESIGN-Q02: review-first двойной вызов — стоимость для агента против контроля](../../demo/bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md) | open |
 | [BUG-001: Явный doc_type без fm-правила резолвится в unknown](../../demo/records/documents/bug-001-fm-doc-type-unknown.json) | поле отсутствует |
