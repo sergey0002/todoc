@@ -34,7 +34,7 @@ tags: [moc, содержимого, датасета]
 - [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **исполнен** (Задачи 1–2, DoD 3/3; **done**): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
 - [Пакет скилов волнового планирования без переделок (`BMAD v6/v7` + `GSD` + `Spec Kit` + `OpenSpec`) и CLI-механика волн](plan/bmad-wave-planning-skills.md) — **активен** (`status: active`, 9 задач): `doc_type: roadmap`, CLI-команды `todoc stale anchor/reanchor`, `todoc plan portfolio/bind`, секционный `docs edit` и 6 скилов `process/bmad/*` со связкой из `todoc-plan`.
 - [Закрытие открытого бэклога багов: волны 0–4](plan/open-bug-backlog-closure.md) — **активен** (`status: active`): 50 репортов (`open` 46 + `in_progress` 4), волны «сверка → безопасность → платформа → контракт CLI → демо», приёмочная матрица и DoD на каждый репорт.
-- [Транзакционный перенос документов `todoc docs move`](plan/docs-move-implementation.md) — **активен** (`status: active`, 10 задач): `docs move`/`mv` с preview/apply, автоправкой ссылок, wikilinks, `related`, записей и `derived_from`, multi-path историей и `revert --change`.
+- [Транзакционный перенос документов `todoc docs move`](plan/docs-move-implementation.md) — **исполнен и закрыт** (`status: done`, 10/10 задач; явное подтверждение пользователя 2026-11-28). Безопасные edit-spans, полный read-set, overlay, история удаления, CAS-revert; границы v1 и матрица всех 25 идей/14 планов — внутри. BUG-070–074 исправлены, проверены и закрыты (`fixed`). Пакетная миграция проектов требует отдельного gate.
 - [Единый CLI: выпуск и приёмка](notes/unified-cli-release.md) — метаданные, фильтры, виды вывода и порты хранения.
 - [Исследование BUG‑022](plan/metadata-overview-and-harness-efficiency.md) — исторический материал со статусом superseded. [Результаты приёмки](notes/unified-cli-release.md).
 - [Прямое редактирование файлов, команда финализации `todoc sync` и отказ от обязательного `docs edit` в правилах и промптах](plan/direct-edit-and-sync.md) — **исполнен** (Задачи 1–5, DoD 7/7; fm **done**, закрыт по явному подтверждению пользователя, 2026-11-26): ядро `sync_files` и команда `todoc sync`, защита автособираемых витрин (`"generated": true` + `guidance` `P15`), скрытие `.todoc/history/` из Git (`BUG-012` → `fixed`) и перевод всех правил, скилов и 56 типов на прямую правку + `todoc sync`.
@@ -54,6 +54,17 @@ import`, оставлен на постоянку). Разделы описан�
 `todoc skills import`. Канон: [agent-contract → «Скилы»](notes/agent-contract.md).
 
 ### Баг-репорты (`bugs/`, doc_type `bug-report`)
+
+Срез после аудита move (2026-11-28): **529 индексируемых документов, 205 записей**
+(`todoc status --root demo`); **75 Markdown-баг-репортов**
+(`docs list --type bug-report --origin document --limit 1000`, полный результат).
+Отчёты аудита плана (v1 проверена, BUG-070–074 закрыты как fixed по подтверждению пользователя):
+
+- [BUG-070: недоказанные координаты ссылок](bugs/bug-070-move-link-spans.md).
+- [BUG-071: история удаления и безопасность отката](bugs/bug-071-move-history-transaction-contract.md).
+- [BUG-072: автоматический reanchor скрывает старый дрейф](bugs/bug-072-move-provenance-reanchoring.md).
+- [BUG-073: preview не связывал весь read-set](bugs/bug-073-move-review-readset.md).
+- [BUG-074: неверные фикстуры и миграционный шов](bugs/bug-074-move-plan-execution-fixtures.md).
 
 Дефекты и недочёты, найденные при эксплуатации системы, **включая фрикцию
 агента**: всё, что потребовало повторных вызовов, обходных путей или перерасхода
@@ -107,7 +118,7 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 
 - [Интероп-экспорты: DMN, ASL, Rasa](ideas/interop-exports.md) — конвертеры flow→ASL, rule→DMN 1.3, term→Rasa NLU без новых зависимостей. **Реализована** (fm done, 2026-11-26) — [план](plan/interop-exports-dmn-asl-rasa.md) исполнен (DoD 3/3), витрины в `exports/`.
 - [`.todocignore` — исключение посторонних файлов и папок по синтаксису gitignore](ideas/todocignore.md) — пакет `pathspec` (`GitIgnoreSpec`) и каскадные `.todocignore` вместо жёстких списков в коде; сквозной учёт в сканере, валидаторе, поиске, скилах, `explain-path` и `linkcheck`. **Зафиксирована** (fm captured, 2026-11-26).
-- [`todoc docs move` — транзакционный перенос документа с автоправкой ссылок и связей](ideas/docs-move.md) — перенос/переименование одной командой (`--preview`/`--apply`) с пересчётом всех входящих/исходящих ссылок, wikilinks, `source_path` записей, `derived_from` и индекса. **В плане** (fm planned, 2026-11-28 — [план](plan/docs-move-implementation.md)).
+- [`todoc docs move` — транзакционный перенос документа с автоправкой ссылок и связей](ideas/docs-move.md) — перенос/переименование одной командой (`--preview`/`--apply`) с пересчётом всех входящих/исходящих ссылок, wikilinks, `source_path` записей, `derived_from` и индекса. **v1 реализована, проверена и закрыта**, fm done по подтверждению пользователя (2026-11-28 — [план](plan/docs-move-implementation.md)).
 - [Раздельные часы `valid_at` и `known_at` для би-темпоральных выборок](ideas/bitemporal-clocks.md) — учёт `observed_at`, разделение времени истинности (`--valid-at`) и времени знания (`--known-at`), скрытие закрытых `superseded_at` по умолчанию (`--include-superseded`). **Зафиксирована** (fm captured, 2026-11-26).
 - [`todoc folderize` — преобразование любой сущности в папку-домен с `.config.json`](ideas/entity-to-folder.md) — разворачивание документа или записи в одноимённую папку на том же месте, автогенерация `.config.json`, перенос сущности в корень с автоправкой ссылок и вложенный поиск `--within` по идее/плану/задачам. **Зафиксирована** (fm captured, 2026-11-26).
 - [Настраиваемое логирование действий и вызовов CLI (`error` / `warning` / `notice` / `all`)](ideas/action-logging.md) — структурированный JSONL-лог вне данных (`~/.local/state/todoc/logs/`) с ротацией, метриками всех вызовов для отладки и группой `todoc trace`. **Зафиксирована** (fm captured, 2026-11-26).

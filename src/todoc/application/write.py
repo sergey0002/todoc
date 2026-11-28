@@ -180,22 +180,20 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
 
 def bump_front_matter_updated(text: str, today: str | None = None) -> tuple[str, bool]:
     """Bump ``updated: YYYY-MM-DD`` inside closed YAML front matter when older than ``today``."""
-    lines = text.splitlines()
-    if not lines or lines[0] != "---":
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
+    lines = text.removeprefix(bom).splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
         return text, False
-    close_idx: int | None = None
-    for i in range(1, len(lines)):
-        if lines[i] == "---":
-            close_idx = i
-            break
+    close_idx = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
     if close_idx is None:
         return text, False
     stamp = today or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     for i in range(1, close_idx):
         if lines[i].startswith("updated:"):
-            if lines[i] != f"updated: {stamp}":
-                lines[i] = f"updated: {stamp}"
-                return "\n".join(lines) + "\n", True
+            if lines[i].partition(":")[2].strip().strip("\"'") < stamp:
+                ending = lines[i][len(lines[i].rstrip("\r\n")):]
+                lines[i] = f"updated: {stamp}" + ending
+                return bom + "".join(lines), True
             return text, False
     return text, False
 

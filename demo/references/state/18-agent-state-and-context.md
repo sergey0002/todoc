@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/18-agent-state-and-context.md
 copied: true
-tags: [references, reference, agent-state, context]
 ---
 
 # 18. Агентский стейт и контекст

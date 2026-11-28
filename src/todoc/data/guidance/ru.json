@@ -163,5 +163,302 @@
     "docs": [
       "doc:state-storage"
     ]
+  },
+  "move.ack_invalidated": {
+    "hint": "Перенесённая опора затрагивает ранее подтверждённый hash. Проверьте зависимость вручную; подтверждение удалено консервативно, не переносите ACK вслепую.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.active_change_conflict": {
+    "hint": "Затронут change delta или его target. Сначала завершите/перепланируйте изменение; v1 не пересчитывает патчи и номера строк.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.baseline_invalid": {
+    "hint": "Сначала устраните error-диагностики из validate --all с тем же --root. Старые warning не блокируют перенос.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.case_only_rename": {
+    "hint": "Переименование только регистра не поддерживается. Выберите другое имя и заново запросите preview.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.dependency_cycle": {
+    "hint": "Перенос требует ре-анкоринга цикла derived_from. Устраните цикл; автоматическое вычисление неподвижной точки не поддерживается.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.extension_mismatch": {
+    "hint": "Сохраните расширение исходного Markdown-файла (.md или .markdown).",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.hash_mismatch": {
+    "hint": "Байты источника/затронутого пути изменились. Перечитайте файл и запросите новый preview; не подставляйте старый hash.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.history_failed": {
+    "hint": "Публикация события истории не состоялась; обработанный rollback восстановил файлы. Проверьте доступ/место для истории и получите новый preview.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.index_failed": {
+    "hint": "Источники и событие истории уже сохранены (committed=true). Не повторяйте apply: выполните index rebuild --apply с тем же --root из next_actions.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.link_unsupported": {
+    "hint": "Для затронутой ссылки нет доказанного editable span. Перепишите её вручную в простой inline link/wikilink, выполните sync и запросите новый preview.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.metadata_collision": {
+    "hint": "В baseline.artifacts уже есть ключ нового пути. Разрешите коллизию вручную, не заменяя исторические hashes.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.path_invalid": {
+    "hint": "Используйте DATA_ROOT-relative POSIX-путь без .., backslash, drive/UNC и пустых сегментов; целевое имя должно быть переносимым между ОС.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.pin_type_unavailable": {
+    "hint": "Тип источника не определён: --pin-type нечего закреплять. При необходимости задайте поддержанный doc_type явно и выполните sync.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.plan_stale": {
+    "hint": "Корпус, правила, опции, дата или байты плана изменились. Повторите preview и применяйте только новый plan_hash.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.preexisting_stale": {
+    "hint": "Опора была устаревшей до переноса. Её expected hash сохранён: нужен содержательный review, не автоматическое подтверждение.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.revert_ambiguous": {
+    "hint": "В истории несколько doc.move с таким change_id. Проверьте/восстановите журнал; нельзя выбирать событие по догадке.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.revert_conflict": {
+    "hint": "После операции затронутые файлы изменились или перенос уже отменён. Безопасный revert не затирает последующие правки; согласуйте их вручную.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.revert_not_found": {
+    "hint": "Событие doc.move с таким change_id не найдено. Используйте полный change_id из ответа успешного переноса или log.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.revert_unsupported": {
+    "hint": "Для точного отката не хватает exists-флагов/снимка или событие повреждено. Восстановите историю из резервной копии; не подменяйте отсутствие пустым файлом.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.rollback_failed": {
+    "hint": "Rollback не завершён: recovery_required=true, applied=null. Сохраните журнал и вручную проверьте recovery_paths перед повторными командами.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.same_path": {
+    "hint": "Источник и цель совпадают. Укажите другое имя/папку; no-op не создаёт событие.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.source_ambiguous": {
+    "hint": "Источник выбран неоднозначно. Используйте точный --from относительно DATA_ROOT или устраните дубли id.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.source_not_found": {
+    "hint": "Источник не найден. Проверьте --root и точный путь/id через docs list/tree.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.source_not_markdown": {
+    "hint": "v1 переносит только один Markdown, не JSON/CSV, запись или каталог.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.source_unreadable": {
+    "hint": "Не удалось надёжно прочитать источник. Проверьте доступ, UTF-8 и конкурентные изменения, затем повторите preview.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.source_unsupported": {
+    "hint": "Перенос SKILL.md требует виртуального сканирования vault и не поддержан в v1. Не обходите проверку ручным rename.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.target_dir_missing": {
+    "hint": "Родительская папка цели должна существовать. Создайте её отдельно или выберите существующую; move не создаёт папки.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.target_exists": {
+    "hint": "Целевой путь уже существует или создан конкурентным писателем. Выберите незанятый путь; overwrite не поддерживается.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.target_reserved": {
+    "hint": "Путь содержит hard-exclude сегмент (.todoc/.git и т.п.). Выберите обычную папку данных.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.target_symlink": {
+    "hint": "В цепочке пути найден symlink, включая битый. Выберите физический путь внутри DATA_ROOT; symlink не разыменовывается для записи.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.validation_failed": {
+    "hint": "Виртуальное состояние переноса/отката не прошло валидацию. Устраните указанные причины (включая новые входящие ссылки при revert), затем запросите preview.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.wikilink_ambiguous": {
+    "hint": "Старый или новый basename/stem wikilink неоднозначен. Задайте однозначную поддержанную ссылку; v1 не угадывает цель.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
+  },
+  "move.write_failed": {
+    "hint": "Запись источников не завершилась; обработанный rollback восстановил прежние байты. Проверьте доступ/место и получите новый preview.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:plan/docs-move-implementation.md"
+    ]
   }
 }

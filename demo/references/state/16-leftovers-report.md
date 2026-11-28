@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/16-leftovers-report.md
 copied: true
-tags: [references, reference, состояние, остаткам]
 ---
 
 # 16. Остатки и связанные работы

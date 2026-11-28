@@ -85,7 +85,10 @@ def test_groups_return_read_only_discovery(root, path):
     assert envelope["data"]["executed"] is False
     assert envelope["data"]["meta"]["command"] == (" ".join(path) or "todoc")
     assert envelope["guidance"]["items"] == []
-    children = {known[-1] for known in INVENTORY if len(known) == len(path) + 1 and known[:-1] == path}
+    group = cli
+    for part in path:
+        group = group.commands[part]
+    children = {name for name, command in group.commands.items() if not command.hidden}
     assert {command["name"] for command in envelope["data"]["result"]["commands"]} == children
     assert {file.relative_to(root): file.read_bytes() for file in root.rglob("*") if file.is_file()} == before
 

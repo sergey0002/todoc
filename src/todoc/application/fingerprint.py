@@ -45,7 +45,10 @@ def corpus_digest(files: list[Any], config_digest: str) -> str:
 
 def source_fingerprint(root: Path, folders: list[Any], files: list[Any]) -> str:
     """Bind the snapshot to the file contents, folder inventory and local configuration."""
-    basis = hashlib.sha256(_config_digest(root, strict=True).encode())
+    # Parser semantics are part of the projection basis too: old published
+    # mentions must not survive a decoder change with unchanged source bytes.
+    from todoc.adapters.formats.markdown import PARSER_VERSION
+    basis = hashlib.sha256((_config_digest(root, strict=True) + PARSER_VERSION).encode())
     for folder in sorted(folders, key=lambda item: item.rel_path):
         basis.update(folder.rel_path.encode("utf-8") + b"\0")
         config = folder.abs_path / ".config.json"

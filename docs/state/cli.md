@@ -1,6 +1,6 @@
 # Полный справочник CLI
 
-Справочник сгенерирован из дерева Click. Листовых команд: 67.
+Справочник сгенерирован из дерева Click. Листовых команд: 69.
 
 Порядок опций, форматы ответа и примеры описаны в [контракте CLI](03-cli-reference.md).
 
@@ -28,6 +28,8 @@
 - [`docs flow walk`](#docs-flow-walk)
 - [`docs links`](#docs-links)
 - [`docs list`](#docs-list)
+- [`docs move`](#docs-move)
+- [`docs mv`](#docs-mv)
 - [`docs new`](#docs-new)
 - [`docs read`](#docs-read)
 - [`docs search`](#docs-search)
@@ -91,7 +93,7 @@
 ### todoc
 
 ```text
-Usage: todoc [OPTIONS] COMMAND [ARGS]...
+Usage: todoc [OPTIONS] [COMMAND] [ARGS]...
 
   todoc — portable typed knowledge substrate (validator + bounded search/read).
 
@@ -158,7 +160,7 @@ Options:
 ### change
 
 ```text
-Usage: todoc change [OPTIONS] COMMAND [ARGS]...
+Usage: todoc change [OPTIONS] [COMMAND] [ARGS]...
 
   Записи изменений: жизненный цикл, проверка применимости, bundle-применение.
 
@@ -383,7 +385,7 @@ Options:
 ### docs
 
 ```text
-Usage: todoc docs [OPTIONS] COMMAND [ARGS]...
+Usage: todoc docs [OPTIONS] [COMMAND] [ARGS]...
 
   Document operations.
 
@@ -398,6 +400,7 @@ Commands:
   flow     Витрина и навигатор дерева решений флоу (entity-catalog T1/T2).
   links    Audit broken local Markdown links with source coordinates.
   list     List current document metadata.
+  move     Preview or apply a single Markdown move with automatic link rewrites.
   new      Create a document from its type's starter template (create-only, no-overwrite).
   read     Bounded projection read (section/pointer/columns).
   search   Search document text or apply metadata filters with --attr-NAME 'value1|value2'.
@@ -428,7 +431,7 @@ Options:
 ### docs flow
 
 ```text
-Usage: todoc docs flow [OPTIONS] COMMAND [ARGS]...
+Usage: todoc docs flow [OPTIONS] [COMMAND] [ARGS]...
 
   Витрина и навигатор дерева решений флоу (entity-catalog T1/T2).
 
@@ -528,6 +531,54 @@ Options:
   --view TEXT
   --limit INTEGER RANGE           [default: 50; 1<=x<=1000]
   --cursor TEXT
+  --help                          Show this message and exit.
+```
+
+### docs move
+
+```text
+Usage: todoc docs move [OPTIONS]
+
+  Preview or apply a single Markdown move with automatic link rewrites.
+
+Options:
+  --root TEXT
+  --output [json|table|markdown]
+  --no-input
+  --from TEXT
+  --id TEXT
+  --to TEXT                       [required]
+  --preview
+  --apply
+  --if-plan-hash TEXT
+  --if-hash TEXT
+  --keep-id
+  --pin-type
+  --verbose
+  --help                          Show this message and exit.
+```
+
+### docs mv
+
+```text
+Usage: todoc docs mv [OPTIONS]
+
+  Preview or apply a single Markdown move with automatic link rewrites.
+
+Options:
+  --root TEXT
+  --output [json|table|markdown]
+  --no-input
+  --from TEXT
+  --id TEXT
+  --to TEXT                       [required]
+  --preview
+  --apply
+  --if-plan-hash TEXT
+  --if-hash TEXT
+  --keep-id
+  --pin-type
+  --verbose
   --help                          Show this message and exit.
 ```
 
@@ -731,7 +782,7 @@ Options:
 ### history
 
 ```text
-Usage: todoc history [OPTIONS] COMMAND [ARGS]...
+Usage: todoc history [OPTIONS] [COMMAND] [ARGS]...
 
   Обслуживание истории: сборка мусора, миграция, бэкап.
 
@@ -804,7 +855,7 @@ Options:
 ### index
 
 ```text
-Usage: todoc index [OPTIONS] COMMAND [ARGS]...
+Usage: todoc index [OPTIONS] [COMMAND] [ARGS]...
 
   Index status/rebuild (derived, rebuildable).
 
@@ -871,7 +922,7 @@ Options:
 ### interop
 
 ```text
-Usage: todoc interop [OPTIONS] COMMAND [ARGS]...
+Usage: todoc interop [OPTIONS] [COMMAND] [ARGS]...
 
   Экспорт витрин во внешние форматы (DMN 1.3 / ASL / Rasa NLU YML).
 
@@ -939,7 +990,7 @@ Options:
 ### records
 
 ```text
-Usage: todoc records [OPTIONS] COMMAND [ARGS]...
+Usage: todoc records [OPTIONS] [COMMAND] [ARGS]...
 
   Typed records operations.
 
@@ -1131,7 +1182,7 @@ Options:
 ### relations
 
 ```text
-Usage: todoc relations [OPTIONS] COMMAND [ARGS]...
+Usage: todoc relations [OPTIONS] [COMMAND] [ARGS]...
 
   Typed relations.
 
@@ -1190,7 +1241,7 @@ Options:
 ### revert
 
 ```text
-Usage: todoc revert [OPTIONS] REV
+Usage: todoc revert [OPTIONS] [REV]
 
   Откат файла к ревизии. Без --apply — только план (review-first).
 
@@ -1198,7 +1249,9 @@ Options:
   --root TEXT
   --output [json|table|markdown]  [default: json]
   --no-input
-  --path TEXT                     [required]
+  --path TEXT
+  --change TEXT
+  --if-plan-hash TEXT
   --preview
   --apply
   --expected-hash TEXT
@@ -1238,7 +1291,7 @@ Options:
 ### skills
 
 ```text
-Usage: todoc skills [OPTIONS] COMMAND [ARGS]...
+Usage: todoc skills [OPTIONS] [COMMAND] [ARGS]...
 
   Skills vault (open Agent Skills standard): tree/read/attach/import.
 
@@ -1369,7 +1422,7 @@ Options:
 ### state
 
 ```text
-Usage: todoc state [OPTIONS] COMMAND [ARGS]...
+Usage: todoc state [OPTIONS] [COMMAND] [ARGS]...
 
   Агентский стейт сессии (v1): state.json вне данных, XDG_STATE_HOME.
 
@@ -1532,7 +1585,7 @@ Options:
 ### types
 
 ```text
-Usage: todoc types [OPTIONS] COMMAND [ARGS]...
+Usage: todoc types [OPTIONS] [COMMAND] [ARGS]...
 
   Type catalog.
 

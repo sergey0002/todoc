@@ -157,8 +157,11 @@ def _markdown_doc(cache: ParseCache, scanned: ScannedFile) -> Any:
         return None
 
 
-def _read_validation_text(root: Path, scanned: ScannedFile, verify: bool) -> str | None:
+def _read_validation_text(root: Path, scanned: ScannedFile, verify: bool,
+                          overlay: dict[str, bytes] | None = None) -> str | None:
     try:
+        if overlay is not None and scanned.rel_path in overlay:
+            return overlay[scanned.rel_path].decode("utf-8")
         if verify:
             return read_verified_text(root, scanned.rel_path, scanned.hash)
         return scanned.abs_path.read_text(encoding="utf-8")
@@ -172,7 +175,8 @@ def _read_validation_text(root: Path, scanned: ScannedFile, verify: bool) -> str
 
 def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[dict[str, Any]],
                    all_paths: set[str], *, parse_cache: ParseCache | None = None,
-                   verify_sources: bool = False) -> list[dict[str, Any]]:
+                   verify_sources: bool = False, overlay: dict[str, bytes] | None = None,
+                   deleted: set[str] | None = None) -> list[dict[str, Any]]:
     """Плоский индекс упоминаний md → цели (план entity-catalog З2, T8).
 
     Источник — кеш парсинга (P1-3): validate_dataset уже разобрал md и положил
@@ -185,11 +189,13 @@ def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[d
     mentions: list[dict[str, Any]] = []
     cache = parse_cache if parse_cache is not None else default_parse_cache(root)
     for scanned in sorted(scanned_files, key=lambda f: f.rel_path):
+        if scanned.rel_path in (deleted or set()):
+            continue
         if scanned.format != "markdown" or scanned.status != "ok":
             continue
-        doc = _markdown_doc(cache, scanned)
+        doc = None if overlay and scanned.rel_path in overlay else _markdown_doc(cache, scanned)
         if doc is None:
-            text = _read_validation_text(root, scanned, verify_sources)
+            text = _read_validation_text(root, scanned, verify_sources, overlay)
             if text is None:
                 continue
             doc = parse_markdown(text)
@@ -203,7 +209,7 @@ def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[d
                 if len(candidates) == 1:
                     target_kind, target = "doc", candidates[0]
             else:
-                normalized = resolve_link_target(scanned.rel_path, link.target)
+                normalized = resolve_link_target(scanned.rel_path, link.target, parsed=True)
                 if normalized is not None and normalized in all_paths:
                     target_kind, target = "doc", normalized
             if target is None:
@@ -216,7 +222,8 @@ def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[d
 
 
 def _check_source_anchors(dataset_id: str, root: Path, records: list[dict[str, Any]],
-                          parsed_docs: dict[str, Any], all_paths: set[str]) -> list[Diagnostic]:
+                          parsed_docs: dict[str, Any], all_paths: set[str],
+                          overlay: dict[str, bytes] | None = None) -> list[Diagnostic]:
     """source_anchor записи обязан существовать в витрине source_path (план entity-catalog З9, T9).
 
     Правило общее: у любой записи, где заданы непустые ``source_anchor`` и
@@ -241,7 +248,8 @@ def _check_source_anchors(dataset_id: str, root: Path, records: list[dict[str, A
         doc = parsed_docs.get(source)
         if doc is None:
             try:
-                doc = _parse_md((root / source).read_text(encoding="utf-8"))
+                doc = _parse_md(overlay[source].decode("utf-8") if overlay and source in overlay
+                                else (root / source).read_text(encoding="utf-8"))
             except (OSError, UnicodeDecodeError):
                 continue
         anchors = {h.anchor.lower() for h in doc.headings}
@@ -252,7 +260,8 @@ def _check_source_anchors(dataset_id: str, root: Path, records: list[dict[str, A
     return diags
 
 
-def _collect_record_ids(scanned_files: list[ScannedFile]) -> set[str]:
+def _collect_record_ids(scanned_files: list[ScannedFile],
+                        overlay: dict[str, bytes] | None = None) -> set[str]:
     """record_id всех json-записей прогона — дёшево, по regexp по тексту (план entity-catalog З1).
 
     Полный разбор записей делает _validate_records; здесь нужна только устойчивость
@@ -263,7 +272,7 @@ def _collect_record_ids(scanned_files: list[ScannedFile]) -> set[str]:
         if scanned.format != "json":
             continue
         try:
-            text = scanned.abs_path.read_text(encoding="utf-8")
+            text = overlay[scanned.rel_path].decode("utf-8") if overlay and scanned.rel_path in overlay else scanned.abs_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
         m = re.search(r'"record_id"\s*:\s*"([^"]+)"', text)
@@ -273,7 +282,8 @@ def _collect_record_ids(scanned_files: list[ScannedFile]) -> set[str]:
 
 
 def _check_link_targets(dataset_id: str, scanned_files: list[ScannedFile], parsed_docs: dict[str, Any],
-                        records: list[dict[str, Any]], all_paths: set[str]) -> list[Diagnostic]:
+                        records: list[dict[str, Any]], all_paths: set[str],
+                        overlay: dict[str, bytes] | None = None) -> list[Diagnostic]:
     """Фрагменты и record-цели ссылок md (план entity-catalog З1, T7).
 
     Резолвинг цели по порядку: существующий record_id → JSON Pointer фрагмент;
@@ -313,7 +323,7 @@ def _check_link_targets(dataset_id: str, scanned_files: list[ScannedFile], parse
             if link.is_wikilink:
                 candidates = _wikilink_candidates(link.target, by_basename)
             else:
-                normalized = resolve_link_target(rel_path, link.target)
+                normalized = resolve_link_target(rel_path, link.target, parsed=True)
                 if normalized is None or normalized not in all_paths:
                     continue  # битую цель уже отметил линк-чек
                 candidates = [normalized]
@@ -329,7 +339,8 @@ def _check_link_targets(dataset_id: str, scanned_files: list[ScannedFile], parse
             target_doc = parsed_docs.get(target_rel)
             if target_doc is None:
                 try:
-                    target_doc = _parse_md(target_scanned.abs_path.read_text(encoding="utf-8"))
+                    target_doc = _parse_md(overlay[target_rel].decode("utf-8") if overlay and target_rel in overlay
+                                           else target_scanned.abs_path.read_text(encoding="utf-8"))
                     parsed_docs[target_rel] = target_doc
                 except (OSError, UnicodeDecodeError):
                     continue
@@ -343,7 +354,8 @@ def _check_link_targets(dataset_id: str, scanned_files: list[ScannedFile], parse
 
 def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all_paths: set[str],
                           basename_index: tuple[dict[str, list[str]], list[str]] | None = None,
-                          doc: Any = None, record_ids: set[str] | None = None) -> list[Diagnostic]:
+                          doc: Any = None, record_ids: set[str] | None = None,
+                          overlay: dict[str, bytes] | None = None) -> list[Diagnostic]:
     """Report local links whose target is not in the scanned file set.
 
     Targets are normalized by ``resolve_link_target`` (same code path as the
@@ -356,7 +368,7 @@ def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all
     diags: list[Diagnostic] = []
     if doc is None:
         try:
-            text = scanned.abs_path.read_text(encoding="utf-8")
+            text = overlay[scanned.rel_path].decode("utf-8") if overlay and scanned.rel_path in overlay else scanned.abs_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return [Diagnostic(dataset_id, stable_id(scanned.rel_path, "markdown.unreadable"), "markdown.unreadable", "error", scanned.rel_path, "Cannot read Markdown file.")]
         doc = parse_markdown(text)
@@ -381,7 +393,7 @@ def _check_markdown_links(dataset_id: str, scanned: ScannedFile, root: Path, all
                 continue
             diags.append(_link_diagnostic(dataset_id, scanned, link, [], link.target, by_basename, basenames))
             continue
-        normalized = resolve_link_target(scanned.rel_path, link.target)
+        normalized = resolve_link_target(scanned.rel_path, link.target, parsed=True)
         if normalized is None or normalized in all_paths:
             continue
         if ":" in link.target and normalized is not None and normalized not in all_paths:
@@ -547,6 +559,8 @@ def validate_dataset(
     parse_cache: ParseCache | None = None,
     check_content: bool = True,
     verify_sources: bool = False,
+    overlay: dict[str, bytes] | None = None,
+    deleted: set[str] | None = None,
 ) -> tuple[list[Diagnostic], dict[str, dict[str, Any]]]:
     """Validate all scanned files. Returns (diagnostics, doc_info).
 
@@ -555,6 +569,7 @@ def validate_dataset(
     ``registry`` is the loaded ``TypeRegistry``; when given, doc types that declare
     ``required_sections``/``section_rules`` are enforced against the parsed headings.
     """
+    scanned_files = [f for f in scanned_files if f.rel_path not in (deleted or set())]
     dataset_id = dataset["dataset_id"]
     cache = parse_cache if parse_cache is not None else default_parse_cache(root)
     limits = dataset.get("limits") or {}
@@ -573,7 +588,7 @@ def validate_dataset(
     metadata_schema = load_metadata_schema(root)
     # план entity-catalog З1: record_id нужны md-циклу (skip record-целей) —
     # дешёвый regexp-сбор по тексту json-файлов (полный разбор записей — ниже).
-    record_ids_known = _collect_record_ids(scanned_files) if check_content else set()
+    record_ids_known = _collect_record_ids(scanned_files, overlay) if check_content else set()
 
     for scanned in scanned_files:
         fmt = scanned.format
@@ -595,18 +610,18 @@ def validate_dataset(
         headings: list[Any] = []
         parsed_record = None
         # Сквозной кэш парсинга (P1-3): при попадании файл не читается и не парсится.
-        doc = _markdown_doc(cache, scanned) if fmt == "markdown" else None
+        doc = _markdown_doc(cache, scanned) if fmt == "markdown" and not (overlay and scanned.rel_path in overlay) else None
         if doc is not None:
             parsed_docs[scanned.rel_path] = doc  # план entity-catalog З1: кеш тоже в прогон
         if doc is None:
-            text = _read_validation_text(root, scanned, verify_sources)
+            text = _read_validation_text(root, scanned, verify_sources, overlay)
             if text is None:
                 diags.append(_diag(dataset_id, scanned.rel_path, "file.unreadable", "Cannot read file as UTF-8."))
                 doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
                 continue
             if fmt == "markdown":
                 doc = parse_markdown(text) if check_content else parse_markdown(text, include_links=False)
-                if write_cache and check_content:
+                if write_cache and check_content and not (overlay and scanned.rel_path in overlay):
                     cache.write(scanned.rel_path, scanned.hash, doc_to_payload(doc))
                 parsed_docs[scanned.rel_path] = doc
         if fmt == "markdown":
@@ -694,8 +709,8 @@ def validate_dataset(
 
     # Record validation: JSON files with record_id/entity_type.
     records = _validate_records(dataset_id, root, scanned_files, doc_info, dataset, registry)
-    diags.extend(_check_link_targets(dataset_id, scanned_files, parsed_docs, records[1], all_paths))
-    diags.extend(_check_source_anchors(dataset_id, root, records[1], parsed_docs, all_paths))
+    diags.extend(_check_link_targets(dataset_id, scanned_files, parsed_docs, records[1], all_paths, overlay))
+    diags.extend(_check_source_anchors(dataset_id, root, records[1], parsed_docs, all_paths, overlay))
     diags.extend(records[0])
     diags.extend(_skills_diagnostics(dataset_id, root))
     diags.extend(_folder_configs_diagnostics(dataset_id, root))

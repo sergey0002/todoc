@@ -1,6 +1,6 @@
 # 03. Контракт CLI и примеры
 
-[Полный справочник из Click](cli.md) перечисляет 67 листовых команд, группы, опции, позиционные аргументы и значения по умолчанию.
+[Полный справочник из Click](cli.md) перечисляет 69 листовых (включая скрытый alias `docs mv`) команд, группы, опции, позиционные аргументы и значения по умолчанию.
 
 ## Вызов и ответ
 
@@ -47,3 +47,13 @@ todoc --root demo validate --all
 Для команд с `--if-plan-hash` используйте полученный при preview `plan_hash`. Для структурированной правки метаданных `--if-hash` обязателен при применении. `docs edit --preview` возвращает `numbered` — итоговые строки с номерами после всех операций, `result_lines` и diff; `op` с полем `expect` отклоняет замену при несовпадении строки (`edit.expect_mismatch`, файл не меняется). `--budget` текстовых проекций считает символы Unicode полезного содержимого. Объём сериализованных метаданных может быть больше. У `docs search --budget N` единица другая — UTF-8 байты сериализованных элементов `data.result.items` без конверта; `data.meta.budget` содержит `limit`, `used_bytes` и `exhausted`.
 
 [Формы документов](05-formats.md) · [Поиск](07-search-and-read.md) · [Рабочий цикл агента](12-agent-operations.md)
+
+## Перенос и обратный перенос документа
+
+`docs move --from old.md --to notes/new.md` (или `--id ID`) возвращает read-only preview и `plan_hash`; применить можно только с `--apply --if-plan-hash H`. Опции `--keep-id`, `--pin-type`, `--if-hash`, `--verbose`. Алиас `docs mv` скрыт из меню. Проверяется весь DATA_ROOT, а не только поисковая видимость. Первые 20 file-summary ограничены честным `files_truncated`; полный diff доступен явно по `--verbose`.
+
+`revert --change move:ID` показывает отдельный план; его hash нужен для `--apply`. Последующие изменения затронутых файлов или новые битые ссылки при обратном переносе блокируют откат. Старый `revert REV --path P [--expected-hash H]` сохранён.
+
+Точка коммита — одно multi-path событие истории. Exit 6 с `applied=true, committed=true, index_published=false` означает, что данные сохранены, а индекс нужно пересобрать (`index rebuild --apply` с тем же `--root`). `recovery_required=true` перечисляет пути незавершённого rollback. До коммита обрабатываемая ошибка восстанавливает байты. Это не crash-atomic гарантия при отключении питания и не блокировка внешних редакторов.
+
+v1: один Markdown в существующую папку, без case-only rename; error-free baseline; затронутые reference/autolinks и неподтверждённые span, SKILL.md и change-дельты отклоняются. Старый drift не подтверждается автоматически, вторичный новый stale возвращается отдельно. `related`, `covers`, record source paths и `derived_from` обновляются по семантике, не произвольной заменой текста.

@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/06-validation-and-diagnostics.md
 copied: true
-tags: [references, reference, диагностик, валидация]
 ---
 
 # 06. Валидация и диагностики

@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/02-architecture.md
 copied: true
-tags: [references, reference, архитектура, состояние]
 ---
 
 # 02. Архитектура

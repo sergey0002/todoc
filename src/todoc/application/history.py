@@ -182,12 +182,17 @@ def content_at(root: Path, rev: str | None, rel_path: str, backend: Any | None =
     for event in events:
         if rev is not None and event.get("rev") == rev:
             seen_rev = True
+            if any(item.get("path") == rel_path and item.get("after_exists") is False
+                   for item in event.get("paths", [])):
+                return None, "missing"
             continue
         if not seen_rev and rev is not None:
             continue
         for item in event.get("paths") or []:
             if not isinstance(item, dict) or item.get("path") != rel_path:
                 continue
+            if item.get("before_exists") is False:
+                return None, "missing"
             before = item.get("before")
             if before:
                 data = storage.read_snapshot(before)
@@ -359,6 +364,8 @@ def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = No
         for item in event.get("paths") or []:
             if not isinstance(item, dict) or item.get("path") != rel_path:
                 continue
+            if item.get("before_exists") is False:
+                return None, "no_before"
             before = item.get("before")
             if before:
                 data = storage.read_snapshot(before)
@@ -499,7 +506,7 @@ def observe_external_changes(root: Path, files: list[tuple[str, str]], *,
             # правкой нельзя, иначе первый скан после первой записи пометил бы весь корпус.
         for rel_path in last:
             # Внешнее удаление: путь был в журнале, но из корпуса исчез и на диске его нет.
-            if rel_path not in seen and not (root / rel_path).exists():
+            if rel_path not in seen and last[rel_path] and not (root / rel_path).exists():
                 revs.append(_append_observed(storage, rel_path, "", head))
         return revs
 
@@ -628,3 +635,93 @@ def journal_diagnostics(dataset_id: str, root: Path) -> list[Diagnostic]:
             message="Последняя строка журнала оборвана и проигнорирована. Предыдущие события целы.",
         ))
     return diagnostics
+
+
+def record_event(root: Path, entries: list[dict[str, Any]], *, kind: str,
+                 change_id: str | None = None, backend: Any = None,
+                 store: HistoryStore | None = None, basis: str = "") -> str:
+    """Record an exact multi-path operation; existing files always get snapshots."""
+    storage = store if store is not None else default_history_store(root)
+    with storage.transaction():
+        return _record_event_locked(root, entries, kind=kind, change_id=change_id,
+                                    backend=backend, store=storage, basis=basis)
+
+
+def _record_event_locked(root: Path, entries: list[dict[str, Any]], *, kind: str,
+                         change_id: str | None, backend: Any, store: HistoryStore,
+                         basis: str = "", reverts_rev: str | None = None) -> str:
+    # Caller already owns the history transaction. Never recursively lock it.
+    store.read_events(strict=True)
+    backend = backend or default_history_backend(root)
+    head = backend.head()
+    paths = []
+    for entry in entries:
+        before, after = entry['before'], entry['after']
+        paths.append({'path': entry['path'], 'before_exists': before is not None,
+                      'after_exists': after is not None,
+                      'before': store.write_snapshot(before) if before is not None else None,
+                      'after': _content_hash(after) if after is not None else None,
+                      'git_head': head,
+                      'ranges': changed_ranges((before or b'').decode('utf-8', 'replace'),
+                                               (after or b'').decode('utf-8', 'replace'))})
+    event = {'schema_version': SCHEMA_VERSION, 'at': _utc_now(), 'kind': kind, 'actor': 'cli',
+             'change_id': change_id, 'paths': paths, 'basis': basis}
+    if reverts_rev is not None:
+        event['reverts_rev'] = reverts_rev
+    return store.append_event(event)
+
+
+def plan_revert_event(ctx: Any, change_id: str) -> dict[str, Any]:
+    """Build a read-only, whole-corpus-bound inverse of one exact move event."""
+    from todoc.application.move import MoveFile, checked_path, _current, digest, fresh_context, validate_files
+    from todoc.application.paging import selection_key
+    ctx = fresh_context(ctx)
+    payload = ctx.read_index()
+    events = ctx.history_store.read_events(strict=True)
+    matches = [e for e in events if e.get('change_id') == change_id and e.get('kind') == 'doc.move']
+    if not matches:
+        raise IncompleteError('Move event not found.', 'move.revert_not_found')
+    if len(matches) != 1:
+        raise ConflictError('Ambiguous move identity.', 'move.revert_ambiguous')
+    event = matches[0]
+    if any(e.get('reverts_rev') == event['rev'] for e in events):
+        raise ConflictError('Operation already reverted.', 'move.revert_conflict')
+    files = []
+    seen = set()
+    for item in event['paths']:
+        path = item['path']
+        if path in seen or type(item.get('before_exists')) is not bool or type(item.get('after_exists')) is not bool:
+            raise IncompleteError('No exact exists-state in history.', 'move.revert_unsupported')
+        seen.add(path)
+        current = _current(checked_path(ctx.root, path))
+        if (current is not None) != item['after_exists'] or digest(current) != item.get('after'):
+            raise ConflictError('Files changed since move; inverse would overwrite later work.', 'move.revert_conflict')
+        before = ctx.history_store.read_snapshot(item['before']) if item['before_exists'] else None
+        if item['before_exists'] and (before is None or digest(before) != item['before']):
+            raise IncompleteError('Before snapshot missing.', 'move.revert_unsupported')
+        files.append(MoveFile(path, current, before))
+    if not files:
+        raise IncompleteError('Empty move event.', 'move.revert_unsupported')
+    validate_files(ctx, tuple(files))
+    plan_hash = selection_key([1, ctx.dataset_id, payload['corpus_digest'], event,
+                               [(f.path, digest(f.before), digest(f.after)) for f in files]])
+    return {'preview': True, 'applied': False, 'plan_hash': plan_hash, 'rev': event['rev'],
+            'change_id': change_id, '_files': tuple(files),
+            'actions': [{'path': f.path, 'action': 'delete' if f.after is None else 'restore',
+                         'current_hash': digest(f.before), 'target_hash': digest(f.after)} for f in files]}
+
+
+def revert_event(ctx: Any, change_id: str, *, if_plan_hash: str) -> dict[str, Any]:
+    from uuid import uuid4
+    from todoc.adapters.filesystem.locks import directory_lock
+    from todoc.application.move import commit_files, fresh_context
+    if not if_plan_hash:
+        raise TodocError('Revert requires --if-plan-hash from preview.', 2, 'usage.error')
+    with directory_lock(ctx.root / '.todoc/locks/move.lock'):
+        ctx = fresh_context(ctx)
+        plan = plan_revert_event(ctx, change_id)
+        if plan['plan_hash'] != if_plan_hash:
+            raise ConflictError('Revert preview is stale.', 'move.plan_stale')
+        result = commit_files(ctx, plan['_files'], kind='doc.move.revert',
+                              change_id='move-revert:' + uuid4().hex, reverts_rev=plan['rev'])
+    return {**result, 'preview': False, 'plan_hash': if_plan_hash, 'reverts_rev': plan['rev']}

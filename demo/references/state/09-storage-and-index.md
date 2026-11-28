@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/09-storage-and-index.md
 copied: true
-tags: [references, reference, поколения, состояние]
 ---
 
 # 09. Хранилище: индекс, снимок, кэш
@@ -202,3 +201,7 @@ front matter полями `stale_acknowledged_at`, `stale_ack_reason`, `stale_ac
 - Повторный `record_id` и занятая цель отклоняются при создании. Параллельное занятие пути может вернуть `write.target_exists`.
 
 [Архитектура](02-architecture.md) · [Контекст](18-agent-state-and-context.md) · Точные опции
+
+### Multi-path move events
+
+`doc.move` и `doc.move.revert` используют аддитивные поля `before_exists`/`after_exists`: `after=null` при удалении не равен хешу пустого файла. Для существовавших файлов before-снимки обязательны даже с Git backend. Журнал публикует полную строку атомарным logical append с сохранением старого byte-prefix. При ошибке до публикации event отсутствует; подготовленные orphan snapshots допустимы и собираются GC. Событие отката ссылается на исходный `reverts_rev` и не удаляет историю.
