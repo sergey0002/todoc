@@ -1952,6 +1952,14 @@ def _emit_collection_error(meta: dict[str, Any], code: str, message: str, output
     ])
     command = meta["command"]
     envelope.next_actions = [{"argv": ["todoc", *command.split(), "--help"], "purpose": command}]
+    if code == "fields.unknown":
+        envelope.next_actions.insert(0, {
+            "argv": ["todoc", "docs", "list", "--fields-help"],
+            "purpose": "Показать доступные поля документов"})
+    if code == "query.namespace_mismatch":
+        envelope.next_actions.insert(0, {
+            "argv": ["todoc", "docs", "list", "--origin", "document"],
+            "purpose": "Обзор документов вместо записей"})
     emit(envelope, output)
 
 
@@ -3156,7 +3164,8 @@ def _require_record_type(ctx: DatasetContext, entity_type: str | None) -> None:
         if entity_type in declared:
             raise TodocError(
                 f"{entity_type!r} is a {namespace}, not an entity_type. "
-                f"Use `todoc docs search` or `todoc types list`.",
+                f"Use `todoc docs list` or `todoc docs search` for documents, "
+                f"and `todoc types list` for declared types.",
                 EXIT_USAGE, "query.namespace_mismatch")
     raise TodocError(
         f"Unknown entity_type: {entity_type!r}. List declared types with `todoc types list`.",

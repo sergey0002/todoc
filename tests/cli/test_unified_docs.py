@@ -225,7 +225,9 @@ def test_subprocess_errors_keep_v2_and_original_exit_code(root, args, expected):
     assert result["schema_version"] == 2 and result["ok"] is False
     assert result["diagnostics"][0]["code"] == expected
     assert result["guidance"]["items"][0]["code"] == expected
-    assert result["next_actions"][0]["argv"] == ["todoc", "docs", "list", "--help"]
+    expected_argv = (["todoc", "docs", "list", "--fields-help"] if expected == "fields.unknown"
+                     else ["todoc", "docs", "list", "--help"])
+    assert result["next_actions"][0]["argv"] == expected_argv
 
 
 def test_fields_discovery_without_root():

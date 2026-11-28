@@ -720,6 +720,27 @@ def test_records_type_namespace_is_checked_before_index(root, monkeypatch, args,
     assert diagnostic_code(result) == code, (args, result.output, result.exception)
 
 
+def test_collection_error_routes_to_docs_list(capsys):
+    from todoc.cli import _emit_collection_error
+
+    _emit_collection_error({"command": "records list", "scope": None},
+                           "query.namespace_mismatch", "doc_type", "json")
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["next_actions"][0]["argv"] == ["todoc", "docs", "list", "--origin", "document"]
+    assert "docs list" in envelope["guidance"]["items"][0]["hint"]
+
+    _emit_collection_error({"command": "docs search", "scope": None}, "fields.unknown", "ghost", "json")
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["next_actions"][0]["argv"] == ["todoc", "docs", "list", "--fields-help"]
+
+
+def test_unknown_field_routes_to_docs_list_fields_help(root):
+    result = call(root, "docs", "search", "--query", "design", "--fields", "ghost")
+    assert diagnostic_code(result) == "fields.unknown"
+    envelope = json.loads(result.output)
+    assert envelope["next_actions"][0]["argv"] == ["todoc", "docs", "list", "--fields-help"]
+
+
 def test_query_spec_namespace_is_checked_before_index(root, tmp_path, monkeypatch):
     file = tmp_path / "query.json"
     file.write_text(json.dumps({"entity_type": "adr"}), encoding="utf-8")

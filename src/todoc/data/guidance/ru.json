@@ -36,7 +36,7 @@
   "edit.line_out_of_range": "Номера строк относятся к состоянию после предыдущих операций; сверьтесь с `numbered` из preview и длиной файла.",
   "usage.missing_root": "Передайте --root с путём к датасету.",
   "query.namespace_mismatch": {
-    "hint": "Для doc_type используйте docs search. Список объявленных типов даёт types list.",
+    "hint": "Для doc_type используйте docs list (обзор по статусам, origin и полям) или docs search. Список объявленных типов даёт types list.",
     "skills": [
       "docs/todoc-docs"
     ],

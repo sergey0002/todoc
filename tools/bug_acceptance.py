@@ -287,9 +287,16 @@ def probe_bug_057(ctx: Ctx) -> tuple[str, str]:
     origin_ok = code2 == 0 and meta(body2).get("total") is not None
     code3, body3, _ = call(ctx.live, "docs", "list", "--type", "ghost", "--limit", "1")
     unknown_ok = code3 == 2 and "docs.unknown_type" in codes(body3)
-    ok = search_status and origin_ok and unknown_ok
+    code4, body4, _ = call(ctx.live, "docs", "search", "--query", "x", "--fields", "ghost")
+    fields_ok = (code4 == 2 and (body4 or {}).get("next_actions", [{}])[0].get("argv")
+                 == ["todoc", "docs", "list", "--fields-help"])
+    code5, body5, _ = call(ctx.live, "records", "list", "--type", "bug-report")
+    namespace_ok = (code5 == 2 and (body5 or {}).get("next_actions", [{}])[0].get("argv")
+                    == ["todoc", "docs", "list", "--origin", "document"])
+    ok = search_status and origin_ok and unknown_ok and fields_ok and namespace_ok
     return (FIXED if ok else OPEN,
-            f"search status={search_status} origin={origin_ok} unknown_type={unknown_ok}")
+            f"search status={search_status} origin={origin_ok} unknown_type={unknown_ok} "
+            f"fields_route={fields_ok} namespace_route={namespace_ok}")
 
 
 def probe_bug_060(ctx: Ctx) -> tuple[str, str]:
