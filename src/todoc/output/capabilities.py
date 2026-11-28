@@ -64,6 +64,12 @@ def group_discovery(group: click.Group, path: str) -> dict:
     }
 
 
+def command_preferences(ctx: click.Context) -> dict:
+    """Return the inherited preferences visible at this point in the command tree."""
+    root = ctx.find_root()
+    return {**root.params, **(ctx.obj or {})}
+
+
 class UnifiedCommand(click.Command):
     """Keep the command and renderer available to the application error boundary."""
 
@@ -71,9 +77,8 @@ class UnifiedCommand(click.Command):
         try:
             return super().parse_args(ctx, args)
         except click.MissingParameter:
-            root = ctx.find_root()
             output = ctx.params.get("output") if ctx.get_parameter_source("output") is click.core.ParameterSource.COMMANDLINE else None
-            output = output or root.params.get("output", "json")
+            output = output or command_preferences(ctx).get("output", "json")
             fields = [Parameter.from_click(item) for item in self.params if not getattr(item, "hidden", False)]
             response = Envelope.result({"command": command_name(ctx), "scope": None}, {
                 "summary": (self.short_help or self.help or "").split("\n", 1)[0],
@@ -86,12 +91,12 @@ class UnifiedCommand(click.Command):
             ctx.exit()
 
     def invoke(self, ctx: click.Context):
-        root = ctx.find_root()
+        preferences = command_preferences(ctx)
         if "output" in ctx.params and ctx.get_parameter_source("output") is click.core.ParameterSource.DEFAULT:
-            preference = root.params.get("output")
+            preference = preferences.get("output")
             if preference is not None:
                 ctx.params["output"] = preference
-        if "no_input" in ctx.params and root.params.get("no_input"):
+        if "no_input" in ctx.params and preferences.get("no_input"):
             ctx.params["no_input"] = True
         try:
             return super().invoke(ctx)

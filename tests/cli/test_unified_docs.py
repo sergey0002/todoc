@@ -493,3 +493,30 @@ def test_records_metadata_filters_and_review_first_edit(root, sample_record):
     assert applied.exit_code == 0, applied.exception
     read = json.loads(sample_record.read_text(encoding="utf-8"))
     assert read["record_id"] == record_id and read["tags"] == ["health"]
+
+
+@pytest.mark.parametrize("count", [100, 500])
+def test_idea_overview_cursor_covers_large_selections_without_writes(root, count):
+    _fixture(root)
+    for index in range(20, count):
+        (root / "ideas" / f"idea-{index:04d}.md").write_text(
+            f"---\ndoc_type: idea\ntitle: Идея {index}\nstatus: captured\n---\n", encoding="utf-8"
+        )
+    DatasetContext(root).rebuild_index(observe=False)
+    before = _snapshot(root)
+    selection = ["--type", "idea", "--fields", "id,path,title,status", "--limit", "50"]
+    seen = []
+    page_count = 0
+    cursor = []
+    while True:
+        code, response = _list(root, *selection, *cursor)
+        assert code == 0 and response["data"]["meta"]["complete"]
+        assert response["data"]["meta"]["total"] == count
+        page_count += 1
+        seen.extend(row["id"] for row in response["data"]["result"]["items"])
+        next_cursor = response["data"]["meta"]["next_cursor"]
+        if next_cursor is None:
+            break
+        cursor = ["--cursor", next_cursor]
+    assert page_count == count // 50 and len(seen) == len(set(seen)) == count
+    assert _snapshot(root) == before

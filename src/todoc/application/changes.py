@@ -24,10 +24,9 @@ from typing import Any
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.adapters.formats.markdown import parse_markdown, section_bounds
-from todoc.adapters.history.store import FileHistoryStore
 from todoc.application.history import add_tag, first_before
-from todoc.application.registry import invalidate_parse_cache
 from todoc.application.storage import HistoryStore, ParseCache
+from todoc.composition import default_history_store, default_parse_cache
 from todoc.domain.models import Diagnostic
 from todoc.errors import IncompleteError, ValidationError
 
@@ -608,10 +607,8 @@ def apply_change(root: Path, change_id: str, *, apply: bool = False,
             written.append((path, path.read_bytes()))
             atomic_write(path, item["content"])
             # Кэш парсинга сбрасывается вместе с данными, которые он описывает (P1-3).
-            if parse_cache is None:
-                invalidate_parse_cache(root, item["path"])
-            else:
-                parse_cache.invalidate(item["path"])
+            cache = parse_cache if parse_cache is not None else default_parse_cache(root)
+            cache.invalidate(item["path"])
             if history is not None:
                 history.record(item["path"], written[-1][1], item["content"].encode("utf-8"),
                                "change.apply", f"change apply {change_id}")
@@ -666,7 +663,7 @@ def archive_change(root: Path, change_id: str, tag: str | None = None,
                 history.record(str(moved.relative_to(root)), None, moved.read_bytes(),
                                "change.archive", f"change archive {change_id}")
     if tag and history_root is not None:
-        storage = FileHistoryStore(history_root) if store is None else store
+        storage = default_history_store(history_root) if store is None else store
         events = storage.read_events(strict=store is not None)
         if events:
             add_tag(history_root, tag, events[-1]["rev"], f"archive {change_id}", store=store)
@@ -716,10 +713,8 @@ def revert_change(root: Path, change_id: str, *, apply: bool = False,
                     f"Не удалось восстановить {item['path']} из истории ({status})", code)
             restored.append((path, path.read_bytes()) if path.is_file() else (path, b""))
             atomic_write(path, data.decode("utf-8"))
-            if parse_cache is None:
-                invalidate_parse_cache(root, item["path"])
-            else:
-                parse_cache.invalidate(item["path"])
+            cache = parse_cache if parse_cache is not None else default_parse_cache(root)
+            cache.invalidate(item["path"])
             if history is not None:
                 history.record(item["path"], restored[-1][1], data, "change.revert",
                                f"change revert {change_id}")

@@ -136,9 +136,9 @@ def scan_skills(vault_root: Path) -> tuple[list[SkillInfo], list[dict[str, Any]]
             path=folder.relative_to(vault_root).as_posix(),
             skill_md=rel_md,
             section=folder.parent.relative_to(vault_root).as_posix()
-            if folder.parent != vault_root else "",
+            if folder != vault_root and folder.parent != vault_root else "",
             description=desc,
-            muted=folder.name.startswith("!"),
+            muted=any(part.startswith("!") for part in folder.relative_to(vault_root).parts),
             refs=_count_dir(folder, "references"),
             scripts=_count_dir(folder, "scripts"),
             assets=_count_dir(folder, "assets"),

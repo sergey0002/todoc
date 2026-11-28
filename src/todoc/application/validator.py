@@ -10,17 +10,17 @@ import re
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from todoc.adapters.filesystem.scanner import ScannedFile
+from todoc.adapters.filesystem.scanner import ScannedFile, read_verified_text
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.adapters.formats.metadata import get_attributes
 from todoc.adapters.formats.markdown import (doc_from_payload, doc_to_payload, parse_markdown,
                                              resolve_link_target)
-from todoc.application.registry import JsonParseCache
 from todoc.application.storage import ParseCache
 from todoc.application import temporal
+from todoc.composition import default_parse_cache
 from todoc.domain.models import Diagnostic, SuggestedFix
-from todoc.errors import ValidationError
+from todoc.errors import IncompleteError, ValidationError
 from todoc.typing_system.descriptors import load_json_file, parse_heading_selector, schema_file
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 from todoc.typing_system.document_metadata import (SCHEMA_PATH, load_metadata_schema, metadata_errors,
@@ -157,8 +157,22 @@ def _markdown_doc(cache: ParseCache, scanned: ScannedFile) -> Any:
         return None
 
 
+def _read_validation_text(root: Path, scanned: ScannedFile, verify: bool) -> str | None:
+    try:
+        if verify:
+            return read_verified_text(root, scanned.rel_path, scanned.hash)
+        return scanned.abs_path.read_text(encoding="utf-8")
+    except IncompleteError as exc:
+        if exc.code != "file.unreadable":
+            raise
+    except (OSError, UnicodeDecodeError):
+        pass
+    return None
+
+
 def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[dict[str, Any]],
-                   all_paths: set[str], *, parse_cache: ParseCache | None = None) -> list[dict[str, Any]]:
+                   all_paths: set[str], *, parse_cache: ParseCache | None = None,
+                   verify_sources: bool = False) -> list[dict[str, Any]]:
     """Плоский индекс упоминаний md → цели (план entity-catalog З2, T8).
 
     Источник — кеш парсинга (P1-3): validate_dataset уже разобрал md и положил
@@ -169,16 +183,16 @@ def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[d
     by_basename, _ = _basename_index(all_paths)
     record_ids = {r["record_id"] for r in records}
     mentions: list[dict[str, Any]] = []
-    cache = parse_cache if parse_cache is not None else JsonParseCache(root)
+    cache = parse_cache if parse_cache is not None else default_parse_cache(root)
     for scanned in sorted(scanned_files, key=lambda f: f.rel_path):
-        if scanned.format != "markdown":
+        if scanned.format != "markdown" or scanned.status != "ok":
             continue
         doc = _markdown_doc(cache, scanned)
         if doc is None:
-            try:
-                doc = parse_markdown(scanned.abs_path.read_text(encoding="utf-8"))
-            except (OSError, UnicodeDecodeError):
+            text = _read_validation_text(root, scanned, verify_sources)
+            if text is None:
                 continue
+            doc = parse_markdown(text)
         for link in doc.links:
             target_kind: str | None = None
             target: str | None = None
@@ -532,6 +546,7 @@ def validate_dataset(
     write_cache: bool = True,
     parse_cache: ParseCache | None = None,
     check_content: bool = True,
+    verify_sources: bool = False,
 ) -> tuple[list[Diagnostic], dict[str, dict[str, Any]]]:
     """Validate all scanned files. Returns (diagnostics, doc_info).
 
@@ -541,7 +556,7 @@ def validate_dataset(
     ``required_sections``/``section_rules`` are enforced against the parsed headings.
     """
     dataset_id = dataset["dataset_id"]
-    cache = parse_cache if parse_cache is not None else JsonParseCache(root)
+    cache = parse_cache if parse_cache is not None else default_parse_cache(root)
     limits = dataset.get("limits") or {}
     max_depth = int(limits.get("max_json_depth", 128))
     max_rows = int(limits.get("max_csv_rows", 1000000))
@@ -584,9 +599,8 @@ def validate_dataset(
         if doc is not None:
             parsed_docs[scanned.rel_path] = doc  # план entity-catalog З1: кеш тоже в прогон
         if doc is None:
-            try:
-                text = scanned.abs_path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            text = _read_validation_text(root, scanned, verify_sources)
+            if text is None:
                 diags.append(_diag(dataset_id, scanned.rel_path, "file.unreadable", "Cannot read file as UTF-8."))
                 doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
                 continue

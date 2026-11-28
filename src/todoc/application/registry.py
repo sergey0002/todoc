@@ -11,49 +11,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from todoc.adapters.filesystem.locks import directory_lock
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
-from todoc.application.storage import IndexStatus
+from todoc.application.fingerprint import _config_digest, corpus_digest
+from todoc.application.storage import SNAPSHOT_SECTIONS, IndexStatus, SnapshotQuery, SnapshotSection
 from todoc.errors import IncompleteError
 
 
 
-_SHARDS = ('folders', 'documents', 'records', 'relations', 'diagnostics', 'mentions')
-
-
-def _config_digest(root: Path, *, strict: bool = False) -> str:
-    h = hashlib.sha256()
-    todoc_dir = root / ".todoc"
-    if todoc_dir.is_dir():
-        for path in sorted(todoc_dir.rglob("*.json")):
-            if "index" in path.parts or "cache" in path.parts or "generated" in path.parts or "history" in path.parts:
-                continue
-            try:
-                data = path.read_bytes()
-            except OSError:
-                if strict:
-                    raise
-                continue
-            h.update(path.relative_to(root).as_posix().encode("utf-8"))
-            h.update(b"\0")
-            h.update(hashlib.sha256(data).digest())
-    return "sha256:" + h.hexdigest()
-
-
-def corpus_digest(files: list[Any], config_digest: str) -> str:
-    """SHA-256 over sorted (rel_path, content_hash) pairs plus the config digest.
-
-    Two scans of an unchanged corpus produce the same digest, which is what lets a
-    read command reuse the published index instead of republishing it. ``created_at``
-    is deliberately not an input: metadata must not invalidate the index.
-    """
-    h = hashlib.sha256()
-    for path, digest in sorted((f.rel_path, f.hash) for f in files):
-        h.update(path.encode("utf-8"))
-        h.update(b"\0")
-        h.update(digest.encode("utf-8"))
-        h.update(b"\n")
-    h.update(config_digest.encode("utf-8"))
-    return "sha256:" + h.hexdigest()
+_SHARDS = SNAPSHOT_SECTIONS
 
 
 class RegistryStore:
@@ -82,7 +48,7 @@ class RegistryStore:
             return None
         try:
             data = json.loads(current.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, ValueError, RecursionError):
             return None
         return data if isinstance(data, dict) else None
 
@@ -136,7 +102,7 @@ class RegistryStore:
             return {}
         try:
             data = json.loads(self.stats_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, ValueError, RecursionError):
             return {}
         files = data.get("files") if isinstance(data, dict) else None
         return files if isinstance(files, dict) else {}
@@ -148,8 +114,20 @@ class RegistryStore:
         atomic_write(self.stats_path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 
     def load_current(self) -> dict[str, Any] | None:
+        return self._read_snapshot(_SHARDS)
+
+    def read_snapshot(self, query: SnapshotQuery) -> dict[str, Any] | None:
+        return self._read_snapshot(query.sections, query=query)
+
+    def _read_snapshot(
+        self, sections: tuple[SnapshotSection, ...], *, query: SnapshotQuery | None = None,
+    ) -> dict[str, Any] | None:
         meta = self.read_current_meta()
         if meta is None:
+            return None
+        if query is not None and (meta.get("schema_version") != 1 or "shards" not in meta
+                                  or meta.get("dataset_id") != query.dataset_id
+                                  or meta.get("corpus_digest") != query.fingerprint):
             return None
         gen_id = str(meta.get("generation_id") or "")
         if not self.current_dir.is_dir():
@@ -160,7 +138,13 @@ class RegistryStore:
         manifest = meta.get("shards")
         if manifest is not None and (not isinstance(manifest, dict) or set(manifest) != set(_SHARDS)):
             return None
-        for name in _SHARDS:
+        if query is not None:
+            try:
+                if json.loads((self.current_dir / "meta.json").read_bytes()) != meta:
+                    return None
+            except (OSError, ValueError, RecursionError):
+                return None
+        for name in sections:
             path = self.current_dir / f"{name}.json"
             if not path.is_file():
                 return None
@@ -193,7 +177,9 @@ class RegistryStore:
             "shards": {},
             "counts": {"documents": len(documents), "records": len(records)},
         }
-        with tempfile.TemporaryDirectory(prefix=".tmp-current-", dir=self.index_dir) as temp:
+        with directory_lock(self.index_dir / ".publish.lock"), tempfile.TemporaryDirectory(
+            prefix=".tmp-current-", dir=self.index_dir,
+        ) as temp:
             temporary = Path(temp)
             staged = temporary / "staged"
             previous = temporary / "previous"
@@ -290,11 +276,12 @@ def read_parse_cache(root: Path, path: str, content_hash: str,
         return None
     try:
         data = json.loads(cache_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError, RecursionError):
         return None
     if not isinstance(data, dict):
         return None
-    if data.get("content_hash") != content_hash or data.get("parser_version") != parser_version:
+    if (data.get("content_hash") != content_hash or data.get("parser_version") != parser_version
+            or data.get("path") != path):
         return None
     doc = data.get("doc")
     return doc if isinstance(doc, dict) else None

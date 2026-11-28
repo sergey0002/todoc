@@ -3,7 +3,7 @@
   "docs.invalid_scope": "Укажите путь относительно DATA_ROOT, например ideas.",
   "docs.multiple_roots": "Укажите один --root для обзора документов.",
   "fields.conflict": "Выберите --fields или --exclude-fields.",
-  "fields.unknown": "Проверьте доступные поля через docs list --fields-help.",
+  "fields.unknown": "Проверь поля выбранной команды. Для списка документов доступен docs list --fields-help.",
   "file.permission_denied": "Проверьте доступ к файлу из диагностики и повторите выборку.",
   "file.unreadable": "Проверьте читаемость и кодировку файла из диагностики.",
   "file.unsupported": "Проверьте ограничения размера и формат файла из диагностики.",
@@ -77,6 +77,48 @@
     ],
     "docs": [
       "doc:state-cli"
+    ]
+  },
+  "write.busy": {
+    "hint": "Дождись завершения команды записи, затем заново получи preview и проверь его хеш.",
+    "skills": [],
+    "docs": [
+      "doc:state-storage"
+    ]
+  },
+  "write.history_failed": {
+    "hint": "Файл уже записан. Прочитай его по указанному пути и сравни хеш. Проверь журнал перед повтором команды.",
+    "skills": [],
+    "docs": [
+      "doc:state-storage"
+    ]
+  },
+  "index.publish_failed": {
+    "hint": "Проверь права на каталог индекса. Сначала проверь состояние командой index status.",
+    "skills": [],
+    "docs": [
+      "doc:state-storage"
+    ]
+  },
+  "index.stats_failed": {
+    "hint": "Снимок индекса опубликован. Отдельно проверь возможность обновления производной статистики.",
+    "skills": [],
+    "docs": [
+      "doc:state-storage"
+    ]
+  },
+  "index.history_failed": {
+    "hint": "Снимок индекса опубликован. Проверь состояние журнала перед следующей записью.",
+    "skills": [],
+    "docs": [
+      "doc:state-storage"
+    ]
+  },
+  "history.adopt_refs_failed": {
+    "hint": "Запись базовой линии сохранилась. Проверь её через log и восстанови ссылку head после проверки.",
+    "skills": [],
+    "docs": [
+      "doc:state-storage"
     ]
   }
 }

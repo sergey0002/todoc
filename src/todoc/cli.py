@@ -10,7 +10,7 @@ import shutil
 import sys
 from dataclasses import replace
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import click
@@ -23,7 +23,7 @@ from todoc.adapters.formats.markdown import (heading_path_for, parse_markdown,
                                            resolve_link_target)
 from todoc.application.history import (add_tag, blame as history_blame, content_at, diff_texts,
                                        gc as history_gc_run,
-                                       adopt as history_adopt_run, journal_diagnostics,
+                                       adopt as history_adopt_run,
                                        log as history_log, resolve_rev,
                                        revert_plan, show as history_show)
 from todoc.application.changes import (TRANSLIT, apply_change, archive_change, change_id_for,
@@ -59,7 +59,7 @@ from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_U
                           AccessError, ConflictError, IncompleteError, TodocError, ValidationError)
 from todoc.output.envelope import Envelope, emit
 from todoc.output.guidance import guidance_for
-from todoc.output.capabilities import UnifiedCommand, command_name, group_discovery
+from todoc.output.capabilities import UnifiedCommand, command_name, command_preferences, group_discovery
 from todoc.output.filter_options import AttributeFilterCommand
 from todoc.output.views import mermaid_graph, project_fields, selected_fields
 from todoc.service import DatasetContext, resolve_roots
@@ -101,13 +101,13 @@ def _scan_sources(ctx: DatasetContext):
 
 SECTION_MAX_LINES = 40
 
-_group_roots: tuple[str, ...] = ()
 _group_output: str = "json"
 
 
 def _effective_roots(roots: tuple[str, ...]) -> tuple[str, ...]:
-    """Subcommand --root wins; otherwise fall back to group-level --root."""
-    return roots or _group_roots
+    """Select the nearest explicit roots, respecting repeats at that level."""
+    ctx = click.get_current_context(silent=True)
+    return roots or (command_preferences(ctx).get("roots", ()) if ctx is not None else ())
 
 
 def _contexts(roots: tuple[str, ...]) -> list[DatasetContext]:
@@ -177,11 +177,28 @@ def _parse_line_range(line_range: str) -> tuple[int, int]:
 class DiscoverableGroup(click.Group):
     group_class = type
 
-    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
-        if not args and ctx.parent is not None:
-            _emit_group_discovery(self, ctx, ctx.find_root().params["output"])
-            ctx.exit()
-        return super().parse_args(ctx, args)
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.setdefault("invoke_without_command", True)
+        super().__init__(*args, **kwargs)
+        if not any(param.name == "roots" for param in self.params):
+            self.params.extend((
+                click.Option(["--root", "roots"], multiple=True, help="Dataset root (repeatable)."),
+                click.Option(["--output"], type=click.Choice(["json", "table", "markdown"])),
+                click.Option(["--no-input"], is_flag=True),
+            ))
+
+    def invoke(self, ctx: click.Context):
+        if ctx.parent is None:
+            return super().invoke(ctx)
+        ctx.obj = command_preferences(ctx.parent)
+        for name in ("roots", "output", "no_input"):
+            value = ctx.params.pop(name)
+            if value:
+                ctx.obj[name] = value
+        result = super().invoke(ctx)
+        if ctx.invoked_subcommand is None:
+            _emit_group_discovery(self, ctx, ctx.obj["output"])
+        return result
 
 
 def _emit_group_discovery(group: click.Group, ctx: click.Context, output: str) -> None:
@@ -205,8 +222,7 @@ def _emit_group_discovery(group: click.Group, ctx: click.Context, output: str) -
 def cli(ctx: click.Context, roots: tuple[str, ...], output: str, no_input: bool) -> None:
     """todoc — portable typed knowledge substrate (validator + bounded search/read)."""
     ctx.ensure_object(dict)
-    global _group_roots, _group_output
-    _group_roots = roots
+    global _group_output
     _group_output = output
     ctx.obj["roots"] = roots
     ctx.obj["output"] = output
@@ -390,7 +406,7 @@ def index_rebuild(roots: tuple[str, ...], force: bool, output: str, no_input: bo
         if apply_:
             report = ctx.rebuild_index(force=force)
         else:
-            snapshot = ctx.read_index(include_mentions=False)
+            snapshot = ctx.read_index(sections=("records",))
             report = {"documents": len(snapshot["documents"]), "records": len(snapshot["records"]),
                       "corpus_digest": snapshot["corpus_digest"], "force": force}
         results.append({"dataset_id": ctx.dataset_id, **report, "root": str(ctx.root), "applied": apply_})
@@ -408,25 +424,38 @@ def skills() -> None:
 @click.option("--within", default=None, help="Срез раздела: префикс пути секции (напр. coding/git).")
 @click.option("--query", default=None, help="Lowercase-подстрока по name+description+пути (кириллица работает).")
 @click.option("--all", "show_all", is_flag=True, help="Показать мьютнутые (!-папки) с пометкой [!].")
-@click.option("--limit", type=int, default=100, show_default=True, help="Bounded output (P7).")
-@click.option("--max-depth", type=int, default=6, show_default=True, help="Глубина печатаемого дерева.")
+@click.option("--limit", type=click.IntRange(1, 1000), default=100, show_default=True, help="Bounded output (P7).")
+@click.option("--max-depth", "--depth", type=click.IntRange(min=0), default=6, show_default=True, help="Глубина печатаемого дерева.")
+@click.option("--view", default="tree", show_default=True)
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--cursor")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: str | None,
-                show_all: bool, limit: int, max_depth: int, output: str, no_input: bool) -> None:
+                show_all: bool, limit: int, max_depth: int, view: str, include: str | None,
+                exclude: str | None, cursor: str | None, output: str, no_input: bool) -> None:
     """Оглавление хранилища скилов на лету (live-scan, без индекса — P1)."""
+    meta = _collection_meta("skills tree", view)
+    actual_view = view if view in ("tree", "flat") else "tree"
+    meta["actual_view"] = actual_view
+    fields = selected_fields(
+        ("id", "path", "name", "section", "description", "muted", "refs", "scripts", "assets"),
+        include, exclude, structural=("id", "path"),
+    )
     ctx = _single_context(roots, "skills")
     vault_root = _contained_out(ctx.root, vault)
-    skills_list, _diags = scan_skills(vault_root)
+    scope = normalize_scope(within or ".")
+    meta["scope"] = {"dataset_id": ctx.dataset_id, "vault": vault, "within": scope}
+    skills_list, scan_diags = scan_skills(vault_root)
     if not vault_root.is_dir():
         raise TodocError(f"Хранилище скилов не найдено: {vault}/ (DATA_ROOT: {ctx.root})",
                          EXIT_OPERATION, "skills.not_found")
     if len(skills_list) > 500:  # порог идеи: живой скан всегда, предупреждение вместо индекса
         sys.stderr.write(f"warning: {len(skills_list)} skills in vault — live scan may be slow\n")
     shown = [s for s in skills_list if show_all or not s.muted]
-    if within:
-        shown = [s for s in shown if s.section == within or s.section.startswith(within.rstrip("/") + "/")]
-    vault_configs, _fc_diags = load_folder_configs(vault_root)
+    shown = [skill for skill in shown if within_depth(skill.path, scope, max_depth)]
+    vault_configs, config_diags = load_folder_configs(vault_root)
     section_meta = {rel: {"title": fc.title, "description": fc.description, "order": fc.order}
                     for rel, fc in vault_configs.items()}
     if query:
@@ -438,37 +467,67 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
                  if q in s.name.lower() or q in s.description.lower() or q in s.path.lower()
                  or any(s.section == ms or s.section.startswith(ms + "/") for ms in matched_sections)]
 
-    def _depth(s: Any) -> int:
-        return 0 if s.section == "" else s.section.count("/") + 1
-
-    shown = [s for s in shown if _depth(s) < max_depth]  # bounded в обоих режимах (P7)
-    truncated = len(shown) > limit
-    shown = shown[:limit]
-    items = [{"name": s.name, "path": s.path, "section": s.section,
-              "description": s.description, "muted": s.muted,
-              "refs": s.refs, "scripts": s.scripts, "assets": s.assets} for s in shown]
+    items = [{"id": f"skill:{skill.path}", "name": skill.name, "path": skill.path,
+              "section": skill.section, "description": skill.description, "muted": skill.muted,
+              "refs": skill.refs, "scripts": skill.scripts, "assets": skill.assets}
+             for skill in shown]
+    relevant_findings = [
+        finding for finding in scan_diags
+        if within_depth(PurePosixPath(finding["path"]).parent.as_posix(), scope, max_depth)
+    ]
+    lost_source = [finding for finding in relevant_findings
+                   if finding["code"] in ("skills.missing_front_matter", "access.outside_data_root")]
+    if lost_source:
+        emit(Envelope.collection(meta, [], diagnostics=lost_source), output)
+        raise click.exceptions.Exit(EXIT_INCOMPLETE)
+    rows, next_cursor = page(
+        items, [2, "skills tree", ctx.dataset_id, vault, scope, query, show_all, max_depth,
+                items, section_meta], limit, cursor,
+    )
+    truncated = next_cursor is not None
+    meta.update(complete=True, total=len(items), returned=len(rows),
+                truncated=truncated, next_cursor=next_cursor, max_depth=max_depth)
+    projected = [project_fields(item, fields) for item in rows]
+    visible_paths = {item["path"] for item in rows}
+    visible_section_meta = {
+        path: value for path, value in section_meta.items()
+        if path in visible_paths or any(found.startswith(path + "/") for found in visible_paths)
+    }
     data = {
         "dataset_id": ctx.dataset_id,
         "vault": vault,
         "counts": {"skills": len(skills_list),
                    "sections": len({s.section.split("/")[0] for s in skills_list if s.section}),
                    "muted": sum(1 for s in skills_list if s.muted)},
-        "skills": items,
-        "section_meta": section_meta,
+        "section_meta": visible_section_meta,
         "truncated": truncated,
     }
-    if output != "json":
-        data["tree_text"] = _skills_tree_text(items, data["counts"], truncated, max_depth, section_meta)
-    _emit_command_result(ctx, data, output,
-             next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", "<путь из дерева>"],
-                            "purpose": "Прочитать SKILL.md выбранного скила"}])
+    if actual_view == "flat":
+        data["items"] = projected
+    else:
+        data["skills"] = projected
+        data["root"] = folder_tree(
+            scope, [{**item, "kind": "skill"} for item in projected], folder_metadata=visible_section_meta,
+        )
+        if output != "json":
+            data["tree_text"] = _skills_tree_text(rows, data["counts"], truncated, visible_section_meta, fields)
+    diagnostics = (config_diags + [{**finding, "severity": "warning"} for finding in relevant_findings])
+    if actual_view != view:
+        diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
+                            "message": f"Requested view {view!r}; returned {actual_view!r}."})
+    response = Envelope.result(meta, data, diagnostics=diagnostics)
+    if rows:
+        response.next_actions = [
+            {"argv": _root_argv(roots) + ["skills", "read", "--vault", vault, "--path", rows[0]["path"]],
+             "purpose": "Прочитать SKILL.md выбранного скила"}
+        ]
+    emit(response, output)
 
 
 def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
-                      truncated: bool, max_depth: int,
-                      sec_meta: dict[str, dict[str, Any]] | None = None) -> str:
+                      truncated: bool, sec_meta: dict[str, dict[str, Any]],
+                      fields: tuple[str, ...]) -> str:
     """ASCII-дерево как в образце идеи: описания в stdout, [!] для мьюта."""
-    sec_meta = sec_meta or {}
     lines = [f"skills/  ({counts['skills']} skills, {counts['sections']} sections, "
              f"{counts['muted']} muted){' [truncated]' if truncated else ''}"]
     sections: dict[str, list[dict[str, Any]]] = {}
@@ -476,7 +535,7 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
         sections.setdefault(s["section"], []).append(s)
 
     children: dict[str, set[str]] = {}
-    for section in sections:
+    for section in sections.keys() - {""}:
         parts = section.split("/")
         for i in range(len(parts)):
             children.setdefault("/".join(parts[:i]), set()).add("/".join(parts[: i + 1]))
@@ -500,8 +559,12 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
                 label += f" — {meta['title']}" + (f": {meta['description']}" if meta.get("description") else "")
             lines.append("  " * depth + f"{label} ({cascade})")
         for s in own:
-            label = f"[!] {s['name']}" if s["muted"] else s["name"]
-            lines.append("  " * (depth + 1) + f"{label}  {s['description']}")
+            details = project_fields(s, fields)
+            label = details.get("name", details["path"])
+            if details.get("muted"):
+                label = f"[!] {label}"
+            description = details.get("description", "")
+            lines.append("  " * (depth + 1) + f"{label}  {description}")
         for child in sorted(children.get(node, set()), key=_sec_key):
             _render(child, depth + 1)
 
@@ -812,7 +875,7 @@ def stale(roots: tuple[str, ...], output: str, no_input: bool, path: str | None,
     if apply_ack and not ack_path:
         raise TodocError("--apply requires --ack.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "stale")
-    payload = ctx.read_index()
+    payload = ctx.read_index(sections=("records",))
     if ack_path:
         _stale_ack(ctx, ack_path, reason, apply_ack, expected_hash, output, payload)
         return
@@ -1040,7 +1103,7 @@ def timeline_cmd(roots: tuple[str, ...], output: str, no_input: bool, as_of: str
     if path is not None:
         path = normalize_scope(path)
         _contained_out(ctx.root, path)
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records", "relations"))
     events = ctx.history_store.read_events(strict=True)
     try:
         result = build_timeline(ctx.root, payload["records"], payload["relations"],
@@ -1132,7 +1195,7 @@ def tag_cmd(name: str, roots: tuple[str, ...], output: str, no_input: bool, rev:
         raise ConflictError("The tag plan is stale.", "write.hash_mismatch")
     entry = {"rev": target, "message": message}
     if apply_:
-        entry = add_tag(ctx.root, name, target, message, store=store)
+        entry = add_tag(ctx.root, name, target, message, store=store, expected_refs=refs)
     _emit_command_result(ctx, {"tag": name, **entry, "plan_hash": plan_hash, "applied": apply_}, output)
 
 
@@ -1185,17 +1248,17 @@ def history_adopt(roots: tuple[str, ...], output: str, no_input: bool,
     if preview and apply_:
         raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "history")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=())
     if _document_read_failures(payload, "."):
         raise IncompleteError("The dataset has unreadable source files.", "history.source_unreadable")
     files = [{"path": doc["path"], "hash": doc["hash"]} for doc in payload["documents"]]
     store = ctx.history_store
-    plan_hash = selection_key([ctx.dataset_id, payload["corpus_digest"],
-                               store.read_events(strict=True), store.read_refs()])
+    history_basis = store.read_events(strict=True), store.read_refs()
+    plan_hash = selection_key([ctx.dataset_id, payload["corpus_digest"], *history_basis])
     if if_plan_hash is not None and if_plan_hash != plan_hash:
         raise ConflictError("The adoption plan is stale.", "write.hash_mismatch")
     if apply_:
-        result = history_adopt_run(ctx.root, files, store=store)
+        result = history_adopt_run(ctx.root, files, store=store, expected_history=history_basis)
     else:
         result = {"paths": len(files)}
     _emit_command_result(ctx, {**result, "plan_hash": plan_hash, "applied": apply_}, output)
@@ -1216,12 +1279,10 @@ def history_export(roots: tuple[str, ...], output: str, no_input: bool, destinat
         raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "history")
     target = _contained_out(ctx.root, destination)
-    source = ctx.root / ".todoc" / "history"
-    if is_within_root(source, target):
-        raise AccessError("Backup cannot be inside the history directory.", "access.outside_data_root")
+    store = ctx.history_store
+    store.check_backup_destination(target)
     if target.exists():
         raise ConflictError(f"Backup already exists: {target}", "write.target_exists")
-    store = ctx.history_store
     store.read_events(strict=True)
     store.read_refs()
     manifest = store.backup_manifest()
@@ -1241,7 +1302,7 @@ def change(ctx: click.Context) -> None:
 
 def _descriptor_lookup(ctx: Any):
     """Описатель doc_type для пробной проверки структуры после применения дельты."""
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=())
 
     def lookup(front_matter: dict[str, Any], rel_path: str) -> dict[str, Any] | None:
         # Тип документа объявлен в его front matter; индекс хранит результат
@@ -1532,7 +1593,7 @@ def explain_path(path: str, roots: tuple[str, ...], output: str, no_input: bool)
     """Show resolved type/rule for a path — документы И папки (с .config.json-метой предка)."""
     path = normalize_scope(path)
     for ctx in _contexts(roots):
-        payload = ctx.read_index(include_mentions=False)
+        payload = ctx.read_index(sections=("folders",))
         folders, documents = payload["folders"], payload["documents"]
         folder_configs, _cfg_diags = load_folder_configs(ctx.root)
 
@@ -1713,7 +1774,7 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
 
 @docs.command("list", cls=AttributeFilterCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table", "markdown"]))
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
 @click.option("--no-input", is_flag=True)
 @click.option("--type", "types", multiple=True, help="Effective document type; separate alternatives by |.")
 @click.option("--within", default=".")
@@ -1732,7 +1793,7 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
 @click.option("--view", default="flat")
 @click.option("--limit", type=click.IntRange(1, 1000), default=50, show_default=True)
 @click.option("--cursor")
-def docs_list(roots: tuple[str, ...], output: str | None, no_input: bool,
+def docs_list(roots: tuple[str, ...], output: str, no_input: bool,
               types: tuple[str, ...], within: str, tag: str | None, tag_in: tuple[str, ...],
               tag_all: tuple[str, ...], file_format: str | None,
               attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
@@ -1740,7 +1801,6 @@ def docs_list(roots: tuple[str, ...], output: str | None, no_input: bool,
               include: str | None, exclude: str | None, fields_help: bool,
               view: str, limit: int, cursor: str | None) -> None:
     """List current document metadata. Filter with --attr-NAME 'value1|value2'."""
-    output = output or _group_output
     meta = _collection_meta()
     if fields_help:
         emit(Envelope(
@@ -1765,7 +1825,7 @@ def docs_list(roots: tuple[str, ...], output: str | None, no_input: bool,
             raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
         ctx = DatasetContext(resolved[0])
         meta["scope"] = {"dataset_id": ctx.dataset_id, "within": within}
-        payload = ctx.read_index(include_mentions=False)
+        payload = ctx.read_index(sections=())
         if failures := _document_read_failures(payload, within):
             emit(Envelope.collection(meta, [], diagnostics=failures), output)
             raise click.exceptions.Exit(EXIT_INCOMPLETE)
@@ -1909,7 +1969,7 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, types: tupl
             raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
         ctx = DatasetContext(resolved[0])
         meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
-        payload = ctx.read_index(include_mentions=False)
+        payload = ctx.read_index(sections=())
         if failures := _document_read_failures(payload, scope):
             emit(Envelope.collection(meta, [], diagnostics=failures), output)
             raise click.exceptions.Exit(EXIT_INCOMPLETE)
@@ -1987,7 +2047,7 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str |
     if len(resolved) != 1:
         raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
     ctx = DatasetContext(resolved[0])
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=())
     # план entity-catalog З3/T5: fragment в id — синоним --section; конфликт — usage.error
     id_base, hash_sep, id_fragment = doc_id.partition("#")
     if hash_sep and section:
@@ -2178,7 +2238,7 @@ def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int, 
         meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
         fields = selected_fields(("source", "target", "kind", "line", "column"), include, exclude,
                                  structural=("source", "line", "column"))
-        payload = ctx.read_index(include_mentions=False)
+        payload = ctx.read_index(sections=("records",))
         if failures := _document_read_failures(payload, scope):
             emit(Envelope.collection(meta, [], diagnostics=failures), output)
             raise click.exceptions.Exit(EXIT_INCOMPLETE)
@@ -2219,7 +2279,7 @@ def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int, 
 
 @docs.command("tree", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table", "markdown"]))
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
 @click.option("--no-input", is_flag=True)
 @click.option("--within", default=None)
 @click.option("--depth", "--max-depth", "max_depth", type=click.IntRange(min=0), default=3)
@@ -2230,11 +2290,10 @@ def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int, 
 @click.option("--exclude-fields", "exclude")
 @click.option("--match", "match_q", default=None,
               help="Фильтр папок Фазой A скоринга (.config.json): score ≥ 0.25, порядок score → order → путь.")
-def docs_tree(roots: tuple[str, ...], output: str | None, no_input: bool, within: str | None,
+def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None,
               max_depth: int, limit: int, cursor: str | None, match_q: str | None,
               view: str, include: str | None, exclude: str | None) -> None:
     """Compact derived outline (folders + documents)."""
-    output = output or _group_output
     meta = _collection_meta("docs tree", view)
     actual_view = view if view in ("tree", "flat") else "tree"
     meta["actual_view"] = actual_view
@@ -2273,7 +2332,7 @@ def docs_tree(roots: tuple[str, ...], output: str | None, no_input: bool, within
 
 def _tree_items(ctx: DatasetContext, scope: str, depth: int, match_q: str | None
                 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("folders",))
     folders = [dict(f) for f in payload["folders"] if within_depth(f["path"], scope, depth)]
     documents = [d for d in payload["documents"] if within_depth(d["path"], scope, depth)]
     folder_configs, cfg_diags = load_folder_configs(ctx.root)
@@ -2340,7 +2399,7 @@ def docs_flow_render(roots: tuple[str, ...], output: str, no_input: bool, flow_i
     if apply_ and not write_path:
         raise TodocError("--apply requires --write.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "docs")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records",))
     rec = _flow_record(payload, ctx, flow_id)
     view = build_flow_view(rec["data"], rules=_typed_records(payload, "rule"),
                            terms=_typed_records(payload, "term"))
@@ -2412,7 +2471,7 @@ def docs_flow_walk(roots: tuple[str, ...], output: str, no_input: bool, flow_id:
     """Пройти дерево решений флоу: ветви по приоритету, props развилок, пути до терминалов."""
     del no_input
     ctx = _single_context(roots, "docs")
-    payload = ctx.read_index()
+    payload = ctx.read_index(sections=("records",))
     rec = _flow_record(payload, ctx, flow_id)
     view = build_flow_view(rec["data"], at=at)
     data: dict[str, Any] = {"dataset_id": ctx.dataset_id, "id": flow_id, "at": at}
@@ -2445,7 +2504,7 @@ def docs_status(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str
     del no_input
     _check_action_flags(preview, apply_)
     ctx = _single_context(roots, "docs")
-    payload = ctx.read_index()
+    payload = ctx.read_index(sections=())
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
@@ -2558,7 +2617,7 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
               if_hash: str | None, preview: bool, apply_: bool) -> None:
     """Review-first patch edit (preview default, --apply to write)."""
     ctx = _contexts(roots)[0]
-    payload = ctx.read_index()
+    payload = ctx.read_index(sections=())
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
@@ -2617,7 +2676,7 @@ def records_edit(roots: tuple[str, ...], output: str, record_id: str, patch_file
     patch = _load_patch_file(patch_file)
     if set(patch) != {"metadata"} or (preview and apply_):
         raise ValidationError("Expected one metadata patch and one mode.", "edit.invalid_patch")
-    matches = [item for item in ctx.read_index()["records"] if item["record_id"] == record_id]
+    matches = [item for item in ctx.read_index(sections=("records",))["records"] if item["record_id"] == record_id]
     if len(matches) != 1:
         raise ValidationError(f"Expected exactly one match for {record_id!r}.", "records.not_found")
     record = matches[0]
@@ -2645,7 +2704,7 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
     if preview and apply_:
         raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records",))
     record = load_input_record(Path(input_file))
     if record.get("entity_type") != entity_type:
         record["entity_type"] = entity_type
@@ -2681,7 +2740,7 @@ def records_undo_relation(roots: tuple[str, ...], output: str, no_input: bool, r
     """Точечный откат ребра из ревизий журнала (preview по умолчанию)."""
     _check_action_flags(preview, apply_)
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records",))
     record = next((r for r in payload["records"] if r["record_id"] == record_id), None)
     if record is None:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
@@ -2727,7 +2786,7 @@ def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_typ
                  include: str | None, exclude: str | None, cursor: str | None) -> None:
     """List records with optional filters."""
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records", "relations"))
     filters: dict[str, Any] = {}
     if since:
         filters["date"] = {"$gte": since}
@@ -2770,7 +2829,7 @@ def records_status(roots: tuple[str, ...], output: str, no_input: bool, record_i
     del no_input
     _check_action_flags(preview, apply_)
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index()
+    payload = ctx.read_index(sections=("records",))
     rec = next((r for r in payload["records"] if r.get("record_id") == record_id), None)
     if rec is None:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
@@ -2840,7 +2899,7 @@ def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_fil
     if query_file is None and not any((attributes, filter_file, tag_in, tag_all)):
         raise TodocError("Pass --query-file or a metadata filter.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records",))
     spec = _query_spec(query_file) if query_file is not None else {}
     candidates, predicate = _select_records(ctx, payload["records"], spec.get("entity_type"),
                                              attributes, filter_file, tag_in, tag_all)
@@ -2947,7 +3006,7 @@ def records_aggregate(roots: tuple[str, ...], output: str, no_input: bool, metri
                       exclude: str | None, limit: int, cursor: str | None) -> None:
     """Sum a numeric field with units and source records for each group."""
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records",))
     descriptor = _entity_types_of(ctx.registry_types).get(entity_type) or {}
     metric_fields = descriptor.get("metric_fields")
     spec = metric_fields.get(metric) if isinstance(metric_fields, dict) else None
@@ -2984,7 +3043,7 @@ def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id:
                  view: str | None, record_view: str | None) -> None:
     """Read one record and its source references."""
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index()
+    payload = ctx.read_index(sections=("records", "mentions"))
     matches = [record for record in payload["records"] if record["record_id"] == record_id]
     if not matches:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
@@ -3049,7 +3108,7 @@ def interop_export(roots: tuple[str, ...], output: str, no_input: bool, kind: st
     if apply_ and not write_path:
         raise TodocError("--apply requires --write.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "interop")
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=("records",))
     doc_id, title, artifact, lang, anchors = _interop_artifact(ctx, payload, kind, record_id)
     if write_path is None:
         _emit_command_result(ctx, {"kind": kind, "record_id": record_id,
@@ -3172,7 +3231,7 @@ def relations_graph(roots: tuple[str, ...], output: str, no_input: bool, from_id
         meta["scope"] = {"dataset_id": ctx.dataset_id, "from": from_id, "depth": depth}
         fields = selected_fields(("type_id", "from", "to", "via", "fragment", "provenance"),
                                  include, exclude, structural=("type_id", "from", "to"))
-        payload = ctx.read_index()
+        payload = ctx.read_index(sections=("relations", "mentions"))
         edges = graph_neighbors(payload["relations"], from_id, type_id, depth, None,
                                 mentions=payload.get("mentions"))
         selection = [2, "relations graph", ctx.dataset_id, payload["corpus_digest"], from_id, type_id, depth]
@@ -3238,7 +3297,7 @@ def relations_tree(roots: tuple[str, ...], output: str, no_input: bool, from_id:
         if len(resolved) != 1:
             raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "relations.multiple_roots")
         ctx = DatasetContext(resolved[0])
-        payload = ctx.read_index()
+        payload = ctx.read_index(sections=("relations", "mentions"))
         meta["scope"] = {"dataset_id": ctx.dataset_id, "from": from_id, "depth": depth}
         key = selection_key([2, "relations tree", ctx.dataset_id, payload["corpus_digest"], from_id, type_id, depth])
         start = cursor_offset(cursor, key)
@@ -3344,7 +3403,7 @@ def types_metadata(roots: tuple[str, ...], output: str, limit: int, cursor: str 
     ctx = _contexts(roots)[0]
     configured = load_metadata_schema(ctx.root)
     schema = configured if configured is not None else default_metadata_schema()
-    payload = ctx.read_index(include_mentions=False)
+    payload = ctx.read_index(sections=())
     meta = _collection_meta("types metadata")
     meta["scope"] = {"dataset_id": ctx.dataset_id}
     if failures := _document_read_failures(payload, "."):
@@ -3577,7 +3636,7 @@ def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | Non
         repair = None
         if "index" in selected:
             status = ctx.index_status()
-            snapshot = ctx.read_index(include_mentions=False) if fix_ or status.state == "valid" else None
+            snapshot = ctx.read_index(sections=()) if fix_ or status.state == "valid" else None
             state = status.state
             if state == "valid" and snapshot["corpus_digest"] != status.meta["corpus_digest"]:
                 state = "stale"
@@ -3737,10 +3796,10 @@ def state_unset(roots: tuple[str, ...], output: str, no_input: bool, key: str,
 
 
 def _emit_unified_error(ctx: click.Context, code: str, message: str, exit_code: int) -> None:
-    name = command_name(ctx)
-    default = {"docs tree": "tree", "relations tree": "tree", "relations graph": "graph"}
+    name = command_name(ctx) or "todoc"
+    default = {"docs tree": "tree", "skills tree": "tree", "relations tree": "tree", "relations graph": "graph"}
     meta = _collection_meta(name, default.get(name, "flat"))
-    _emit_collection_error(meta, code, message, ctx.params.get("output") or _group_output)
+    _emit_collection_error(meta, code, message, ctx.params.get("output") or command_preferences(ctx).get("output", _group_output))
     sys.exit(exit_code)
 
 
@@ -3756,7 +3815,7 @@ def main() -> None:
         _emit_error(exc.code, exc.message, exc.exit_code)
     except click.ClickException as exc:
         if (isinstance(exc, click.UsageError) and exc.ctx is not None
-                and isinstance(exc.ctx.command, UnifiedCommand)):
+                and isinstance(exc.ctx.command, (UnifiedCommand, DiscoverableGroup))):
             _emit_unified_error(exc.ctx, "usage.error", exc.format_message(), EXIT_USAGE)
         _emit_error("usage.error", exc.format_message(), EXIT_USAGE)
 

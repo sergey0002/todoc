@@ -221,7 +221,7 @@ def sync_files(
             ctx.rebuild_index(force=True, observe=record_history)
         published = ctx.load_published_index() or {}
     else:
-        published = ctx.read_index(include_mentions=False)
+        published = ctx.read_index(sections=())
     target_set = set(targets)
     index_diags = [
         d for d in (published.get("diagnostics") or [])

@@ -1,11 +1,16 @@
 """Storage contracts used by dataset orchestration."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, ContextManager, Literal, Protocol
 
-from todoc.adapters.filesystem.scanner import ScannedFile
+if TYPE_CHECKING:
+    from todoc.adapters.filesystem.scanner import ScannedFile
 
+SnapshotSection = Literal["folders", "documents", "records", "relations", "diagnostics", "mentions"]
+SNAPSHOT_SECTIONS: tuple[SnapshotSection, ...] = ("folders", "documents", "records", "relations", "diagnostics", "mentions")
 SnapshotState = Literal["missing", "valid", "stale", "corrupt", "inaccessible"]
 
 
@@ -15,17 +20,33 @@ class IndexStatus:
     meta: dict[str, Any] | None = None
 
 
-class IndexStore(Protocol):
+@dataclass(frozen=True)
+class SnapshotQuery:
+    """Read logical collections from one verified generation."""
+    dataset_id: str
+    fingerprint: str
+    sections: tuple[SnapshotSection, ...]
+
+
+class IndexRead(Protocol):
     def inspect(self, dataset_id: str, fingerprint: str | None = None) -> IndexStatus: ...
+    def read_snapshot(self, query: SnapshotQuery) -> dict[str, Any] | None: ...
     def load_current(self) -> dict[str, Any] | None: ...
     def read_current_meta(self) -> dict[str, Any] | None: ...
     def read_stats(self) -> dict[str, dict[str, Any]]: ...
+
+
+class IndexWrite(Protocol):
     def write_stats(self, files: list[ScannedFile]) -> None: ...
     def publish(
         self, dataset: dict[str, Any], folders: list[dict[str, Any]], documents: list[dict[str, Any]],
         records: list[dict[str, Any]], relations: list[dict[str, Any]], diagnostics: list[dict[str, Any]],
         digest: str | None = None, mentions: list[dict[str, Any]] | None = None,
     ) -> str: ...
+
+
+class IndexStore(IndexRead, IndexWrite, Protocol):
+    """Read and publication capabilities composed for a dataset session."""
 
 
 class ParseCache(Protocol):
@@ -35,6 +56,7 @@ class ParseCache(Protocol):
 
 
 class HistoryStore(Protocol):
+    def transaction(self) -> ContextManager[None]: ...
     def read_refs(self) -> dict[str, Any]: ...
     def write_refs(self, refs: dict[str, Any]) -> None: ...
     def read_events(self, *, strict: bool = False) -> list[dict[str, Any]]: ...
@@ -45,5 +67,6 @@ class HistoryStore(Protocol):
     def remove_snapshot(self, digest: str) -> bool: ...
     def read_snapshot(self, digest: str) -> bytes | None: ...
     def write_snapshot(self, content: bytes) -> str: ...
+    def check_backup_destination(self, destination: Path) -> None: ...
     def backup_manifest(self) -> dict[str, str]: ...
     def write_backup(self, destination: Path, manifest: dict[str, str]) -> int: ...
