@@ -80,7 +80,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](../../bugs/bug-054-current-docs-search-csv-drift.md) | open |
 | [BUG-055: Неизвестный --type/--within в docs search даёт тихий пустой результат](../../bugs/bug-055-unknown-search-filter-silent-empty.md) | fixed |
 | [BUG-056: Нет CLI-команды для списка тегов и фильтра записей по тегу](../../bugs/bug-056-no-tag-listing-or-record-filter.md) | open |
-| [BUG-057: Обзор открытых баг-репортов не получается одной командой](../../bugs/bug-057-open-bugs-list-not-discoverable.md) | open |
+| [BUG-057: Обзор открытых баг-репортов не получается одной командой](../../bugs/bug-057-open-bugs-list-not-discoverable.md) | fixed |
 | [BUG-058: Инструкции и маршрутизация скилов не выводят на обзор статусов](../../bugs/bug-058-routing-docs-gap.md) | open |
 | [BUG-059: tools/refresh_demo_state.py не запускается и расходится с demo-копиями](../../bugs/bug-059-refresh-demo-state-broken.md) | fixed |
 | [BUG-060: docs list --status не принимает альтернативы через pipe](../../bugs/bug-060-status-filter-pipe-rejected.md) | fixed |

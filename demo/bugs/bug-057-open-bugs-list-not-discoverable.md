@@ -4,7 +4,7 @@ title: "BUG-057: обзор открытых баг-репортов не пол
 doc_type: bug-report
 lang: ru
 bug_id: BUG-057
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 6000
@@ -200,3 +200,5 @@ BUG-028 (runtime-контракт Windows/WSL), BUG-017 (молчаливое у
   неизвестные тип/статус), полный `pytest` — зелёный.
 - Остаётся: пустой успех `records list` по `doc_type` (BUG-020) и
   discoverability справки search. Статус `open` до ревью и коммита.
+
+- 2026-11-28: `fixed` — коммит `6b38b1f`. `docs search` отдаёт `status`, `docs list` различает `origin` и `--status-missing`; `fields.unknown` ведёт в `docs list --fields-help`, а `query.namespace_mismatch` — в `docs list --origin document` через `next_actions` и guidance. Проверка: `tools/bug_acceptance.py --only BUG-057` → `fixed`. Тесты: `tests/cli/test_unified_failures.py::test_collection_error_routes_to_docs_list`.
