@@ -4,9 +4,9 @@ title: "BUG-026: doctor --scope environment рапортует pass без пр�
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-026
-status: open
+status: fixed
 severity: major
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 2000
@@ -123,3 +123,5 @@ ctx.store.current_generation_id() is not None, ...), ("python", True, ...)]`),
 - Прямая причина, почему BUG-023 (CLI недоступен) и BUG-028 (нет runtime-контракта)
   не были замечены автоматически.
 - Поиск перед созданием (2026-11-27): `--type bug-report --query doctor` — 0 совпадений.
+
+- 2026-11-28: `fixed` — коммит `5dd753b`. `doctor --scope environment` выполняет реальные пробы `entrypoint`, `python`, `venv`, `encoding`, `data_root`, работает без `--root` и различает `pass`/`warn`/`fail`; `--fix`/`--apply` требуют проверки индекса. Проверка: `tools/bug_acceptance.py --only BUG-026` → `fixed`. Тесты: `tests/cli/test_cli_extra.py::test_doctor_scope_selects_check_group`, `test_doctor_environment_works_without_root`, `test_doctor_reports_missing_data_root`, `test_doctor_encoding_failure_is_reported`.
