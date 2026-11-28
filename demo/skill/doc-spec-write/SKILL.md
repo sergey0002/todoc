@@ -1,11 +1,13 @@
 ---
+id: "doc:skill/doc-spec-write/SKILL.md"
+title: "Написание спеки"
 name: doc-spec-write
 description: >
   Написание capability-спеки SHALL + WHEN/THEN с дельтой ADDED/MODIFIED/REMOVED и сверкой с конституцией до сохранения. Применять, когда новое требование фиксируется нормативно.
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-27
+updated: 2026-11-28
 tags: [skill, documentation, agent]
 ---
 

@@ -20,14 +20,14 @@ def _json(result):
 
 
 def _init(runner, tmp_path):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
 
 
 def _write(runner, tmp_path, rel, body):
     path = tmp_path / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0, \
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0, \
         f"rebuild failed for {rel}"
 
 

@@ -19,7 +19,7 @@
 | `state list [--prefix P]` | переменные датасета, сортировка по ключу |
 | `state unset KEY` | удаление; `removed: false` — не была установлена |
 
-`state set context.current_project <проект>` используется workflow-скилами и демо
+`state set --apply context.current_project <проект>` используется workflow-скилами и демо
 (см. `demo/.todoc/state.json`). Наличие/значение не влияет на validate: это стейт,
 не данные.
 

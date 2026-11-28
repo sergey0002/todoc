@@ -9,13 +9,13 @@
 2. Создать одной командой (create-only, явный путь для латинских имён):
 
    ```bash
-   todoc docs new --root KB --type task-report --title "<Название>" --path <папка>/<имя>.md
+   todoc docs new --apply --root KB --type task-report --title "<Название>" --path <папка>/<имя>.md
    todoc validate --root KB --all   # 0 диагностик
    ```
 
 3. Наполнить тело по шаблону (`.todoc/doc_types/task-report/template.md`):
    заменить плейсхолдеры фактами, комментарии-подсказки удалить.
-   Правка после создания — прямую правку файла + `todoc sync --root KB <путь>`,
+   Правка после создания — прямую правку файла + `todoc sync --apply --root KB <путь>`,
    чтение назад — `docs read --section ...`.
 
 - **Источники**: каждая секция собирается из фактов (задача, proposal, дифф, вывод

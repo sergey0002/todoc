@@ -24,25 +24,30 @@ def test_full_flow(root, sample_md, sample_csv, sample_record):
     result = _invoke(runner, ["--root", str(root), "docs", "search", "--query", "refresh token", "--output", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
-    assert data["data"]["total"] >= 1
+    assert data["data"]["meta"]["total"] >= 1
     # Read bounded section.
     result = _invoke(runner, ["--root", str(root), "docs", "read", "--id", "doc:notes/design.md", "--section", "Decision", "--output", "json"])
     assert result.exit_code == 0
-    assert "refresh token" in json.loads(result.output)["data"]["text"]
+    assert "refresh token" in json.loads(result.output)["data"]["result"]["text"]
     # Aggregate with provenance.
     result = _invoke(runner, ["--root", str(root), "records", "aggregate", "--metric", "volume", "--type", "workout", "--output", "json"])
     assert result.exit_code == 0
-    agg = json.loads(result.output)["data"]
+    agg = json.loads(result.output)["data"]["result"]
     assert agg["units"] == "kg"
     assert agg["formula"] == "sum(volume)"
-    assert agg["incoming_ids"] == ["workout:2026-11-24-sergei-01"]
-    # Index is rebuildable: delete and rebuild.
+    assert agg["items"][0]["incoming_ids"] == ["workout:2026-11-24-sergei-01"]
+    # Reads leave a cold dataset untouched. After explicit publication the
+    # index is still rebuildable from sources.
     import shutil
-    shutil.rmtree(root / ".todoc" / "index")
-    result = _invoke(runner, ["--root", str(root), "index", "rebuild", "--output", "json"])
+    index = root / ".todoc" / "index"
+    assert not index.exists()
+    result = _invoke(runner, ["--root", str(root), "index", "rebuild", "--apply", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    shutil.rmtree(index)
+    result = _invoke(runner, ["--root", str(root), "index", "rebuild", "--apply", "--output", "json"])
     assert result.exit_code == 0
     result = _invoke(runner, ["--root", str(root), "index", "status", "--output", "json"])
-    assert json.loads(result.output)["data"]["datasets"][0]["current"] is True
+    assert json.loads(result.output)["data"]["result"]["datasets"][0]["current"] is True
 
 
 def test_relocation(root, sample_md, tmp_path):
@@ -56,4 +61,4 @@ def test_relocation(root, sample_md, tmp_path):
     assert result.exit_code == 0, result.output
     result = _invoke(runner, ["--root", str(moved), "docs", "search", "--query", "refresh", "--output", "json"])
     assert result.exit_code == 0
-    assert json.loads(result.output)["data"]["total"] >= 1
+    assert json.loads(result.output)["data"]["meta"]["total"] >= 1

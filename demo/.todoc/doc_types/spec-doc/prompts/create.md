@@ -9,13 +9,13 @@ Capability-спека в нотации OpenSpec: SHALL-требования и 
 2. Создать одной командой (create-only, явный путь для латинских имён):
 
    ```bash
-   todoc docs new --root KB --type spec-doc --title "<Название>" --path <папка>/<имя>.md
+   todoc docs new --apply --root KB --type spec-doc --title "<Название>" --path <папка>/<имя>.md
    todoc validate --root KB --all   # 0 диагностик
    ```
 
 3. Наполнить тело по шаблону (`.todoc/doc_types/spec-doc/template.md`):
    заменить плейсхолдеры фактами, комментарии-подсказки удалить.
-   Правка после создания — прямую правку файла + `todoc sync --root KB <путь>`,
+   Правка после создания — прямую правку файла + `todoc sync --apply --root KB <путь>`,
    чтение назад — `docs read --section ...`.
 
 - **Нотация SHALL**: требование формулируется нормативно и проверяемо;

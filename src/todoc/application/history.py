@@ -11,15 +11,18 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.filesystem.scanner import atomic_write, file_hash
-from todoc.adapters.history import journal, objects
+from todoc.adapters.filesystem.scanner import file_hash, is_within_root
 from todoc.adapters.history.backends import EmbeddedBackend, resolve_backend
+from todoc.adapters.history.store import FileHistoryStore
+from todoc.application.storage import HistoryStore
 from todoc.domain.models import Diagnostic
+from todoc.errors import AccessError, ConflictError, IncompleteError
 
 SCHEMA_VERSION = 1
 
@@ -28,6 +31,10 @@ JOURNAL_TRUNCATED = "history.journal_truncated_line"
 OBJECT_MISSING = "history.object_missing"
 REVISION_UNKNOWN = "history.revision_unknown"
 BACKEND_UNAVAILABLE = "history.backend_unavailable"
+
+
+def _content_hash(content: bytes) -> str:
+    return "sha256:" + hashlib.sha256(content).hexdigest()
 
 
 def _utc_now() -> str:
@@ -73,24 +80,25 @@ def changed_ranges(before: str, after: str) -> list[list[int]]:
 def record_write(root: Path, rel_path: str, before: bytes | None, after: bytes, *, kind: str,
                  actor: str = "cli", basis: str = "", change_id: str | None = None,
                  backend: Any | None = None, git_head: str | None = None,
-                 extra: dict[str, Any] | None = None) -> str | None:
+                 extra: dict[str, Any] | None = None, store: HistoryStore | None = None) -> str | None:
     """Пишет одно событие записи. Возвращает ``rev`` или None, если журнал выключен.
 
     ``before is None`` означает создание файла: образа «до» не существует, и снимать его
     не нужно.
     """
     backend = backend or EmbeddedBackend(root)
+    storage = store if store is not None else FileHistoryStore(root)
     head = git_head if git_head is not None else backend.head()
 
     before_ref: str | None = None
     if before is not None:
-        last = _last_revision_for(root, rel_path)
+        last = _last_revision_for(storage, rel_path)
         if backend.needs_snapshot(rel_path, last):
-            before_ref = objects.write_snapshot(root, before)
+            before_ref = storage.write_snapshot(before)
 
     entry: dict[str, Any] = {"path": rel_path,
                              "before": before_ref,
-                             "after": objects.content_hash(after),
+                             "after": _content_hash(after),
                              "git_head": head}
     if before is not None:
         # decode(errors="replace") не падает на бинарных данных: диапазоны считаются по
@@ -102,15 +110,15 @@ def record_write(root: Path, rel_path: str, before: bytes | None, after: bytes, 
     if extra:
         entry.update(extra)
 
-    return journal.append_event(root, {
+    return storage.append_event({
         "schema_version": SCHEMA_VERSION, "at": _utc_now(), "kind": kind, "actor": actor,
         "change_id": change_id, "paths": [entry], "basis": basis,
     })
 
 
-def _last_revision_for(root: Path, rel_path: str) -> str | None:
+def _last_revision_for(store: HistoryStore, rel_path: str) -> str | None:
     last = None
-    for event in journal.iter_events(root):
+    for event in store.read_events():
         for item in event.get("paths") or []:
             if isinstance(item, dict) and item.get("path") == rel_path:
                 last = item.get("git_head")
@@ -121,26 +129,15 @@ def _last_revision_for(root: Path, rel_path: str) -> str | None:
 
 
 def refs_path(root: Path) -> Path:
-    return journal.history_dir(root) / "refs.json"
+    return FileHistoryStore(root).refs_path()
 
 
 def read_refs(root: Path) -> dict[str, Any]:
-    path = refs_path(root)
-    if not path.is_file():
-        return {"head": None, "tags": {}}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"head": None, "tags": {}}
-    if not isinstance(data, dict):
-        return {"head": None, "tags": {}}
-    data.setdefault("head", None)
-    data.setdefault("tags", {})
-    return data
+    return FileHistoryStore(root).read_legacy_refs()
 
 
 def write_refs(root: Path, refs: dict[str, Any]) -> None:
-    atomic_write(refs_path(root), json.dumps(refs, indent=2, ensure_ascii=False) + "\n")
+    FileHistoryStore(root).write_refs(refs)
 
 
 def set_head(root: Path, rev: str) -> None:
@@ -149,24 +146,30 @@ def set_head(root: Path, rev: str) -> None:
     write_refs(root, refs)
 
 
-def add_tag(root: Path, name: str, rev: str, message: str = "") -> dict[str, Any]:
-    refs = read_refs(root)
+def add_tag(root: Path, name: str, rev: str, message: str = "", *,
+            store: HistoryStore | None = None) -> dict[str, Any]:
+    refs = store.read_refs() if store is not None else read_refs(root)
     refs["tags"][name] = {"rev": rev, "at": _utc_now(), "message": message}
-    write_refs(root, refs)
+    if store is None:
+        write_refs(root, refs)
+    else:
+        store.write_refs(refs)
     return refs["tags"][name]
 
 
 # --- чтение содержимого на ревизии -------------------------------------------
 
 
-def content_at(root: Path, rev: str | None, rel_path: str, backend: Any | None = None) -> tuple[bytes | None, str]:
+def content_at(root: Path, rev: str | None, rel_path: str, backend: Any | None = None, *,
+                store: HistoryStore | None = None) -> tuple[bytes | None, str]:
     """Содержимое файла на ревизии ``rev``.
 
     Хранится только образ «до», поэтому содержимое на ревизии R — это образ «до» первого
     изменения после R, либо текущий файл, если изменений после R не было.
     """
     backend = backend or EmbeddedBackend(root)
-    events = journal.read_events(root)
+    storage = store if store is not None else FileHistoryStore(root)
+    events = storage.read_events(strict=store is not None) if rev is not None else []
     if rev is not None and not any(e.get("rev") == rev for e in events):
         # Неизвестная ревизия не должна молча выглядеть как «текущее содержимое»:
         # иначе опечатка в rev вернёт текущий файл и откат пройдёт незамеченным.
@@ -183,7 +186,7 @@ def content_at(root: Path, rev: str | None, rel_path: str, backend: Any | None =
                 continue
             before = item.get("before")
             if before:
-                data = objects.read_snapshot(root, before)
+                data = storage.read_snapshot(before)
                 if data is None:
                     return None, "object_missing"
                 return data, "ok"
@@ -209,7 +212,7 @@ def relation_identity(edge: dict[str, Any]) -> tuple[str, str]:
 
 def previous_relation_state(root: Path, rel_path: str, pointer_index: int,
                             current_edge: dict[str, Any],
-                            current_relations: list[Any]) -> dict[str, Any] | None:
+                            current_relations: list[Any], *, store: HistoryStore | None = None) -> dict[str, Any] | None:
     """Прежнее состояние ребра по журналу (план entity-catalog З4, T3).
 
     Скан событий файла новейшие→старейшие. Сначала поиск ребра с той же
@@ -222,11 +225,12 @@ def previous_relation_state(root: Path, rel_path: str, pointer_index: int,
     None — журнал не даёт прежнего состояния (ревизий нет).
     """
     identity = relation_identity(current_edge)
-    for event in reversed(journal.read_events(root)):
+    storage = FileHistoryStore(root) if store is None else store
+    for event in reversed(storage.read_events(strict=store is not None)):
         for item in event.get("paths") or []:
             if not isinstance(item, dict) or item.get("path") != rel_path or not item.get("before"):
                 continue
-            before = objects.read_snapshot(root, item["before"])
+            before = storage.read_snapshot(item["before"])
             if before is None:
                 continue
             try:
@@ -253,9 +257,9 @@ def previous_relation_state(root: Path, rel_path: str, pointer_index: int,
     return None
 
 
-def resolve_rev(root: Path, rev_or_tag: str) -> str | None:
+def resolve_rev(root: Path, rev_or_tag: str, *, refs: dict[str, Any] | None = None) -> str | None:
     """Разрешает имя тега в ``rev``; сам ``rev`` возвращается как есть."""
-    refs = read_refs(root)
+    refs = read_refs(root) if refs is None else refs
     tag = (refs.get("tags") or {}).get(rev_or_tag)
     if isinstance(tag, dict) and tag.get("rev"):
         return str(tag["rev"])
@@ -267,9 +271,12 @@ def resolve_rev(root: Path, rev_or_tag: str) -> str | None:
 
 def log(root: Path, *, path: str | None = None, section: str | None = None, kind: str | None = None,
         change_id: str | None = None, tag: str | None = None, since: str | None = None,
-        until: str | None = None, limit: int = 20, cursor: int = 0) -> tuple[list[dict[str, Any]], int, bool]:
-    events = journal.read_events(root)
-    tag_rev = resolve_rev(root, tag) if tag else None
+        until: str | None = None, limit: int = 20, cursor: int = 0,
+        events: list[dict[str, Any]] | None = None,
+        refs: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], int, bool]:
+    if events is None:
+        events = FileHistoryStore(root).read_events()
+    tag_rev = resolve_rev(root, tag, refs=refs) if tag else None
     selected: list[dict[str, Any]] = []
     for event in events:
         if kind and event.get("kind") != kind:
@@ -328,7 +335,9 @@ def _section_bounds(root: Path, rel_path: str, selector: str) -> tuple[int, int]
     return section_bounds(text, selector)
 
 
-def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = None) -> tuple[bytes | None, str]:
+def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = None, *,
+                store: HistoryStore | None = None,
+                events: list[dict[str, Any]] | None = None) -> tuple[bytes | None, str]:
     """Образ «до» конкретного события — то, что восстанавливает откат.
 
     Семантика намеренно расходится с ``content_at`` на один шаг и повторяет git:
@@ -337,7 +346,10 @@ def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = No
     ``revert <rev>`` — состояние до него.
     """
     backend = backend or EmbeddedBackend(root)
-    for event in journal.read_events(root):
+    storage = store if store is not None else FileHistoryStore(root)
+    if events is None:
+        events = storage.read_events(strict=store is not None)
+    for event in events:
         if event.get("rev") != rev:
             continue
         for item in event.get("paths") or []:
@@ -345,7 +357,7 @@ def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = No
                 continue
             before = item.get("before")
             if before:
-                data = objects.read_snapshot(root, before)
+                data = storage.read_snapshot(before)
                 return (data, "ok") if data is not None else (None, "object_missing")
             head = item.get("git_head")
             if head:
@@ -357,8 +369,22 @@ def before_content(root: Path, rev: str, rel_path: str, backend: Any | None = No
     return None, "revision_unknown"
 
 
-def show(root: Path, rev: str | None, rel_path: str, backend: Any | None = None) -> tuple[str | None, str]:
-    data, status = content_at(root, rev, rel_path, backend)
+def first_before(root: Path, rel_path: str, *, backend: Any | None = None,
+                 store: HistoryStore | None = None,
+                 events: list[dict[str, Any]] | None = None) -> tuple[bytes | None, str]:
+    """Read the image before the earliest event for the path."""
+    if events is None:
+        storage = FileHistoryStore(root) if store is None else store
+        events = storage.read_events(strict=store is not None)
+    for event in events:
+        if any(isinstance(item, dict) and item.get("path") == rel_path for item in event.get("paths") or []):
+            return before_content(root, event.get("rev"), rel_path, backend, store=store, events=[event])
+    return None, "revision_unknown"
+
+
+def show(root: Path, rev: str | None, rel_path: str, backend: Any | None = None, *,
+                store: HistoryStore | None = None) -> tuple[str | None, str]:
+    data, status = content_at(root, rev, rel_path, backend, store=store)
     if data is None:
         return None, status
     try:
@@ -372,7 +398,8 @@ def diff_texts(before: str, after: str, context: int = 3) -> list[str]:
                                      fromfile="before", tofile="after", lineterm="", n=context))
 
 
-def blame(root: Path, rel_path: str, section: str | None = None) -> list[dict[str, Any]]:
+def blame(root: Path, rel_path: str, section: str | None = None, *,
+                store: HistoryStore | None = None) -> list[dict[str, Any]]:
     """Кто и когда менял файл (или раздел) — по одному событию на диапазон."""
     entries: list[dict[str, Any]] = []
     bounds = _section_bounds(root, rel_path, section) if section else None
@@ -380,7 +407,8 @@ def blame(root: Path, rel_path: str, section: str | None = None) -> list[dict[st
         # Раздела в файле нет: отдавать всю историю файла нельзя — это выглядело бы
         # как ответ по разделу. Совпадает с поведением log --section.
         return entries
-    for event in journal.read_events(root):
+    storage = store if store is not None else FileHistoryStore(root)
+    for event in storage.read_events(strict=store is not None):
         for item in event.get("paths") or []:
             if not isinstance(item, dict) or item.get("path") != rel_path:
                 continue
@@ -394,11 +422,12 @@ def blame(root: Path, rel_path: str, section: str | None = None) -> list[dict[st
     return entries
 
 
-def revert_plan(root: Path, rev: str | None, rel_path: str, backend: Any | None = None) -> dict[str, Any]:
+def revert_plan(root: Path, rev: str | None, rel_path: str, backend: Any | None = None, *,
+                store: HistoryStore | None = None) -> dict[str, Any]:
     """План отката события ``rev``: вернуть файлу образ «до» этого события."""
     if not rev:
         return {"path": rel_path, "rev": rev, "status": "revision_unknown"}
-    data, status = before_content(root, rev, rel_path, backend)
+    data, status = before_content(root, rev, rel_path, backend, store=store)
     if data is None:
         return {"path": rel_path, "rev": rev, "status": status}
     try:
@@ -410,10 +439,10 @@ def revert_plan(root: Path, rev: str | None, rel_path: str, backend: Any | None 
     # Файл менялся после снимаемой ревизии, если его текущее содержимое не совпадает
     # с состоянием на этой ревизии. Откат тогда стирает более поздние правки — это
     # надо сказать вслух, а не решать за пользователя (P6).
-    after, _after_status = content_at(root, rev, rel_path, backend)
-    at_rev = objects.content_hash(after) if after is not None else ""
+    after, _after_status = content_at(root, rev, rel_path, backend, store=store)
+    at_rev = _content_hash(after) if after is not None else ""
     return {"path": rel_path, "rev": rev, "status": "ok", "content": text,
-            "current_hash": current, "new_hash": objects.content_hash(text.encode("utf-8")),
+            "current_hash": current, "new_hash": _content_hash(text.encode("utf-8")),
             "range_conflict": bool(at_rev) and current != at_rev}
 
 
@@ -421,7 +450,8 @@ EXTERNAL_CHANGE = "external.change"
 
 
 def observe_external_changes(root: Path, files: list[tuple[str, str]], *,
-                             backend: Any | None = None, mode: str = "observed") -> list[str]:
+                             backend: Any | None = None, mode: str = "observed",
+                             store: HistoryStore | None = None) -> list[str]:
     """Режим ``observed``: внешняя правка фиксируется событием, а не теряется молча.
 
     ``files`` — пары ``(rel_path, hash)`` из сканирования. Событие пишется только когда
@@ -432,7 +462,8 @@ def observe_external_changes(root: Path, files: list[tuple[str, str]], *,
     """
     if mode != "observed":
         return []
-    events = journal.read_events(root)
+    storage = FileHistoryStore(root) if store is None else store
+    events = storage.read_events(strict=store is not None)
     if not events:
         # Журнала нет — сравнивать не с чем. Точкой отсчёта служит `history adopt`,
         # иначе первый же скан объявил бы внешним весь корпус.
@@ -454,21 +485,21 @@ def observe_external_changes(root: Path, files: list[tuple[str, str]], *,
         if rel_path in last:
             # Путь уже в журнале: расходится хеш — значит правка была вне todoc.
             if last[rel_path] != current:
-                revs.append(_append_observed(root, rel_path, current, head))
+                revs.append(_append_observed(storage, rel_path, current, head))
         elif baseline:
             # Базовая линия есть, а пути в журнале нет — файл появился в корпусе позже.
-            revs.append(_append_observed(root, rel_path, current, head))
+            revs.append(_append_observed(storage, rel_path, current, head))
         # Без базовой линии путь просто неизвестен истории: объявлять его внешней
         # правкой нельзя, иначе первый скан после первой записи пометил бы весь корпус.
     for rel_path in last:
         # Внешнее удаление: путь был в журнале, но из корпуса исчез и на диске его нет.
         if rel_path not in seen and not (root / rel_path).exists():
-            revs.append(_append_observed(root, rel_path, "", head))
+            revs.append(_append_observed(storage, rel_path, "", head))
     return revs
 
 
-def _append_observed(root: Path, rel_path: str, after_hash: str, head: str | None) -> str:
-    return journal.append_event(root, {
+def _append_observed(store: HistoryStore, rel_path: str, after_hash: str, head: str | None) -> str:
+    return store.append_event({
         "schema_version": SCHEMA_VERSION, "at": _utc_now(), "kind": EXTERNAL_CHANGE,
         "actor": "external", "change_id": None, "basis": "observed at scan",
         "paths": [{"path": rel_path, "before": None, "after": after_hash,
@@ -477,95 +508,62 @@ def _append_observed(root: Path, rel_path: str, after_hash: str, head: str | Non
 
 
 def gc(root: Path, *, keep_objects: int | None = None, purge_before: str | None = None,
-       dry_run: bool = False, limits: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Сборка мусора: убирает события по возрасту и снимки, на которые никто не ссылается.
-
-    ``limits`` — ``dataset["limits"]``. ``max_history_objects`` служит значением по
-    умолчанию для ``keep_objects``, а ``max_journal_bytes`` подрезает самые старые
-    события, когда журнал вырос больше потолка. Явный ``--keep-objects`` важнее лимита:
-    потолок обслуживает хранилище, а не отменяет решение пользователя.
-    """
+       dry_run: bool = False, limits: dict[str, Any] | None = None,
+       events: list[dict[str, Any]] | None = None, refs: dict[str, Any] | None = None,
+       store: HistoryStore | None = None, snapshots: list[str] | None = None) -> dict[str, Any]:
+    """Plan or apply event retention and snapshot cleanup."""
     limits = limits or {}
-    events = journal.read_events(root)
-    kept = [e for e in events if not (purge_before and str(e.get("at") or "") < purge_before)]
-    removed_events = len(events) - len(kept)
-
-    objects_trimmed = 0
+    storage = store if store is not None else FileHistoryStore(root)
+    if events is None:
+        events = storage.read_events(strict=store is not None)
+    kept = [event for event in events if not (purge_before and str(event.get("at") or "") < purge_before)]
     max_bytes = limits.get("max_journal_bytes")
     trimmed_for_size = 0
     if isinstance(max_bytes, int) and max_bytes > 0:
-        while kept and journal.events_bytes(kept) > max_bytes:
-            kept = kept[1:]
+        sizes = [storage.event_bytes(event) for event in kept]
+        remaining_bytes = sum(sizes)
+        for size in sizes:
+            if remaining_bytes <= max_bytes:
+                break
+            remaining_bytes -= size
             trimmed_for_size += 1
-        removed_events += trimmed_for_size
+        kept = kept[trimmed_for_size:]
 
     if keep_objects is None:
         limit_objects = limits.get("max_history_objects")
         if isinstance(limit_objects, int) and limit_objects >= 0:
             keep_objects = limit_objects
 
-    referenced: set[str] = set()
-    for event in kept:
-        for item in event.get("paths") or []:
-            if isinstance(item, dict) and item.get("before"):
-                referenced.add(str(item["before"]))
-    total = objects.count_objects(root)
-    orphans = total - len(referenced)
-
+    referenced = {str(item["before"]) for event in kept for item in event.get("paths") or []
+                  if isinstance(item, dict) and item.get("before")}
+    if snapshots is None:
+        snapshots = storage.list_snapshots()
+    orphans = [digest for digest in snapshots if digest not in referenced]
+    remaining = [digest for digest in snapshots if digest in referenced]
+    if refs is not None:
+        removed_revs = {event["rev"] for event in events} - {event["rev"] for event in kept}
+        removed_tags = sorted(name for name, tag in refs["tags"].items()
+                              if isinstance(tag, dict) and tag.get("rev") in removed_revs)
+        if removed_tags:
+            raise ConflictError("Cleanup would invalidate history tags: " + ", ".join(removed_tags),
+                                "history.tagged_revision")
+    drop_count = 0 if keep_objects is None else max(0, len(remaining) - keep_objects)
+    oversized = remaining[:drop_count]
     if not dry_run:
-        journal.rewrite(root, kept)
-        # Обход идёт по хранилищу, а не по событиям: сирота по определению ни в одном
-        # событии не упоминается, и обходом событий её не найти.
-        removed = 0
-        for digest in _all_object_digests(root):
-            if digest not in referenced and objects.remove_object(root, digest):
-                removed += 1
-        orphans = removed
-        if keep_objects is not None:
-            objects_trimmed = _trim_objects(root, keep_objects)
-    return {"removed_events": removed_events, "kept_events": len(kept),
-            "objects_before": total, "objects_referenced": len(referenced),
-            "orphans_removed": max(orphans, 0), "trimmed_for_size": trimmed_for_size,
-            "objects_trimmed": objects_trimmed, "dry_run": dry_run}
+        storage.replace_events(kept)
+        removed_orphans = [digest for digest in orphans if storage.remove_snapshot(digest)]
+        removed_oversized = [digest for digest in oversized if storage.remove_snapshot(digest)]
+        if store is not None and (len(removed_orphans) != len(orphans) or len(removed_oversized) != len(oversized)):
+            raise IncompleteError("History cleanup only removed some planned snapshots.", "history.cleanup_incomplete")
+        orphans = removed_orphans
+        oversized = removed_oversized
+    return {"removed_events": len(events) - len(kept), "kept_events": len(kept),
+            "objects_before": len(snapshots), "objects_referenced": len(referenced), "orphans_removed": len(orphans),
+            "trimmed_for_size": trimmed_for_size, "objects_trimmed": len(oversized), "dry_run": dry_run}
 
 
-def _all_object_digests(root: Path) -> list[str]:
-    """Все ``sha256:`` в хранилище: имя объекта — это его дайджест."""
-    base = objects.objects_dir(root)
-    if not base.is_dir():
-        return []
-    out = []
-    for path in base.rglob("*"):
-        if path.is_file() and len(path.parent.name) == 2:
-            out.append("sha256:" + path.parent.name + path.name)
-    return out
-
-
-def _trim_objects(root: Path, keep: int) -> int:
-    """Оставляет в хранилище не больше ``keep`` снимков, начиная с самых старых.
-
-    Снимки, на которые ссылается журнал, больше не пропускаются: иначе потолок не
-    значил бы ничего — все «живые» снимки защищены ссылкой, а незащищённые удаляет
-    цикл выше, и до этого обхода дело не доходит. Цена явная и уже предусмотрена
-    состояниями чтения: у затёртой ревизии ``show``/``revert`` вернут
-    ``object_missing``, а не придуманное содержимое.
-    """
-    base = objects.objects_dir(root)
-    if not base.is_dir():
-        return 0
-    files = sorted((p for p in base.rglob("*") if p.is_file()), key=lambda p: p.stat().st_mtime)
-    excess = len(files) - keep
-    trimmed = 0
-    for path in files[: max(excess, 0)]:
-        try:
-            path.unlink()
-        except OSError:
-            continue
-        trimmed += 1
-    return trimmed
-
-
-def adopt(root: Path, files: list[dict[str, Any]]) -> dict[str, Any]:
+def adopt(root: Path, files: list[dict[str, Any]], *,
+          store: HistoryStore | None = None) -> dict[str, Any]:
     """Миграция: снимок текущего состояния как точка отсчёта ``rev=baseline``.
 
     Старые поколения индекса не конвертируются: они не несли намерения, восстанавливать из
@@ -575,32 +573,29 @@ def adopt(root: Path, files: list[dict[str, Any]]) -> dict[str, Any]:
     for item in files:
         rel = str(item["path"])
         target = root / rel
-        if not target.is_file():
+        expected = item.get("hash")
+        if store is not None:
+            if not is_within_root(root, target):
+                raise AccessError(f"Adoption path is outside the dataset: {rel}", "access.outside_data_root")
+            if not target.is_file() or (expected is not None and expected != file_hash(target)):
+                raise ConflictError(f"Source changed before adoption: {rel}", "write.hash_mismatch")
+        elif not target.is_file():
             continue
-        entries.append({"path": rel, "before": None, "after": item.get("hash") or file_hash(target),
+        entries.append({"path": rel, "before": None, "after": expected or file_hash(target),
                         "git_head": None, "ranges": []})
-    rev = journal.append_event(root, {"schema_version": SCHEMA_VERSION, "at": _utc_now(),
+    storage = store if store is not None else FileHistoryStore(root)
+    refs = storage.read_refs() if store is not None else read_refs(root)
+    rev = storage.append_event({"schema_version": SCHEMA_VERSION, "at": _utc_now(),
                                       "kind": "snapshot", "actor": "cli", "change_id": None,
                                       "paths": entries, "basis": "history adopt"})
-    set_head(root, rev)
+    refs["head"] = rev
+    storage.write_refs(refs)
     return {"rev": rev, "paths": len(entries)}
 
 
 def export(root: Path, destination: Path) -> dict[str, Any]:
     """Бэкап истории для бэкенда ``embedded``: копирует журнал, снимки и refs."""
-    source = journal.history_dir(root)
-    if not source.is_dir():
-        return {"exported": 0, "to": str(destination)}
-    destination.mkdir(parents=True, exist_ok=True)
-    count = 0
-    for path in source.rglob("*"):
-        if not path.is_file():
-            continue
-        target = destination / path.relative_to(source)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(path.read_bytes())
-        count += 1
-    return {"exported": count, "to": str(destination)}
+    return {"exported": FileHistoryStore(root).backup_to_existing_directory(destination), "to": str(destination)}
 
 
 # --- диагностики -------------------------------------------------------------
@@ -608,7 +603,7 @@ def export(root: Path, destination: Path) -> dict[str, Any]:
 
 def journal_diagnostics(dataset_id: str, root: Path) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
-    if journal.truncated_last_line(root):
+    if FileHistoryStore(root).truncated_final_line():
         diagnostics.append(Diagnostic(
             dataset_id=dataset_id, id="history-journal-truncated", code=JOURNAL_TRUNCATED,
             severity="warning", path=".todoc/history/journal.jsonl",

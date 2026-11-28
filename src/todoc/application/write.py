@@ -9,12 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.filesystem.scanner import atomic_write, file_hash
+from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.application.history import previous_relation_state
+from todoc.application.storage import HistoryStore, ParseCache
 from todoc.application.registry import invalidate_parse_cache
 from todoc.domain.models import WritePlan
-from todoc.errors import (EXIT_OPERATION, EXIT_USAGE, ConflictError, TodocError,
+from todoc.errors import (EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError, IncompleteError, TodocError,
                      ValidationError)
 
 
@@ -109,36 +110,45 @@ def create_record_plan(dataset: dict[str, Any], entity_types: dict[str, Any], re
 
 
 def apply_write_plan(root: Path, plan: WritePlan, expected_hash: str | None = None,
-                     history: Any | None = None) -> str:
+                     history: Any | None = None, *, parse_cache: ParseCache | None = None,
+                     event_kind: str | None = None) -> str:
     """Apply a WritePlan atomically. Returns new hash.
 
     ``history`` (a ``HistoryRecorder``) receives one journal event when given; passing None
     keeps the previous behaviour and is what tests that do not care about history use.
     """
     target = root / plan.target_path
+    if target.is_symlink() or not is_within_root(root, target):
+        raise AccessError(f"Target is outside the dataset or is a symlink: {plan.target_path}",
+                          "access.outside_data_root")
     if plan.expected_hash is None:
-        if target.exists():
-            raise ConflictError(f"Target already exists: {plan.target_path}", "write.target_exists")
+        before = None
+        try:
+            atomic_write(target, plan.new_content, exclusive=True)
+        except FileExistsError as exc:
+            raise ConflictError(f"Target already exists: {plan.target_path}", "write.target_exists") from exc
+        except OSError as exc:
+            raise IncompleteError(f"Could not publish {plan.target_path}: {exc}", "write.create_failed") from exc
     else:
         if not target.is_file():
             raise ConflictError(f"Target does not exist: {plan.target_path}", "write.target_missing")
-        current = file_hash(target)
+        before = target.read_bytes()
+        current = "sha256:" + hashlib.sha256(before).hexdigest()
         if current != plan.expected_hash:
             raise ConflictError(f"Hash mismatch for {plan.target_path}: expected {plan.expected_hash}, got {current}",
                                 "write.hash_mismatch")
         if expected_hash is not None and expected_hash != plan.expected_hash:
             raise ConflictError("Caller expected_hash does not match plan", "write.hash_mismatch")
-    before = target.read_bytes() if target.is_file() else None
-    atomic_write(target, plan.new_content)
-    # Кэш парсинга сбрасывается вместе с данными, которые он описывает (P1-3).
-    invalidate_parse_cache(root, plan.target_path)
+        atomic_write(target, plan.new_content)
+    if parse_cache is None:
+        invalidate_parse_cache(root, plan.target_path)
+    else:
+        parse_cache.invalidate(plan.target_path)
     if history is not None:
-        # kind различает документ и запись по расширению цели: у WritePlan нет отдельного
-        # флага формата, а список видов зафиксирован в плане (docs/plan/history-and-changes.md).
-        prefix = "doc" if Path(plan.target_path).suffix.lower() == ".md" else "record"
+        prefix = "doc" if target.suffix.lower() in (".md", ".markdown") else "record"
+        operation = "create" if before is None else "edit"
         history.record(plan.target_path, before, plan.new_content.encode("utf-8"),
-                       f"{prefix}.create" if before is None else f"{prefix}.edit",
-                       plan.basis or f"WritePlan {plan.target_path}")
+                       event_kind or f"{prefix}.{operation}", plan.basis or f"WritePlan {plan.target_path}")
     return plan.new_hash
 
 
@@ -186,9 +196,9 @@ def bump_front_matter_updated(text: str, today: str | None = None) -> tuple[str,
     return text, False
 
 
-def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
-                   history: Any | None = None, bump_updated: bool = False) -> tuple[str, bool]:
-    r"""Apply line-based edit ops (BUG-004: не только замена).
+def plan_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
+                  *, bump_updated: bool = False, dataset_id: str = "") -> tuple[WritePlan, str, bool]:
+    r"""Plan line-based edit ops (BUG-004: не только замена).
 
     Формы op (применяются последовательно; номера строк относятся к состоянию
     файла после предыдущих op):
@@ -199,47 +209,63 @@ def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expecte
     - ``{"op": "delete", "line": N[, "to": M]}`` — удаление строки N или диапазона N–M.
     """
     target = root / rel_path
+    if not is_within_root(root, target):
+        raise ValidationError(f"Unsafe target path: {rel_path}", "docs.unsafe_path")
     if not target.is_file():
         raise ValidationError(f"File not found: {rel_path}", "edit.file_missing")
-    current_hash = file_hash(target)
+    try:
+        before = target.read_bytes()
+        original = before.decode("utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise ValidationError(f"Cannot read {rel_path}: {exc}", "edit.file_unreadable") from exc
+    current_hash = "sha256:" + hashlib.sha256(before).hexdigest()
     if expected_hash is not None and current_hash != expected_hash:
         raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
-    raw_text = target.read_text(encoding="utf-8")
+    raw_text = original
     updated_bumped = False
     if bump_updated:
         raw_text, updated_bumped = bump_front_matter_updated(raw_text)
     lines = raw_text.splitlines()
     for op in ops:
         kind = op.get("op", "replace")
-        if kind in ("replace", None):
+        try:
             line_no = int(op.get("line", 0))
+            end = int(op.get("to", line_no)) if kind == "delete" else line_no
+        except (TypeError, ValueError) as exc:
+            raise ValidationError("Patch line numbers must be integers.", "edit.invalid_patch") from exc
+        if kind in ("replace", None):
             if line_no < 1 or line_no > len(lines):
                 raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
             lines[line_no - 1] = str(op.get("text", ""))
         elif kind == "insert_after":
-            line_no = int(op.get("line", 0))
             if line_no < 0 or line_no > len(lines):
                 raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
             texts = op.get("text", "")
             if isinstance(texts, str):
                 texts = [texts]
+            if not isinstance(texts, list):
+                raise ValidationError("insert_after requires text or a list of lines.", "edit.invalid_patch")
             lines[line_no:line_no] = [str(x) for x in texts]
         elif kind == "delete":
-            start = int(op.get("line", 0))
-            end = int(op.get("to", start))
+            start = line_no
             if start < 1 or end < start or end > len(lines):
                 raise ValidationError(f"Line out of range: {start}-{end}", "edit.line_out_of_range")
             del lines[start - 1:end]
         else:
             raise ValidationError(f"Unknown edit op: {kind}", "edit.op_unknown")
     new_text = "\n".join(lines) + "\n"
-    before = target.read_bytes()
-    atomic_write(target, new_text)
-    invalidate_parse_cache(root, rel_path)
-    if history is not None:
-        history.record(rel_path, before, new_text.encode("utf-8"), "doc.edit",
-                       f"docs edit {len(ops)} ops" + (" + bump updated" if updated_bumped else ""))
-    return _sha(new_text), updated_bumped
+    basis = f"docs edit {len(ops)} ops" + (" + bump updated" if updated_bumped else "")
+    plan = WritePlan(dataset_id=dataset_id, target_path=rel_path, new_content=new_text, basis=basis,
+                     expected_hash=current_hash, new_hash=_sha(new_text))
+    return plan, original, updated_bumped
+
+
+def apply_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected_hash: str | None = None,
+                   history: Any | None = None, bump_updated: bool = False) -> tuple[str, bool]:
+    plan, _original, updated_bumped = plan_edit_ops(
+        root, rel_path, ops, expected_hash, bump_updated=bump_updated,
+    )
+    return apply_write_plan(root, plan, expected_hash=expected_hash, history=history), updated_bumped
 
 
 # --- undo-relation (план entity-catalog З4, T3) -------------------------------
@@ -337,7 +363,8 @@ def _splice_element(text: str, spans: tuple[int, int, int, int],
     return text[:elem_start] + indented + text[elem_end:]
 
 
-def plan_undo_relation(root: Path, rel_path: str, pointer: str) -> dict[str, Any]:
+def plan_undo_relation(root: Path, rel_path: str, pointer: str, *,
+                       store: HistoryStore | None = None) -> dict[str, Any]:
     """План точечного отката ребра /relations/N из ревизий журнала (план entity-catalog З4, T3)."""
     target = root / rel_path
     if not target.is_file():
@@ -352,7 +379,7 @@ def plan_undo_relation(root: Path, rel_path: str, pointer: str) -> dict[str, Any
     if not isinstance(relations, list) or index >= len(relations) or index < 0:
         raise ValidationError(f"Ребро отсутствует: {pointer} вне массива relations", "edit.relation_missing")
     current_edge = relations[index]
-    previous = previous_relation_state(root, rel_path, index, current_edge, relations)
+    previous = previous_relation_state(root, rel_path, index, current_edge, relations, store=store)
     if previous is None:
         raise TodocError("В журнале нет ревизий, меняющих это ребро.",
                          EXIT_OPERATION, "history.revision_missing")

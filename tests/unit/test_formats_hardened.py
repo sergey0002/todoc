@@ -14,7 +14,7 @@ from todoc.adapters.formats.markdown import (
     parse_markdown,
     resolve_link_target,
 )
-from todoc.application.validator import _check_markdown_links, _validate_records, validate_dataset
+from todoc.application.validator import _check_markdown_links, validate_dataset
 
 
 # --- markdown: token-authoritative links -----------------------------------
@@ -280,13 +280,13 @@ def test_record_schema_violation_is_reported(root):
     }), encoding="utf-8")
     scanned = ScannedFile("records/w1.json", path, "json", path.stat().st_size, "sha256:")
     registry = {"entity_types": {"workout": {"type_id": "workout"}}}
-    diags, records = _validate_records("ds", root, [scanned], {}, {}, registry)
+    diags, info = validate_dataset(root, {"dataset_id": "ds"}, [scanned], [], [], registry)
     assert [d.code for d in diags] == ["record.schema_violation"]
     # pointer = exact address, line/column = where the key sits in the file
     assert diags[0].location["pointer"] == "/volume"
     assert diags[0].location["entity_type"] == "workout"
     assert diags[0].location["line"] == 1 and diags[0].location["column"] > 1
-    assert records[0]["record_id"] == "workout:w1"
+    assert info[scanned.rel_path]["parsed_record"][0]["record_id"] == "workout:w1"
 
 
 def test_record_without_schema_is_not_flagged(root):
@@ -294,7 +294,7 @@ def test_record_without_schema_is_not_flagged(root):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"record_id": "w:1", "entity_type": "note"}), encoding="utf-8")
     scanned = ScannedFile("records/w1.json", path, "json", path.stat().st_size, "sha256:")
-    diags, _records = _validate_records("ds", root, [scanned], {})
+    diags, _ = validate_dataset(root, {"dataset_id": "ds"}, [scanned], [], [])
     assert diags == []
 
 
@@ -309,7 +309,7 @@ def test_invalid_schema_file_is_ignored(root):
     path.write_text(json.dumps({"record_id": "n:1", "entity_type": "note"}), encoding="utf-8")
     scanned = ScannedFile("records/n1.json", path, "json", path.stat().st_size, "sha256:")
     registry = {"entity_types": {"note": {"type_id": "note"}, "metric": {"type_id": "metric"}}}
-    diags, _records = _validate_records("ds", root, [scanned], {}, {}, registry)
+    diags, _ = validate_dataset(root, {"dataset_id": "ds"}, [scanned], [], [], registry)
     assert diags == []
 
 

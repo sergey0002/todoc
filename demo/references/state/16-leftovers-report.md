@@ -1,4 +1,6 @@
 ---
+created: 2026-11-25
+updated: 2026-11-26
 id: doc:state-leftovers
 title: "Состояние: отчёт по остаткам"
 doc_type: reference

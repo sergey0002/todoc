@@ -97,7 +97,7 @@ def _section(root, doc_id, title):
     result = _run(CliRunner(), ["--root", str(root), "docs", "read", "--id", doc_id,
                                 "--section", title, "--output", "json"])
     assert result.exit_code == 0, result.output
-    return json.loads(result.output)["data"]
+    return json.loads(result.output)["data"]["result"]
 
 
 @pytest.fixture()

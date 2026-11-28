@@ -32,14 +32,15 @@ def test_graph_mention_from_md_root():
     # корень — md-файл: упоминание идёт в его target
     edges = graph_neighbors([], "notes/b.md", mentions=[MENTION_A])
     assert edges == [{"type_id": "mention", "via": "mention", "from": "notes/b.md",
-                      "to": "document:a", "fragment": ""}]
+                      "to": "document:a", "fragment": "",
+                      "provenance": {"path": "notes/b.md", "line": MENTION_A["source_line"]}}]
 
 
 def test_graph_mention_limit():
     second = {"source_file": "notes/c.md", "source_line": 1, "source_fragment": "/x",
               "target": "document:a", "target_kind": "record"}
     edges = graph_neighbors([], "document:a", limit=1, mentions=[MENTION_A, second])
-    assert len(edges) == 1 and edges[0]["to"] == "notes/b.md"
+    assert len(edges) == 1 and edges[0]["from"] == "notes/b.md"
 
 
 # --- query: build_tree --------------------------------------------------------
@@ -147,7 +148,7 @@ def test_check_targets_unreadable_target_skipped_real(tmp_path):
 def test_inline_record_like_target_not_found(tmp_path):
     """inline-цель с ":" вне записей и файлов — markdown.record_not_found."""
     runner = CliRunner()
-    assert runner.invoke(cli, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert runner.invoke(cli, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     md = tmp_path / "notes/b.md"
     md.parent.mkdir(parents=True)
     md.write_text("---\ntitle: B\n---\n\n# B\n\n[ссылка](document:missing)\n", encoding="utf-8")
@@ -290,7 +291,7 @@ def test_apply_undo_without_history_still_writes(tmp_path):
 
 def test_cli_undo_unknown_record(tmp_path):
     runner = CliRunner()
-    runner.invoke(cli, ["init", "--root", str(tmp_path), "--no-input"])
+    runner.invoke(cli, ["init", "--apply", "--root", str(tmp_path), "--no-input"])
     r = runner.invoke(cli, ["records", "undo-relation", "--root", str(tmp_path),
                             "--id", "document:ghost", "--pointer", "/relations/0"])
     assert isinstance(r.exception, TodocError) and r.exception.code == "records.not_found"
@@ -298,7 +299,7 @@ def test_cli_undo_unknown_record(tmp_path):
 
 def test_cli_tree_text_truncation(tmp_path):
     runner = CliRunner()
-    runner.invoke(cli, ["init", "--root", str(tmp_path), "--no-input"])
+    runner.invoke(cli, ["init", "--apply", "--root", str(tmp_path), "--no-input"])
     rec = {"record_id": "document:a", "entity_type": "document", "title": "A",
            "relations": [{"type_id": "supports", "target": {"kind": "record", "id": "document:b"}},
                           {"type_id": "supports", "target": {"kind": "record", "id": "document:c"}}]}
@@ -308,17 +309,17 @@ def test_cli_tree_text_truncation(tmp_path):
         p = tmp_path / f"records/documents/{rid}.json"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    runner.invoke(cli, ["index", "rebuild", "--root", str(tmp_path)])
+    runner.invoke(cli, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     out = runner.invoke(cli, ["relations", "tree", "--root", str(tmp_path),
                               "--from", "document:a", "--depth", "1", "--limit", "1",
                               "--output", "markdown"]).output
     assert "обрезано" in out and "лимит рёбер" in out
 
 
-def test_graph_mention_duplicate_target_skipped():
+def test_graph_keeps_parallel_mentions():
     second = dict(MENTION_A)  # тот же md-корень, та же цель
     edges = graph_neighbors([], "notes/b.md", mentions=[MENTION_A, second])
-    assert len(edges) == 1  # цель уже в visited — ветвь elif пропускает
+    assert len(edges) == 2  # Two source occurrences survive one visited target.
 
 
 def test_check_targets_anchor_reread_success(tmp_path):

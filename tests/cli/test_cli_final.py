@@ -28,7 +28,7 @@ def test_docs_read_markdown_full(root, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:notes/design.md", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]
+    data = _json(result)["data"]["result"]
     assert data["title"] == "Design"
     assert data["headings"][0]["title"] == "Design"
     assert "refresh token" in data["text"]
@@ -38,21 +38,21 @@ def test_docs_read_json_no_pointer(root, sample_record):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:records/workouts/w1.json", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["value"]["record_id"] == "workout:2026-11-24-sergei-01"
+    assert _json(result)["data"]["result"]["value"]["record_id"] == "workout:2026-11-24-sergei-01"
 
 
 def test_records_read_unknown_view(root, sample_record):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "records", "read", "--id", "workout:2026-11-24-sergei-01", "--view", "ghost", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert "date" in _json(result)["data"]["data"]
+    assert "date" in _json(result)["data"]["result"]["data"]
 
 
 def test_fix_cannot_apply(root, monkeypatch):
     real = DatasetContext.scan_and_validate
 
-    def fake(self):
-        _f, _d, _r, _rel, diagnostics = real(self)
+    def fake(self, **kwargs):
+        _f, _d, _r, _rel, diagnostics = real(self, **kwargs)
         diagnostics.append({
             "dataset_id": self.dataset_id, "id": "diag_crafted", "code": "markdown.link.target_missing",
             "severity": "error", "path": "notes/x.md", "location": {}, "evidence": "no link here",

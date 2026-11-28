@@ -8,7 +8,7 @@ description: Use this skill when an agent must find, validate, or read documents
 ## Choose the data root
 
 1. Use an explicit `--root <DATA_ROOT>` (repeatable) or `TODOC_ROOT`. Never guess the root from CWD.
-2. If the folder has no `.todoc/dataset.json`, run `todoc init --root <PATH>` first (creates control files only, never scans/moves user data).
+2. If the folder has no `.todoc/dataset.json`, run `todoc init --apply --root <PATH>` first (creates control files only, never scans/moves user data).
 3. Read only the bounded projection/fragment you selected. Respect `truncated`/cursor; never treat top-N as a full result.
 
 ## Validate before trusting
@@ -19,13 +19,18 @@ description: Use this skill when an agent must find, validate, or read documents
 
 ## Search and read (bounded)
 
+For an inventory by document type or lifecycle status, start with metadata:
+`todoc docs list --root <PATH> --type idea --fields id,path,title,status --limit 100`.
+Read `data.result.items` and check `data.meta.complete` and `next_cursor`.
+Use one successful probe before repeating a command across many inputs.
+
 1. Search: `todoc --root <PATH> docs search --query "..." --limit 10 --output json`.
 2. Read: `todoc --root <PATH> docs read --id <document_id> --section "..." --output json` (or `--pointer`/`--columns`).
 3. Use `docs tree` for the compact outline. Follow `next_actions` only as hints; verify them against the user goal.
 
 ## Skills routing
 
-Before any non-trivial task run `todoc skills tree --root <PATH>`; pick a skill by its description (section = domain), read its body with `todoc skills read --root <PATH> --path <path from the tree>`, and follow that SKILL.md (references/ and scripts/ as needed). If nothing matches, work without a skill; never modify third-party skills. The skills vault itself is never mounted into platform skill directories — only the `todoc` dispatcher skill is (`todoc skills attach --to <platform skills dir> --root <PATH>`).
+Before any non-trivial task run `todoc skills tree --root <PATH>`; pick a skill by its description (section = domain), read its body with `todoc skills read --root <PATH> --path <path from the tree>`, and follow that SKILL.md (references/ and scripts/ as needed). If nothing matches, work without a skill; never modify third-party skills. The skills vault itself is never mounted into platform skill directories — only the `todoc` dispatcher skill is (`todoc skills attach --apply --to <platform skills dir> --root <PATH>`).
 
 ## Records: query and aggregate
 
@@ -36,8 +41,8 @@ Before any non-trivial task run `todoc skills tree --root <PATH>`; pick a skill 
 ## Capture (review-first)
 
 1. Clarify only missing required fields/units/targets. Never invent them.
-2. Create new items via CLI templates: `todoc --root <PATH> docs new --type <type> --title "..." --path <dir>/<slug>.md` or `todoc --root <PATH> records create --type <type> --input-file <draft.json> --preview` → `--apply` (create-only: an existing `record_id` or path is refused with `record.duplicate_id`, exit 5).
-3. **Edit existing `.md`, `.json`, and `.csv` files directly** with your native editor tool (never hand-edit `created`/`updated` or generated views with `"generated": true`), then **immediately run `todoc sync --root <PATH> <file_path>`** (optionally `--if-hash <hash>`) to bump `updated`, record history ranges, refresh the index, and validate (`ok: true`, `diagnostics: []`).
+2. Create new items via CLI templates: `todoc --root <PATH> docs new --apply --type <type> --title "..." --path <dir>/<slug>.md` or `todoc --root <PATH> records create --type <type> --input-file <draft.json> --preview` → `--apply` (create-only: an existing `record_id` or path is refused with `record.duplicate_id`, exit 5).
+3. **Edit existing `.md`, `.json`, and `.csv` files directly** with your native editor tool (never hand-edit `created`/`updated` or generated views with `"generated": true`), then **immediately run `todoc sync --apply --root <PATH> <file_path>`** (optionally `--if-hash <hash>`) to bump `updated`, record history ranges, refresh the index, and validate (`ok: true`, `diagnostics: []`).
 
 ## References
 

@@ -99,7 +99,7 @@ todoc --version
 ## Ручная проверка (smoke)
 
 ```bash
-todoc init --root /tmp/kb --output json
+todoc init --apply --root /tmp/kb --output json
 todoc check --root /tmp/kb
 todoc docs new --root /tmp/kb --title "Design" --dir notes
 todoc docs search --root /tmp/kb --query "design"

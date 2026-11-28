@@ -1,4 +1,6 @@
 ---
+created: 2026-11-24
+updated: 2026-11-28
 id: doc:state-cli
 title: "Состояние: справочник CLI, 27 команд"
 doc_type: reference
@@ -48,7 +50,7 @@ copied: true
 
 ## Команды
 
-### `init --root PATH [--dataset-id ID]`
+### `init --root PATH [--dataset-id ID] [--apply]`
 Создаёт `.todoc/` (датасет, правила, каталоги типов; у каждого типа — `type.json`, `template.<ext>`,
 `prompts/{read,create,edit,delete}.md`) и `queries/`. Данные пользователя не трогает. Повторный вызов — `config.already_initialized` (exit 3).
 `data`: `{dataset_id, root, created}`.
@@ -75,7 +77,7 @@ copied: true
 Каждая диагностика: `{dataset_id, id, code, severity, path, location, evidence, message, suggested_fixes[]}`.
 Exit 3, если есть ошибки.
 
-### `index status` / `index rebuild [--force]`
+### `index status` / `index rebuild [--force] [--apply]`
 `data.datasets[]`. `status` читает опубликованный снимок:
 `{dataset_id, generation_id, current, corpus_digest, created_at}`.
 **До первой пересборки возвращает `generation_id: null`** — сначала выполните `index rebuild`.
@@ -113,23 +115,25 @@ Exit 3, если есть ошибки.
 
 | Команда | Что возвращает |
 |---|---|
-| `log [--path P] [--section S] [--kind K] [--change C] [--tag T] [--since D] [--until D] [--limit N] [--cursor C]` | `{events[], total, truncated, next_cursor}`, свежие первыми. `--section` требует `--path` |
-| `show [REV] --path P [--budget B]` | содержимое файла **на** ревизии (без REV — текущее): `{path, rev, content}` |
-| `diff REV_A [REV_B] --path P [--context N] [--budget B]` | `{changed, lines, diff[]}`; без `REV_B` — против текущего состояния |
-| `blame --path P [--section S]` | кто и когда менял файл или раздел: `{entries[]}` с `rev`, `at`, `kind`, `actor`, `ranges` |
-| `revert REV --path P [--apply] [--expected-hash H]` | без `--apply` — план `{applied: false, current_hash, new_hash, range_conflict}`; с `--apply` пишет файл и своё событие. Если файл менялся после `REV`, в конверте появляется предупреждение `history.range_conflict`: откат сотрёт более поздние правки |
-| `tag NAME [--rev R] [--message M]` | метка на событие (по умолчанию последнее); имя разрешается вместо `rev` |
-| `history gc [--keep-objects N] [--purge-before D] [--dry-run]` | `{removed_events, kept_events, objects_before, objects_referenced, orphans_removed, trimmed_for_size, objects_trimmed, dry_run}` |
-| `history adopt` | снимает текущее состояние как базовую линию: `{rev, paths}` |
-| `history export --to PATH` | копирует `.todoc/history/` целиком: `{exported, to}`. Путь только внутри DATA_ROOT |
+| `log [--path P] [--section S] [--kind K] [--change C] [--history-tag T] [--since D] [--until D] [--limit N] [--cursor C]` | `data.result.items`, счётчики и курсор в `data.meta`, свежие первыми. `--section` требует `--path` |
+| `show [REV] --path P [--budget B]` | Содержимое файла после события `REV`. Без `REV` возвращает текущий файл. `content` ограничивается `B` символами, `truncated` отмечает обрезку. |
+| `diff REV_A [REV_B] --path P [--context N] [--budget B]` | `{changed, lines, diff[], truncated}`. Без `REV_B` сравнивает с текущим файлом. `B` включает переводы строк внутри diff. |
+| `blame --path P [--section S] [--limit N] [--cursor C]` | События по файлу или разделу в `data.result.items`. |
+| `revert REV --path P [--preview\|--apply] [--expected-hash H]` | По умолчанию показывает `{applied: false, current_hash, new_hash, range_conflict}`. `--apply` пишет файл и событие. Изменения после `REV` отмечаются предупреждением `history.range_conflict`. |
+| `tag NAME [--rev R] [--message M] [--preview\|--apply] [--if-plan-hash H]` | Показывает план для выбранного события. Без `--rev` выбирает последнее событие. `--apply` записывает метку. |
+| `history gc [--keep-objects N] [--purge-before D] [--preview\|--apply] [--if-plan-hash H]` | Показывает план удаления событий и снимков. `--dry-run` равнозначен `--preview`. `--apply` очищает историю. |
+| `history adopt [--preview\|--apply] [--if-plan-hash H]` | Показывает число файлов в базовой линии. `--apply` записывает базовую линию и возвращает `rev`. |
+| `history export --to PATH [--preview\|--apply] [--if-plan-hash H]` | Показывает число файлов истории. `--apply` копирует их в новый каталог внутри DATA_ROOT. |
+
+Команды истории возвращают результат в `data.result`. Метаданные конверта не входят в `--budget`. `tag`, `history gc`, `history adopt` и `history export` возвращают `plan_hash`. Его можно передать при применении плана с `--if-plan-hash`.
 
 Семантика `show` и `revert` намеренно расходится на один шаг и повторяет git: `show REV` —
 состояние **после** события (как `git show <c>:<path>`), а `revert REV` — образ **до** него
 (как `git revert <c>`). Откат события создания файла или базовой линии невозможен: состояния
 «до» не существует, команда отвечает `history.revision_unknown` с объяснением.
 
-Хранится только образ «до», поэтому `history gc` удаляет сирот и лишние снимки.
-`--purge-before` стирает события старше даты: «удалил» в истории не равно «удалил» на диске.
+Хранится только образ «до». `history gc --apply` применяет план удаления сирот и лишних снимков.
+`--purge-before` выбирает события старше даты. Очистка отклоняется, если удаляемое событие используется меткой. Исходные документы сохраняются.
 
 Потолки обслуживания берутся из `limits` датасета и не влияют на запись в журнал — иначе
 целостность файлов (P1) зависела бы от размера служебной папки:
@@ -138,15 +142,15 @@ Exit 3, если есть ошибки.
 |---|---|---|
 | `max_journal_bytes` | 8388608 | `gc` подрезает самые старые события; счёт — в `trimmed_for_size` |
 | `max_history_objects` | 20000 | значение по умолчанию для `--keep-objects`; счёт — в `objects_trimmed` |
-| `max_diff_lines` | 2000 | строк на один дифф в `diff` и `context --with-diff` |
+| `max_diff_lines` | 2000 | строк на один diff в `context --with-diff` |
 
 Явный `--keep-objects` важнее лимита. Обрезка снимков настоящая: у затёртой ревизии `show`
 и `revert` честно отвечают `history.object_missing`, а не выдумывают содержимое.
 
-### `timeline [--as-of D] [--path P] [--limit N]`
+### `timeline [--as-of D] [--path P] [--limit N] [--cursor C]`
 
 Единая лента: события журнала (время знания) и интервалы фактов (время правды) в одном
-хронологическом порядке. `data`: `{dataset_id, as_of, path, count, truncated, entries[]}`.
+хронологическом порядке. Строки в `data.result.items`, область, счётчик и курсор в `data.meta`. `--limit 0` показывает только счётчик.
 
 У записи `entry` есть `kind` (`"fact"` или вид события) и `entry` (`"fact"` | `"event"`);
 у факта — `valid_from`, `valid_to`, `observed_at`, `superseded_at`, `source_id`, `target_id`,
@@ -199,13 +203,13 @@ order: 1                   # опционально, порядок при не�
 
 | Команда | Что возвращает |
 |---|---|
-| `change list [--status S]` | `{changes[]}` — активные и архивные |
-| `change open --title T [--blocked-by ID]… [--artifact P]…` | создаёт запись и папку, снимает базовую линию (хеши артефактов и список диагностик): `{change_id, path, status, artifacts}` |
+| `change list [--status S] [--limit N] [--cursor C]` | Фильтр применяется до пагинации. Строки в `data.result.items`, счётчики и курсор в `data.meta`. |
+| `change open --title T [--blocked-by ID]… [--artifact P]… [--apply]` | Показывает базовую линию и `plan_hash`. С `--apply` создаёт запись и папку. |
 | `change show ID` | запись и её дельты: `{record, deltas[]}` |
 | `change validate ID` | **применимость к живому состоянию**: `{applicable, errors}` + диагностики в конверте |
 | `change verify ID` | три измерения без модели: `{found, status, findings[], clean}` |
 | `change apply ID [--apply] [--if-hash PATH=sha256:…]` | без `--apply` — план; с `--apply` — bundle-транзакция «всё или ничего» |
-| `change archive ID [--tag T]` | статус `archived`, папка уносится в `changes/archive/`, `--tag` ставит метку истории |
+| `change archive ID [--tag T] [--apply]` | Показывает план. С `--apply` переносит изменение в `changes/archive/` и при наличии `--tag` ставит метку. |
 | `change revert ID [--apply]` | возврат артефактов к базовой линии изменения |
 
 `change validate` проверяет не формат дельты, а применимость: целевой файл существует
@@ -231,14 +235,14 @@ order: 1                   # опционально, порядок при не�
 
 ### `context --change ID \| --tag NAME [--budget N] [--with-diff]`
 
-Весь контекст задачи одним вызовом, в пределах бюджета байт (по умолчанию 8000). Бюджет
-считается по сериализованному объёму добавляемых кусков, а не по числу строк: агенту важно,
-сколько байт он получит.
+Один вызов собирает контекст задачи. `--budget` измеряется в символах Unicode, по умолчанию 8000.
+Лимит учитывает фрагменты контекста. Поля конверта и служебные счётчики исключены из расчёта.
 
-Возвращает `{dataset_id, change_id, tag, budget, truncated, record, deltas[], events[],
-files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок заполнения: запись →
-дельты → события → файлы → диффы; когда кусок не влезает, взводится `truncated`, и ответ
-никогда не превышает бюджет. Дифф обрезается также по `limits.max_diff_lines`.
+
+`data.result` содержит `change_id`, `tag`, `budget`, `truncated`, `record`, `deltas`, `events`,
+`files`, `used_chars` и при `--with-diff` массив `diffs`. Порядок заполнения: запись →
+дельты → события → файлы → диффы. Если фрагмент превышает оставшийся лимит, `truncated` равен `true`.
+Для каждого diff также применяется `limits.max_diff_lines`.
 
 Дифф считается от образа «до» первого события по файлу до текущего содержимого; без
 базового хеша сравнивать не с чем, и вместо шума `revision_unknown` путь просто
@@ -250,13 +254,13 @@ files[], used_bytes}` и, с `--with-diff`, ещё `diffs[]`. Порядок з�
 `rule_source` показывает, какое правило сработало (`rule:<id>`, `reserved`, `default`, `ambiguous`).
 `--match Q` — как в `docs tree --match`: путь участвует в скоринге Фазы A (план folder-config).
 
-### `docs new --title T [--dir DIR] [--path P] [--type T] [--template NAME]`
-Создаёт документ из стартового шаблона типа (create-only, без перезаписи).
+### `docs new --title T [--path P] [--type T] [--apply] [--if-plan-hash H]`
+По умолчанию показывает план создания. `--apply` создаёт новый документ из шаблона.
 `--type` выбирает тип документа; `--template` принимает **id типа или путь к файлу**
 (путь должен лежать внутри DATA_ROOT). Плейсхолдеры шаблона подставляются как текст:
 `{title}`, `{slug}`, `{date}`, `{type_id}`, `{id}`, `{format}`; неизвестные остаются как есть.
 Если тип не объявил шаблон, документ создаётся как `# <заголовок>`.
-`data`: `{dataset_id, path, title, doc_type, template, hash}`, где `template` — источник
+`data.result` содержит `plan_hash`. После применения результат включает путь, хеш файла и источник шаблона
 (`.todoc/doc_types/<id>/template.md`, путь к файлу, `type-without-template` или `none`).
 Отказы: `types.unknown`, `types.template_missing`, `types.template_invalid` (шаблон нарушает
 структуру своего типа — файл не создаётся), `docs.empty_title` (заголовок из одних пробелов,
@@ -267,13 +271,36 @@ exit 3), `docs.target_exists` (exit 5), `access.outside_data_root` (exit 4).
 containment-проверка слоя команд отвечает раньше тем же `access.outside_data_root` (проверено
 на `--path ../evil.md` и `--dir ../out`).
 
-### `docs search --query Q [--type T] [--limit N] [--within PATH] [--budget BYTES] [--cursor C]`
-Лексический поиск. `data`: `{dataset_id, total, returned, truncated, cursor, items[]}`,
-`items[]`: `{id, path, title, heading_path, rank, relevance{method,matched_by}, matched_terms, snippet{text,line_start,line_end,truncated}}`.
-`--cursor` — смещение: вторая страница продолжает выдачу без пересечений с первой.
-Нецелое значение — `usage.invalid_cursor` (exit 3), а не traceback.
+### `docs list` и фильтры документа
 
-### `docs read --id ID [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget BYTES]`
+~~~bash
+todoc docs list --root KB --type 'plan|idea|agent-skill' --attr-status 'active|draft'
+todoc docs list --root KB --type plan --filter-fields
+todoc docs search --root KB --tag-in 'cli|search'
+~~~
+
+`--type` ищет по эффективному типу, `--attr-doc_type` — по объявленному.
+`--attr-<имя>` принимает значения через `|`. Для массива проверяется
+наличие любого значения. `--tag-all` требует все теги.
+`--filter-file` принимает JSON с `schema_version: 1` и массивом `conditions`.
+Каждый элемент содержит `field`, `op` и `value`.
+
+Датасет включает общую проверку Markdown и JSON-документов файлом
+`.todoc/document-metadata.schema.json`. Атрибуты лежат во front matter Markdown
+или объекте `meta` JSON. У записей отдельный контракт `entity_type`.
+`types show <тип> --kind doc_type` показывает схему и обязательные поля.
+`types metadata --root KB` показывает результат проверки перед включением общей схемы.
+`init --document-metadata --root KB` ставит схему для нового датасета.
+`docs new --path item.json` создаёт JSON-документ с `meta`; `--attributes-file`
+задаёт дополнительные атрибуты для обоих форматов. `--preview` показывает план.
+
+### `docs search [--query Q] [--type T] [--limit N] [--within PATH] [--budget CHARS] [--cursor C]`
+Лексический поиск с фильтрацией до ранжирования или выборка только по метаданным.
+Оба режима используют плоский `data.result.items` и метаданные страницы `data.meta`.
+`data.meta.next_cursor` привязан к снимку и отбору. Изменение отбора инвалидирует курсор.
+Отдельные атрибуты доступны без `--query`. Поиск по тексту учитывает `--budget` в символах.
+
+### `docs read --id ID [--section S | --anchor A | --line-range N-M | --pointer P | --columns C --rows R --where K=V] [--budget CHARS]`
 Ограниченное чтение. Поля ответа зависят от формата:
 - Markdown без селектора: `{title, headings[], text}` (`text` усекается до `--budget`, по умолчанию 4000 символов);
 - Markdown с `--section`/`--anchor`: `{section, heading_path, lines[], text}` — окно до 40 строк от заголовка;
@@ -283,34 +310,53 @@ containment-проверка слоя команд отвечает раньше
   `--rows 3 --where k=v` возвращает три подходящие строки, а не три первые с последующей
   фильтрацией (P1-5). `matched` — сколько строк подошло под условие, `total` — сколько их в файле.
 Общие поля: `{dataset_id, id, path, format, doc_type, hash}`.
+Бюджет ограничивает символы Unicode в возвращаемом тексте. Метаданные
+и координаты не входят в лимит. Для JSON и CSV применяются селекторы формата.
 Некорректный `--line-range` — `usage.invalid_line_range` (exit 3).
 
-### `docs tree [--within PATH] [--max-depth N] [--match Q]`
+Поля текущей формы ответа можно выбрать через `--fields a,b` или исключить
+через `--exclude-fields a,b`. Для чтения секции с одним текстовым
+представлением используйте `--exclude-fields lines`. ID, путь, хеш и
+координаты секции сохраняются.
+
+### `docs tree [--within PATH] [--depth N] [--match Q] [--limit N] [--cursor C]`
 `--match Q` — фильтр папок скорингом Фазы A (`.config.json`, score ≥ 0.25, порядок
 score → order → путь; план [folder-config](../../plan/folder-config-implementation.md),
 fm done). Папки получают плоские поля `title/description/order` из ближайшего СВОЕГО конфига.
-`data`: `{dataset_id, folders[], documents[], total_folders, total_documents, max_depth}`.
+`--max-depth` — прежнее имя `--depth`. Глубина считается относительно
+`--within` (по умолчанию `.`). Область имеет глубину 0, её непосредственные
+потомки — глубину 1. Лимит применяется к общей странице папок и документов
+(по умолчанию 50). Дерево находится в `data.result.root`, его узлы — в `children`.
+`--view flat` выводит плоскую страницу в `data.result.items`.
+Счётчики и признаки продолжения находятся в `data.meta`.
+`data.meta.next_cursor` привязан к области, параметрам отбора и снимку;
+при их изменении начните с первой страницы.
 
 ### `docs edit --id ID --patch-file F [--preview] [--apply] [--if-hash H]`
 Патч: `{"ops": [{"line": 12, "text": "новая строка"}]}` — замена строк по 1-индексации.
-Без `--apply` возвращается `{preview: true, ops}`. С `--apply` — `{applied: true, new_hash}`.
+В `data.result` доступны `diff`, `expected_hash` и `new_hash`. Без `--apply` выдаётся preview, с `--apply` результат записи.
 Несовпадение `--if-hash` — exit 5.
 
-### `records create --type T --input-file F [--preview] [--apply]`
-Create-only. `--preview`: `{preview: true, plan{target_path, new_content, expected_hash, new_hash, basis, validations}}`.
-`--apply`: `{created, new_hash}`. Повторный `record_id` — `record.duplicate_id`, занятый путь —
-`record.target_exists`, оба с exit 5; неизвестный тип — exit 3.
+Для атрибутов используйте `{"metadata":[{"op":"set","field":"priority","value":2}]}`.
+Этот же формат принимает `records edit`. Операции `set`, `remove`,
+`add_item` и `remove_item` проверяются по схеме до записи. Возьмите
+`data.result.expected_hash` из preview и передайте его в `--apply --if-hash`.
+
+### `records create --type T --input-file F [--preview|--apply] [--if-plan-hash H]`
+По умолчанию `data.result` содержит `preview`, `plan_hash` и `plan` с путём, содержимым, хешами и результатами проверок.
+Для записи укажите `--apply`. При наличии `--if-plan-hash` команда отклоняет изменившийся план с кодом выхода 5.
+Успешная запись возвращает `created` и `new_hash`. Повторный ID (`record.duplicate_id`) и занятый путь (`record.target_exists`) дают код 5. Неизвестный тип даёт код 3.
 
 Флага `--if-hash-new` больше нет (P1-4): он принимался и ничего не делал, а гарантию
 «только создание» команда даёт безусловно — ещё в preview. Флаг, намекающий, что guarantee
 включается по желанию, вводил в заблуждение; вызов с ним теперь `usage.error` (exit 2).
 
-### `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N]`
-`data`: `{dataset_id, total, returned, truncated, items[]}`.
+### `records list [--type T] [--since D] [--until D] [--relation TYPE=ID] [--limit N] [--cursor C]`
+Строки в `data.result.items`; счётчики и курсор в `data.meta`. Доступны `--attr-*`, `--filter-file`, `--tag-in` и `--tag-all`.
 
-### `records query --query-file F [--as-of D]`
+### `records query [--query-file F] [--filter-file F] [--as-of D] [--cursor C]`
 QuerySpec: `{entity_type, filters, limit}`; фильтры поддерживают равенство, `$in`, `$gte`, `$lte`.
-`data`: `{dataset_id, as_of, total, truncated, items[]}`.
+`data.result.items` содержит записи, `data.meta.as_of` и `data.meta.next_cursor` — контекст выборки.
 
 `--as-of` срезает выборку по **времени правды**: остаются записи, для которых
 `valid_from <= T < valid_to` и которые ещё не закрыты `superseded_at`. Интервал полуоткрытый,
@@ -319,18 +365,18 @@ QuerySpec: `{entity_type, filters, limit}`; фильтры поддержива�
 `temporal.invalid_instant` (exit 3), а не пустая выборка: отличить опечатку от правды
 должно быть возможно.
 
-### `records aggregate --metric FIELD --type T [--group-by FIELD]`
-`data`: `{entity_type, metric, units, formula, groups, incoming_ids, completeness, dataset_id}`.
+### `records aggregate --type T --metric FIELD [--group-by FIELD] [--limit N] [--cursor C]`
+`data.result.items` содержит группы с суммой, единицей измерения и ID источников. Формула в `data.result.formula`, курсор в `data.meta.next_cursor`.
 Смешение единиц измерения в одной агрегации — `query.unit_mismatch` (exit 3).
 
 ### `records read --id ID [--view NAME]`
 `data`: `{dataset_id, record_id, path, data}`. `--view` берёт список полей из `views` описателя типа.
 
-### `relations graph --from ID [--type T] [--depth N] [--limit N]`
-BFS по типизированным рёбрам (обход ненаправленный). `data`: `{dataset_id, from, edges[{type_id, from, to}]}`.
+### `relations graph --from ID [--type T] [--depth N] [--limit N] [--cursor C] [--view graph|flat]`
+Обход сохраняет исходное направление и кратность рёбер. `data.result.edges` содержит узлы связи и происхождение; `--view flat` выдаёт `data.result.items`. Markdown показывает Mermaid, `data.meta` содержит пагинацию.
 
-### `types list` / `types show TYPE_ID` / `types prompt TYPE_ID [--op OP]` / `types guide [--format markdown|json] [--out PATH]`
-`list`: `{dataset_id, dir_types[], doc_types[], entity_types[], relation_types[]}`.
+### `types list` / `types show TYPE_ID` / `types prompt TYPE_ID [--kind K] [--op OP]` / `types guide [--out PATH] [--apply]`
+`list`: строки типов в `data.result.items`, счётчики по видам в `data.meta.counts`.
 `show`: `{dataset_id, kind, type{...}, template, prompts, schema}` — `template`, каждый из четырёх
 CRUD-промптов (`read`, `create`, `edit`, `delete`) и `schema` дают путь и признак `exists`;
 у типов папок и отношений все три пустые. Отсутствующий файл виден как `exists: false`,
@@ -348,9 +394,9 @@ ID диагностики — SHA-256 от `path + code + message`, поэтом
 находит его заново своим сканом. Действителен, пока не изменён файл с дефектом; после правки
 прежний ID даёт `fix.diagnostic_not_found`.
 
-### `doctor [--check IDS] [--scope S] [--fix]`
-Только чтение: проверки `config`, `index`, `python`. `data.datasets[]`:
-`{dataset_id, scope, checks_total, passed, checks[{id,status,message}], fix_mode}`.
+### `doctor [--check IDS] [--scope S] [--fix] [--apply] [--if-plan-hash H]`
+Проверяет `config`, `index` и `python`. `--fix` показывает план восстановления индекса.
+Для восстановления укажите `--apply`. Результаты лежат в `data.result.datasets`, хеш плана в `repair.plan_hash`.
 
 `--scope` отбирает группу проверок: `dataset` (`config`, `index`), `environment` (`python`)
 или `all`. Неизвестное значение — `usage.error` (exit 2), а не молчаливый полный прогон:
@@ -399,25 +445,28 @@ derived-целей (`docs.flow_render_not_derived`), дрейф ловит `stal
 Пройти дерево решений: ветви по приоритету, props развилок (`mode`/`default_branch`);
 `--all-paths` — все ациклические пути до терминалов.
 
-### `docs links [--limit N]`
-Инвентаризация локальных ссылок: `{total, broken[]}` (BUG-007 fixed; тот же резолв, что в validate).
+### `docs links [--within PATH] [--limit N] [--cursor C]`
+Количество локальных ссылок в `data.meta.total_links`, битые ссылки в `data.result.items`.
 
-### `docs suggest --query Q [--limit N]`
+### `docs suggest --query Q [--within PATH] [--limit N] [--cursor C]`
 Куда положить/где искать: скоринг папок по `.config.json` (Фаза A, детерминированно;
-план folder-config). Кирилица работает.
+план folder-config). Кандидаты в `data.result.items`, отсев и порог отражены в ответе.
 
-### `relations tree --from ID [--type T] [--depth N] [--limit N]`
-Вложенное дерево связей (группировка по `type_id`, mention помечен) — план entity-catalog.
+### `relations tree --from ID [--type T] [--depth N] [--limit N] [--cursor C]`
+`data.result.tree` содержит группы рёбер и признаки цикла. Курсор сохраняет контекст предков.
 
 ### `skills tree [--vault V] [--within P] [--query Q] [--all] [--limit N] [--max-depth N]` / `skills read --path P [--line-range A-B] [--budget B]` / `skills attach --to DIR [--force]` / `skills import --src S --into SEC [--skill N] [--dry-run] [--adopt]`
 Хранилище-движок скилов (план [skills-vault](../../plan/skills-vault-implementation.md), идея
 [skills-engine](../../ideas/skills-engine.md)). Полное описание — [17-skills-and-vault.md](17-skills-and-vault.md):
 формат Agent Skills, confinement, диспетчер-скил, мьют через `!`.
+`skills read` возвращает `data.result.content` и метаданные проверенного файла.
+`--budget` задаётся в символах Unicode, по умолчанию 4000.
 
-### `state get KEY` / `state set KEY VALUE` / `state list [--prefix P]` / `state unset KEY`
-Агентский стейт `.todoc/state.json` (план [агентский-стейт v1](../../plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md)):
-белый список v1 — `context.current_project` (`state.key_not_allowed`); `value/removed: null`
-— не была установлена. Подробнее — [18-agent-state-and-context.md](18-agent-state-and-context.md).
+### `state get KEY`, `state list`, `state set KEY VALUE [--apply]`, `state unset KEY [--apply]`
+Агентский стейт хранится в `$XDG_STATE_HOME/todoc/state-<dataset_id>.json` (план [агентский-стейт v1](../../plan/агентский-стейт--state-json-в-движке--v1---текущий-проект.md)):
+Допустимый ключ — `context.current_project`. Неизвестный ключ даёт `state.unknown_key`.
+Запись и удаление требуют `--apply`. Подробнее — [18-agent-state-and-context.md](18-agent-state-and-context.md).
+`state list` выдаёт строки `{key, value}` в `data.result.items`, с проекцией полей и курсором.
 
 ### `interop export --kind dmn|asl|rasa --id ID [--write exports/…md]`
 Экспорт витрин во внешние форматы (план [интероп-экспорты](../../plan/interop-exports-dmn-asl-rasa.md),
@@ -429,8 +478,8 @@ DoD 3/3): flow→ASL, rule→DMN 1.3 (decision table), term→Rasa NLU YML; deri
 ## Типовые последовательности
 
 ```bash
-todoc init --root KB && todoc check-config --root KB
-todoc index rebuild --root KB && todoc status --root KB
+todoc init --apply --root KB && todoc check-config --root KB
+todoc index rebuild --apply --root KB && todoc status --root KB
 todoc validate --root KB --all          # взять diag id из этого же вывода
 todoc fix --root KB --diagnostic diag_0042 --preview
 todoc fix --root KB --diagnostic diag_0042 --apply

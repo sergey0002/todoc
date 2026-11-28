@@ -7,6 +7,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
+from todoc.output.guidance import guidance_for
+
 
 @dataclass
 class Envelope:
@@ -17,6 +19,21 @@ class Envelope:
     schema_version: int = 1
     guidance: dict[str, Any] | None = None
     include_guidance: bool = False
+
+    @classmethod
+    def collection(cls, meta: dict[str, Any], items: list[dict[str, Any]], *,
+                   diagnostics: list[dict[str, Any]] | None = None) -> Envelope:
+        return cls.result(meta, {"items": items}, diagnostics=diagnostics)
+
+    @classmethod
+    def result(cls, meta: dict[str, Any], result: dict[str, Any], *,
+               diagnostics: list[dict[str, Any]] | None = None) -> Envelope:
+        findings = diagnostics or []
+        return cls(
+            not any(item["severity"] == "error" for item in findings),
+            {"meta": meta, "result": result}, findings,
+            schema_version=2, guidance=guidance_for(findings),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -41,6 +58,22 @@ def make_envelope(ok: bool, data: dict[str, Any] | None = None,
                     include_guidance=include_guidance)
 
 
+def _table(items: list[dict[str, Any]]) -> list[str]:
+    fields = tuple(dict.fromkeys(key for item in items for key in item))
+    if not fields:
+        return ["items: []"]
+
+    def cell(value: Any) -> str:
+        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        return text.replace("|", "\\|").replace("\r", "\\r").replace("\n", "\\n")
+
+    def row(values) -> str:
+        return "| " + " | ".join(cell(value) for value in values) + " |"
+
+    return [row(fields), row(["---"] * len(fields)),
+            *(row(item.get(field, "") for field in fields) for item in items)]
+
+
 def emit(envelope: Envelope, output: str, out_path: str | None = None) -> None:
     """Emit in json/table/markdown mode. JSON stdout is exactly one JSON text."""
     if output == "json":
@@ -55,7 +88,18 @@ def emit(envelope: Envelope, output: str, out_path: str | None = None) -> None:
     lines: list[str] = []
     lines.append(f"ok: {envelope.ok}")
     for key, value in envelope.data.items():
-        lines.append(f"{key}: {value}")
+        if output == "markdown" and key == "result" and isinstance(value, dict) and "mermaid" in value:
+            diagram = value["mermaid"]
+            details = {name: field for name, field in value.items() if name != "mermaid"}
+            fence = chr(96) * 3
+            lines.extend((f"{key}: {details}", "", f"{fence}mermaid", diagram, fence))
+        elif key == "result" and isinstance(value, dict) and "tree_text" in value:
+            lines.extend(("result:", str(value["tree_text"])))
+        elif envelope.schema_version == 2 and key == "result" and isinstance(value, dict) and "items" in value:
+            lines.extend(("result:", "", *_table(value["items"])))
+            lines.extend(f"{name}: {field}" for name, field in value.items() if name != "items")
+        else:
+            lines.append(f"{key}: {value}")
     for diag in envelope.diagnostics:
         lines.append(f"[{diag.get('severity', 'error')}] {diag.get('code', '')} {diag.get('path', '')}: {diag.get('message', '')}")
     if envelope.guidance is not None:

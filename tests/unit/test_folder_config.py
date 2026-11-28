@@ -98,15 +98,15 @@ def test_config_excluded_from_index_and_search(tmp_path):
         return result
 
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     (tmp_path / "notes").mkdir()
     (tmp_path / "notes/.config.json").write_text(
         '{"schema_version": 1, "title": "Уникальный-маркер-конфига"}', encoding="utf-8")
     (tmp_path / "notes/readme.md").write_text("---\ntitle: \"Заметки\"\n---\n\n# Заметки\n", encoding="utf-8")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
     r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "Уникальный-маркер-конфига"])
     assert r.exit_code == 0, r.output
-    assert _jsonlib.loads(r.output)["data"]["items"] == []
+    assert _jsonlib.loads(r.output)["data"]["result"]["items"] == []
 
 
 def test_non_utf8_and_non_object_configs(tmp_path):

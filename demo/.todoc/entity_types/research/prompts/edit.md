@@ -7,7 +7,7 @@ Entity type research.
 1. `todoc records read --id <record_id> --view full` — прочитать текущее содержимое, схему и путь файла.
 2. Отредактировать JSON-файл записи напрямую штатным редактором, сохранив `record_id` и `entity_type`.
 3. Сразу после прямой правки выполнить короткую команду финализации:
-   `todoc sync --root KB <путь-к-файлу.json>` — она обновит историю, индекс и проверит JSON Schema и связи.
+   `todoc sync --apply --root KB <путь-к-файлу.json>` — она обновит историю, индекс и проверит JSON Schema и связи.
 
 ## Что нельзя ломать
 
@@ -17,5 +17,5 @@ Entity type research.
 
 ## После правки
 
-- `todoc sync --root KB <путь>` — `ok: true`, `diagnostics: []`.
+- `todoc sync --apply --root KB <путь>` — `ok: true`, `diagnostics: []`.
 - `todoc relations graph --id <record_id>` — связи не оборвались.

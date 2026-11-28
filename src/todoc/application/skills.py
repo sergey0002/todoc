@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from todoc.adapters.filesystem.scanner import is_within_root
 from todoc.adapters.formats.markdown import parse_markdown
 
 #: ``name`` по открытому стандарту Agent Skills: строчные буквы/цифры/дефисы,
@@ -87,6 +88,9 @@ def scan_skills(vault_root: Path) -> tuple[list[SkillInfo], list[dict[str, Any]]
     for md in sorted(vault_root.rglob("SKILL.md")):
         folder = md.parent
         rel_md = md.relative_to(vault_root).as_posix()
+        if not is_within_root(vault_root, md):
+            diags.append(_diag(rel_md, "access.outside_data_root", "SKILL.md находится за пределами vault."))
+            continue
         try:
             text = md.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):

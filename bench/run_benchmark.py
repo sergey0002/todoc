@@ -18,14 +18,16 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
 import statistics
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 import time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
 REPO = Path(__file__).resolve().parent.parent
@@ -39,13 +41,14 @@ ENVELOPE_KEYS = {"schema_version", "ok", "data", "diagnostics", "next_actions"}
 # ---------------------------------------------------------------------------
 
 
-def run_todoc(args: list[str], root: Path, expect_json: bool = True) -> dict:
+def run_todoc(args: list[str], root: Path, expect_json: bool = True, *,
+              prefix: tuple[str, ...] = (), environment: dict[str, str] | None = None) -> dict:
     """Run the todoc CLI, capturing stdout/stderr/exit code and parse time."""
     started = time.perf_counter()
     proc = subprocess.run(
-        [sys.executable, "-m", "todoc", *args],
+        [*prefix, sys.executable, "-m", "todoc", *args],
         cwd=REPO,
-        env={**os.environ, "PYTHONPATH": str(REPO / "src")},
+        env={**(os.environ if environment is None else environment), "PYTHONPATH": str(REPO / "src")},
         capture_output=True,
         text=True,
     )
@@ -135,12 +138,14 @@ def seed_defects(root: Path) -> list[dict]:
     notes.mkdir(parents=True, exist_ok=True)
 
     (notes / "broken-link.md").write_text(
-        '---\nid: doc:bench-broken-link\ntitle: "Bench: битая ссылка"\ndoc_type: note\n---\n\n'
+        '---\nid: doc:bench-broken-link\ntitle: "Bench: битая ссылка"\ndoc_type: note\n'
+        'lang: ru\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n'
         "# Битая ссылка\n\nСсылка [runbook](does-not-exist.md) не существует.\n", encoding="utf-8")
     defects.append({"path": "bench-notes/broken-link.md", "code": "markdown.link.target_missing"})
 
     (notes / "unsafe-front-matter.md").write_text(
-        "---\ntitle: Bench: незакавыченное значение\ndoc_type: note\n---\n\n# H\n", encoding="utf-8")
+        "---\nid: doc:bench-unsafe-front-matter\ntitle: Bench: незакавыченное значение\ndoc_type: note\n"
+        "lang: ru\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\n# H\n", encoding="utf-8")
     defects.append({"path": "bench-notes/unsafe-front-matter.md",
                     "code": "markdown.front_matter.yaml_unsafe"})
 
@@ -185,10 +190,11 @@ def seed_defects(root: Path) -> list[dict]:
 def group_contract(rep: Report, root: Path, latency: dict[str, float]) -> None:
     probe = run_todoc(["status", "--root", str(root)], root)
     env = probe.get("envelope") or {}
-    ok = probe["json_ok"] and set(env) == ENVELOPE_KEYS
+    expected = ENVELOPE_KEYS | {"guidance"}
+    ok = probe["json_ok"] and env.get("schema_version") == 2 and set(env) == expected
     rep.add("K1", "Контракт", "stdout — ровно один JSON-конверт", "pass" if ok else "fail",
             1.0 if ok else 0.0,
-            f"exit={probe['exit_code']}, ключи конверта совпадают: {set(env) == ENVELOPE_KEYS}",
+            f"exit={probe['exit_code']}, ключи конверта совпадают: {set(env) == expected}",
             {"keys": sorted(env), "stdout_bytes": probe["stdout_bytes"]})
 
     bad = run_todoc(["docs", "read", "--root", str(root), "--id", "doc:does-not-exist"], root)
@@ -196,10 +202,14 @@ def group_contract(rep: Report, root: Path, latency: dict[str, float]) -> None:
     rep.add("K2", "Контракт", "Стабильные коды выхода (3 = валидация)", "pass" if ok else "fail",
             1.0 if ok else 0.0, f"docs read для неизвестного id → exit {bad['exit_code']}, traceback={bad['traceback']}")
 
-    usage = run_todoc(["docs", "read", "--root", str(root)], root)
-    ok = usage["exit_code"] == 2
-    rep.add("K3", "Контракт", "Ошибка использования → exit 2", "pass" if ok else "fail",
-            1.0 if ok else 0.0, f"отсутствие обязательного --id → exit {usage['exit_code']}")
+    discovery = run_todoc(["docs", "read", "--root", str(root)], root)
+    discovery_data = (discovery.get("envelope") or {}).get("data") or {}
+    invalid = run_todoc(["docs", "read", "--root", str(root), "--budget", "0"], root)
+    ok = (discovery["exit_code"] == 0 and discovery_data.get("executed") is False
+          and invalid["exit_code"] == 2 and invalid["json_ok"])
+    rep.add("K3", "Контракт", "Discovery без --id, ошибка при некорректном флаге",
+            "pass" if ok else "fail", 1.0 if ok else 0.0,
+            f"без --id → exit {discovery['exit_code']}; --budget 0 → exit {invalid['exit_code']}")
 
     ok_call = run_todoc(["docs", "search", "--root", str(root), "--query", "план", "--limit", "1"], root)
     ok_env = ok_call.get("envelope") or {}
@@ -217,7 +227,7 @@ def group_contract(rep: Report, root: Path, latency: dict[str, float]) -> None:
             {"ok_actions": ok_env.get("next_actions"), "validate_actions": val_env.get("next_actions")})
 
     guide = run_todoc(["types", "guide", "--root", str(root), "--format", "markdown"], root)
-    text = ((guide.get("envelope") or {}).get("data") or {}).get("guide", "")
+    text = ((guide.get("envelope") or {}).get("data") or {}).get("result", {}).get("guide", "")
     ok = guide["json_ok"] and "dir_type" in text and "entity_type" in text
     rep.add("K5", "Контракт", "Discovery: types guide описывает типовую систему",
             "pass" if ok else "fail", 1.0 if ok else 0.0, f"символов в guide: {len(text)}")
@@ -225,8 +235,7 @@ def group_contract(rep: Report, root: Path, latency: dict[str, float]) -> None:
 
 def group_correctness(rep: Report, root: Path, defects: list[dict]) -> None:
     res = run_todoc(["validate", "--root", str(root), "--all"], root)
-    datasets = ((res.get("envelope") or {}).get("data") or {}).get("datasets") or []
-    diags = datasets[0]["diagnostics"] if datasets else []
+    diags = (res.get("envelope") or {}).get("diagnostics") or []
 
     expected = {(d["path"], d["code"]) for d in defects}
     found = {(d["path"], d["code"]) for d in diags}
@@ -269,7 +278,7 @@ def group_correctness(rep: Report, root: Path, defects: list[dict]) -> None:
                 yaml_result)
 
     explain = run_todoc(["explain-path", "guides/cli-for-agents.md", "--root", str(root)], root)
-    data = (explain.get("envelope") or {}).get("data") or {}
+    data = ((explain.get("envelope") or {}).get("data") or {}).get("result") or {}
     ok = data.get("doc_type") == "guide" and str(data.get("rule_source", "")).startswith("rule:fm-")
     rep.add("K9", "Корректность", "Присвоение doc_type: front matter важнее маски папки",
             "pass" if ok else "fail", 1.0 if ok else 0.0,
@@ -278,14 +287,14 @@ def group_correctness(rep: Report, root: Path, defects: list[dict]) -> None:
     codes = {d["code"] for d in diags}
     # Record writes are validated before the file appears: missing required
     # field, unknown entity type, and duplicate id must all be refused.
-    work = Path("/tmp/todoc-bench-records")
+    work = root.parent / "records"
     if work.exists():
         shutil.rmtree(work)
     shutil.copytree(root, work, ignore=shutil.ignore_patterns(".todoc"))
     shutil.copytree(root / ".todoc", work / ".todoc",
                     ignore=shutil.ignore_patterns("index", "cache", "generated"))
     probes: dict[str, tuple[str, dict, int]] = {}
-    inputs = Path("/tmp/todoc-bench-inputs")
+    inputs = root.parent / "inputs"
     inputs.mkdir(parents=True, exist_ok=True)
     # NOTE: input files stay outside DATA_ROOT: any .json inside the dataset is
     # scanned as a record, so an input file there collides on record_id.
@@ -387,13 +396,13 @@ def group_determinism(rep: Report, root: Path) -> None:
 
     v1 = run_todoc(["validate", "--root", str(root), "--all"], root)
     v2 = run_todoc(["validate", "--root", str(root), "--all"], root)
-    ids1 = [d["id"] for d in ((v1.get("envelope") or {}).get("data") or {}).get("datasets", [{}])[0].get("diagnostics", [])]
-    ids2 = [d["id"] for d in ((v2.get("envelope") or {}).get("data") or {}).get("datasets", [{}])[0].get("diagnostics", [])]
+    ids1 = [d["id"] for d in (v1.get("envelope") or {}).get("diagnostics", [])]
+    ids2 = [d["id"] for d in (v2.get("envelope") or {}).get("diagnostics", [])]
     same_content = (
         json.dumps([{k: d for k, d in x.items() if k != "id"}
-                    for x in ((v1.get("envelope") or {}).get("data") or {}).get("datasets", [{}])[0].get("diagnostics", [])], sort_keys=True)
+                    for x in (v1.get("envelope") or {}).get("diagnostics", [])], sort_keys=True)
         == json.dumps([{k: d for k, d in x.items() if k != "id"}
-                       for x in ((v2.get("envelope") or {}).get("data") or {}).get("datasets", [{}])[0].get("diagnostics", [])], sort_keys=True)
+                       for x in (v2.get("envelope") or {}).get("diagnostics", [])], sort_keys=True)
     )
     ok = ids1 == ids2
     rep.add("K13", "Детерминизм", "Идентификаторы диагностик стабильны между запусками",
@@ -403,14 +412,14 @@ def group_determinism(rep: Report, root: Path) -> None:
 
 
 def group_safety(rep: Report, root: Path) -> None:
-    work = Path("/tmp/todoc-bench-safety")
+    work = root.parent / "safety"
     if work.exists():
         shutil.rmtree(work)
     shutil.copytree(root, work, ignore=shutil.ignore_patterns(".todoc"))
     shutil.copytree(root / ".todoc", work / ".todoc",
                     ignore=shutil.ignore_patterns("index", "cache", "generated"))
 
-    inputs = Path("/tmp/todoc-bench-inputs")
+    inputs = root.parent / "inputs"
     inputs.mkdir(parents=True, exist_ok=True)
     note = inputs / f"bench-input-{uuid4().hex[:8]}.json"  # outside DATA_ROOT
     note.write_text(json.dumps({"schema_version": 1, "record_id": f"note:bench-safety-{uuid4().hex[:8]}",
@@ -419,7 +428,7 @@ def group_safety(rep: Report, root: Path) -> None:
     preview = run_todoc(["records", "create", "--root", str(work), "--type", "note",
                          "--input-file", str(note), "--preview"], work)
     after = sha256_files(work)
-    plan = ((preview.get("envelope") or {}).get("data") or {}).get("plan") or {}
+    plan = ((preview.get("envelope") or {}).get("data") or {}).get("result", {}).get("plan") or {}
     ok = preview["json_ok"] and before == after and plan.get("target_path")
     rep.add("K14", "Безопасность", "preview не пишет файлы и показывает план",
             "pass" if ok else "fail", 1.0 if ok else 0.0,
@@ -434,9 +443,10 @@ def group_safety(rep: Report, root: Path) -> None:
             "pass" if ok else "fail", 1.0 if ok else 0.0,
             f"первая запись exit={first['exit_code']}, повторная exit={second['exit_code']}")
 
-    escape = run_todoc(["types", "guide", "--root", str(work), "--out", "/tmp/todoc-bench-escape.md"], work)
-    escaped = Path("/tmp/todoc-bench-escape.md").exists()
-    Path("/tmp/todoc-bench-escape.md").unlink(missing_ok=True)
+    outside = root.parent / "escape.md"
+    escape = run_todoc(["types", "guide", "--root", str(work), "--out", str(outside)], work)
+    escaped = outside.exists()
+    outside.unlink(missing_ok=True)
     ok = not escaped
     rep.add("K16", "Безопасность", "Containment: --out не пишет вне DATA_ROOT",
             "pass" if ok else "fail", 1.0 if ok else 0.0,
@@ -445,7 +455,7 @@ def group_safety(rep: Report, root: Path) -> None:
 
 def group_bounded_read(rep: Report, root: Path) -> None:
     full = run_todoc(["docs", "read", "--root", str(root), "--id", "doc:constitution"], root)
-    data = (full.get("envelope") or {}).get("data") or {}
+    data = ((full.get("envelope") or {}).get("data") or {}).get("result") or {}
     headings = data.get("headings") or []
     ok = bool(headings) and data.get("title")
     rep.add("K17", "Чтение", "Чтение без селектора: заголовок и оглавление",
@@ -456,7 +466,7 @@ def group_bounded_read(rep: Report, root: Path) -> None:
         target = next((h for h in headings if h["level"] == 2), headings[0])
         section = run_todoc(["docs", "read", "--root", str(root), "--id", "doc:constitution",
                              "--section", target["title"]], root)
-        sdata = (section.get("envelope") or {}).get("data") or {}
+        sdata = ((section.get("envelope") or {}).get("data") or {}).get("result") or {}
         lines = sdata.get("lines") or []
         full_text = (root / "plan" / "constitution.md").read_text(encoding="utf-8")
         ok = (section["json_ok"] and 0 < len(lines) <= 40
@@ -470,10 +480,13 @@ def group_bounded_read(rep: Report, root: Path) -> None:
 
     budget = run_todoc(["docs", "read", "--root", str(root), "--id", "doc:constitution",
                         "--budget", "500"], root)
-    text = ((budget.get("envelope") or {}).get("data") or {}).get("text", "")
-    ok = len(text) <= 500
-    rep.add("K19", "Чтение", "--budget ограничивает объём ответа",
-            "pass" if ok else "fail", 1.0 if ok else 0.0, f"возвращено {len(text)} символов при бюджете 500")
+    budget_data = ((budget.get("envelope") or {}).get("data") or {}).get("result") or {}
+    content = budget_data.get("text")
+    ok = (budget["exit_code"] == 0 and budget["json_ok"] and isinstance(content, str)
+          and len(content) == 500 and budget_data.get("truncated") is True)
+    rep.add("K19", "Чтение", "--budget ограничивает полезный текст в символах Unicode",
+            "pass" if ok else "fail", 1.0 if ok else 0.0,
+            f"Текст: {len(content or '')} символов, полный stdout: {budget['stdout_bytes']} байт", budget)
 
     # JSON Pointer is exercised on a real record document: pick one from disk,
     # address two pointers (a scalar and a nested one) and one missing pointer.
@@ -483,7 +496,7 @@ def group_bounded_read(rep: Report, root: Path) -> None:
         doc_id = "doc:" + str(target.relative_to(root))
         expected_id = json.loads(target.read_text(encoding="utf-8")).get("record_id")
         hit = run_todoc(["docs", "read", "--root", str(root), "--id", doc_id, "--pointer", "/record_id"], root)
-        value = ((hit.get("envelope") or {}).get("data") or {}).get("value")
+        value = ((hit.get("envelope") or {}).get("data") or {}).get("result", {}).get("value")
         miss = run_todoc(["docs", "read", "--root", str(root), "--id", doc_id,
                           "--pointer", "/no_such_field"], root)
         ok = hit["json_ok"] and value == expected_id and miss["exit_code"] == 3 and _code_of(miss) == "docs.pointer_not_found"
@@ -496,7 +509,7 @@ def group_bounded_read(rep: Report, root: Path) -> None:
     csv_read = run_todoc(["docs", "read", "--root", str(root),
                           "--id", "doc:attachments/docs-inventory.csv",
                           "--columns", "doc_id,doc_type", "--rows", "5"], root)
-    cdata = (csv_read.get("envelope") or {}).get("data") or {}
+    cdata = ((csv_read.get("envelope") or {}).get("data") or {}).get("result") or {}
     rows = cdata.get("rows") or []
     ok = csv_read["json_ok"] and len(rows) == 5 and set(rows[0]) == {"doc_id", "doc_type"}
     rep.add("K21", "Чтение", "CSV-проекция: колонки и строки",
@@ -535,7 +548,7 @@ def group_search(rep: Report, root: Path) -> None:
         res = run_todoc(["docs", "search", "--root", str(root), "--query", item["query"],
                          "--limit", "3"], root)
         data = (res.get("envelope") or {}).get("data") or {}
-        hits = [h["id"] for h in (data.get("items") or [])]
+        hits = [h["id"] for h in ((data.get("result") or {}).get("items") or [])]
         relevant = set(item["relevant"])
         if not relevant:
             continue
@@ -562,28 +575,28 @@ def group_search(rep: Report, root: Path) -> None:
 
     a = run_todoc(["docs", "search", "--root", str(root), "--query", "конституция", "--limit", "5"], root)
     b = run_todoc(["docs", "search", "--root", str(root), "--query", "конституция", "--limit", "5"], root)
-    ids_a = [h["id"] for h in ((a.get("envelope") or {}).get("data") or {}).get("items", [])]
-    ids_b = [h["id"] for h in ((b.get("envelope") or {}).get("data") or {}).get("items", [])]
+    ids_a = [h["id"] for h in ((a.get("envelope") or {}).get("data") or {}).get("result", {}).get("items", [])]
+    ids_b = [h["id"] for h in ((b.get("envelope") or {}).get("data") or {}).get("result", {}).get("items", [])]
     ok = ids_a == ids_b and bool(ids_a)
     rep.add("K23", "Поиск", "Ранжирование детерминировано", "pass" if ok else "fail",
             1.0 if ok else 0.0, f"порядок совпал: {ids_a == ids_b}, результатов: {len(ids_a)}")
 
     page1 = run_todoc(["docs", "search", "--root", str(root), "--query", "план", "--limit", "2"], root)
-    cursor = ((page1.get("envelope") or {}).get("data") or {}).get("cursor")
+    cursor = ((page1.get("envelope") or {}).get("data") or {}).get("meta", {}).get("next_cursor")
     page2 = run_todoc(["docs", "search", "--root", str(root), "--query", "план", "--limit", "2",
                        "--cursor", str(cursor)], root)
     d2 = (page2.get("envelope") or {}).get("data") or {}
-    ids1 = [h["id"] for h in ((page1.get("envelope") or {}).get("data") or {}).get("items", [])]
-    ids2 = [h["id"] for h in (d2.get("items") or [])]
-    ok = d2.get("returned", 0) > 0 and not set(ids1) & set(ids2)
+    ids1 = [h["id"] for h in ((page1.get("envelope") or {}).get("data") or {}).get("result", {}).get("items", [])]
+    ids2 = [h["id"] for h in (d2.get("result", {}).get("items") or [])]
+    ok = d2.get("meta", {}).get("returned", 0) > 0 and not set(ids1) & set(ids2)
     rep.add("K24", "Поиск", "Пагинация через --cursor продолжает выдачу без повторов",
             "pass" if ok else "fail", 1.0 if ok else 0.0,
-            f"cursor={cursor}, вторая страница вернула {d2.get('returned')} из total={d2.get('total')}, "
+            f"cursor={cursor}, вторая страница вернула {d2.get('meta', {}).get('returned')} из total={d2.get('meta', {}).get('total')}, "
             f"пересечений с первой: {len(set(ids1) & set(ids2))}")
 
 
 def group_robustness(rep: Report, root: Path) -> None:
-    work = Path("/tmp/todoc-bench-robust")
+    work = root.parent / "robust"
     if work.exists():
         shutil.rmtree(work)
     shutil.copytree(root, work, ignore=shutil.ignore_patterns(".todoc"))
@@ -626,7 +639,9 @@ def group_performance(rep: Report, root: Path, latency: dict[str, float], repeat
                  for _ in range(repeats)]
         median = statistics.median(times)
         limit = budget_ms[name]
-        rows.append({"command": name, "median_ms": round(median), "limit_ms": limit,
+        p95 = sorted(times)[math.ceil(0.95 * len(times)) - 1]
+        rows.append({"command": name, "median_ms": round(median), "p95_ms": round(p95),
+                     "limit_ms": limit, "samples_ms": [round(sample) for sample in times],
                      "within": median <= limit})
         if median > limit:
             over += 1
@@ -639,56 +654,125 @@ def group_performance(rep: Report, root: Path, latency: dict[str, float], repeat
             rows)
 
 
-def group_quality(rep: Report) -> None:
-    proc = subprocess.run([sys.executable, "-m", "pytest", "tests", "--no-header"],
-                          cwd=REPO, capture_output=True, text=True,
-                          env={**os.environ, "PYTHONPATH": str(REPO / "src")})
+def group_quality(rep: Report, coverage_file: Path, proc: subprocess.CompletedProcess[str]) -> None:
     summary = re.search(r"(\d+) passed", proc.stdout)
     failed = re.search(r"(\d+) failed", proc.stdout)
     ok = proc.returncode == 0 and summary is not None and failed is None
     rep.add("K28", "Качество кода", "Тестовый набор проходит", "pass" if ok else "fail",
             1.0 if ok else 0.0,
             f"{summary.group(0) if summary else 'нет сводки'}"
-            + (f", {failed.group(0)}" if failed else ""))
+            + (f", {failed.group(0)}" if failed else ""),
+            {"exit_code": proc.returncode,
+             "failures": [line for line in proc.stdout.splitlines() if line.startswith("FAILED ")],
+             "skips": [line for line in proc.stdout.splitlines() if line.startswith("SKIPPED ")],
+             "failure_excerpt": "\n".join(proc.stdout.splitlines()[-24:]) if proc.returncode else ""})
 
-    cov = subprocess.run([sys.executable, "-m", "coverage", "report", "--data-file=/tmp/todoc-bench-cov"],
+    cov = subprocess.run([sys.executable, "-m", "coverage", "report", f"--data-file={coverage_file}", "--fail-under=100"],
                          cwd=REPO, capture_output=True, text=True)
     total = re.search(r"TOTAL\s+\d+\s+(\d+)\s+\d+\s+(\d+)\s+(\d+)%", cov.stdout)
     if total:
         missed, partial, percent = int(total.group(1)), int(total.group(2)), int(total.group(3))
-        ok = percent == 100 and missed == 0
+        ok = cov.returncode == 0 and percent == 100 and missed == 0 and partial == 0
         rep.add("K29", "Качество кода", "Покрытие кода тестами", "pass" if ok else "partial",
-                percent / 100, f"покрытие {percent}%, пропущено инструкций: {missed}, веток: {partial}")
+                percent / 100, f"покрытие {percent}%, пропущено инструкций: {missed}, веток: {partial}",
+                {"exit_code": cov.returncode, "summary": total.group(0)})
     else:
         rep.add("K29", "Качество кода", "Покрытие кода тестами", "partial", 0.5,
                 "отчёт покрытия недоступен — запустите coverage run -m pytest")
 
 
+def _check_git_ignore() -> dict:
+    paths = [
+        "demo/.todoc/index/CURRENT.json",
+        "demo/.todoc/cache/parse/probe.json",
+        "demo/.todoc/generated/probe.json",
+    ]
+    results = {}
+    for path in paths:
+        proc = subprocess.run(["git", "check-ignore", "--no-index", "-v", path],
+                              cwd=REPO, text=True, capture_output=True)
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", path], cwd=REPO, capture_output=True)
+        results[path] = {"ignored": proc.returncode == 0, "tracked": tracked.returncode == 0,
+                         "pattern": proc.stdout.strip()}
+    return {"passed": all(row["ignored"] and not row["tracked"] for row in results.values()), "paths": results}
+
+
+def _check_git_text_diff(parent: Path) -> dict:
+    examples = {
+        ".md": ("# Before", "# After"),
+        ".json": ('{"status":"before"}', '{"status":"after"}'),
+        ".csv": ("status\nbefore", "status\nafter"),
+    }
+    with TemporaryDirectory(prefix="diff-", dir=parent) as temporary:
+        results = {}
+        for suffix, (before, after) in examples.items():
+            left, right = Path(temporary) / f"before{suffix}", Path(temporary) / f"after{suffix}"
+            left.write_text(before + "\n", encoding="utf-8")
+            right.write_text(after + "\n", encoding="utf-8")
+            proc = subprocess.run(["git", "-c", "core.autocrlf=false", "diff", "--no-index",
+                                   "--no-ext-diff", str(left), str(right)],
+                                  cwd=REPO, text=True, capture_output=True)
+            results[suffix] = proc.returncode == 1 and "@@" in proc.stdout and "Binary files" not in proc.stdout
+    return {"passed": all(results.values()), "formats": results}
+
+
+def _check_offline(root: Path) -> dict:
+    unshare = shutil.which("unshare")
+    if not unshare:
+        return {"status": "not_run", "reason": "unshare is unavailable"}
+    prefix = (unshare, "--user", "--map-root-user", "--net", "--")
+    probe = subprocess.run([*prefix, "true"], capture_output=True, text=True)
+    if probe.returncode != 0:
+        return {"status": "not_run", "reason": probe.stderr.strip()}
+    commands = [["validate", "--all"], ["docs", "list", "--limit", "1"],
+                ["docs", "search", "--query", "план", "--limit", "1"]]
+    with TemporaryDirectory(prefix="offline-home-", dir=root.parent) as home:
+        env = {"PATH": os.environ.get("PATH", ""), "HOME": home, "XDG_CONFIG_HOME": home,
+               "XDG_DATA_HOME": home, "XDG_CACHE_HOME": home, "PYTHONUTF8": "1"}
+        evidence = [run_todoc([*cmd, "--root", str(root)], root, prefix=prefix, environment=env)
+                    for cmd in commands]
+    outcome = "pass" if all(item["json_ok"] and item["exit_code"] == 0 for item in evidence) else "fail"
+    return {"status": outcome, "commands": [{"argv": item["argv"], "exit": item["exit_code"]} for item in evidence]}
+
+
 def group_portability(rep: Report, root: Path) -> None:
-    """8 подкритериев портабельности из docs/plan/competitive-analysis.md §8.2."""
-    checks = []
-    checks.append(("plain-files", all(p.suffix in (".md", ".csv", ".json")
-                                      for p in root.rglob("*") if p.is_file() and ".todoc" not in p.parts)))
-    checks.append(("no-database", not any(p.suffix in (".db", ".sqlite", ".sqlite3") for p in root.rglob("*"))))
-    checks.append(("derived-ignored", (root / ".todoc" / "index").exists()))
-    checks.append(("yaml-front-matter", check_front_matter_yaml(root)["bad"] == 0))
-    relative_links = True
-    external_only = True
+    """Measure the eight K30 criteria with separate evidence."""
+    source_files = [path for path in root.rglob("*") if path.is_file()
+                    and ".todoc" not in path.relative_to(root).parts]
+    non_plain = []
+    for path in source_files:
+        try:
+            if "\0" in path.read_text(encoding="utf-8"):
+                non_plain.append(path.relative_to(root).as_posix())
+        except (UnicodeError, OSError):
+            non_plain.append(path.relative_to(root).as_posix())
+    databases = sorted(path.relative_to(root).as_posix() for path in root.rglob("*")
+                       if path.is_file() and path.suffix.casefold() in (".db", ".sqlite", ".sqlite3"))
+    ignores = _check_git_ignore()
+    yaml = check_front_matter_yaml(root)
+    absolute = []
     for path in markdown_files(root):
         for target in re.findall(r"\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
-            if target.startswith(("http://", "https://", "mailto:")):
-                continue
-            if target.startswith("/"):
-                relative_links = False
-    checks.append(("relative-links", relative_links))
-    checks.append(("git-diffable", True))
-    checks.append(("no-vendor-dirs", not any(p.name in (".obsidian", "node_modules") for p in root.rglob("*"))))
-    checks.append(("documented-types", (root / ".todoc" / "doc_types").is_dir()))
-    score = sum(1 for _name, ok in checks if ok)
+            if target.startswith("/") or PureWindowsPath(target).is_absolute():
+                absolute.append({"path": path.relative_to(root).as_posix(), "target": target})
+    git = _check_git_text_diff(root.parent)
+    vendor_dirs = sorted(path.relative_to(root).as_posix() for path in root.rglob("*")
+                         if path.is_dir() and path.name in (".obsidian", "node_modules"))
+    offline = _check_offline(root)
+    states = {
+        "plain-files": not non_plain, "no-database": not databases,
+        "derived-ignored": ignores["passed"], "yaml-front-matter": yaml["bad"] == 0,
+        "relative-links": not absolute, "git-diffable": git["passed"], "no-vendor-dirs": not vendor_dirs,
+        "offline": None if offline["status"] == "not_run" else offline["status"] == "pass",
+    }
+    score = sum(value is True for value in states.values())
     rep.add("K30", "Портабельность", "8 подкритериев портабельности (максимум 8)",
             "pass" if score == 8 else "partial", round(score / 8, 2),
-            ", ".join(f"{name}={'да' if ok else 'нет'}" for name, ok in checks),
-            {name: ok for name, ok in checks})
+            ", ".join(f"{name}={'not_run' if value is None else 'да' if value else 'нет'}"
+                      for name, value in states.items()),
+            {"results": states, "non_plain": non_plain, "databases": databases, "git_ignore": ignores,
+             "yaml": yaml, "absolute_links": absolute, "git_diff": git, "vendor_dirs": vendor_dirs,
+             "offline": offline})
 
 
 # ---------------------------------------------------------------------------
@@ -829,36 +913,44 @@ def main() -> int:
     parser.add_argument("--quick", action="store_true", help="меньше повторов латентности")
     parser.add_argument("--venv", default="/tmp/comp", help="venv с конкурентами")
     parser.add_argument("--skip-competitors", action="store_true")
+    parser.add_argument("--results-dir", type=Path, default=RESULTS)
     parser.add_argument("--competitors-from", default=None,
                         help="взять блок конкурентов из ранее сохранённого benchmark.json "
                              "(нужно, когда venv с конкурентами недоступен)")
     args = parser.parse_args()
+    with TemporaryDirectory(prefix="todoc-bench-") as directory:
+        return run_benchmark(args, Path(directory))
 
-    corpus = Path("/tmp/todoc-bench-corpus")
-    if corpus.exists():
-        shutil.rmtree(corpus)
+
+def run_benchmark(args: argparse.Namespace, workspace: Path) -> int:
+    corpus = workspace / "corpus"
+    coverage_file = workspace / "coverage"
     shutil.copytree(DEMO, corpus, ignore=shutil.ignore_patterns(".todoc"))
     shutil.copytree(DEMO / ".todoc", corpus / ".todoc",
                     ignore=shutil.ignore_patterns("index", "cache", "generated"))
-    defects = seed_defects(corpus)
+    seeded_corpus = workspace / "seeded"
+    shutil.copytree(corpus, seeded_corpus)
+    defects = seed_defects(seeded_corpus)
 
     rep = Report()
     latency: dict[str, float] = {}
 
-    subprocess.run([sys.executable, "-m", "coverage", "run", "--data-file=/tmp/todoc-bench-cov",
-                    "-m", "pytest", "tests", "-q", "--no-header"],
-                   cwd=REPO, capture_output=True, text=True,
-                   env={**os.environ, "PYTHONPATH": str(REPO / "src")})
+    test_run = subprocess.run(
+        [sys.executable, "-m", "coverage", "run", f"--data-file={coverage_file}",
+         "-m", "pytest", "tests", "-o", "addopts=", "-q", "--tb=short", "-r", "fEs", "--no-header"],
+        cwd=REPO, capture_output=True, text=True,
+        env={**os.environ, "PYTHONPATH": str(REPO / "src")},
+    )
 
     group_contract(rep, corpus, latency)
-    group_correctness(rep, corpus, defects)
-    group_determinism(rep, corpus)
+    group_correctness(rep, seeded_corpus, defects)
+    group_determinism(rep, seeded_corpus)
     group_safety(rep, corpus)
     group_bounded_read(rep, corpus)
     group_search(rep, corpus)
     group_robustness(rep, corpus)
     group_performance(rep, corpus, latency, repeats=1 if args.quick else 3)
-    group_quality(rep)
+    group_quality(rep, coverage_file, test_run)
     group_portability(rep, corpus)
 
     competitors: dict = {}
@@ -874,25 +966,26 @@ def main() -> int:
         competitors["open-knowledge"] = competitor_open_knowledge(venv, corpus)
         competitors["open-knowledge-capabilities"] = competitor_capabilities(venv)
 
-    status = run_todoc(["index", "rebuild", "--root", str(corpus)], corpus)
-    datasets = ((status.get("envelope") or {}).get("data") or {}).get("datasets") or [{}]
+    status = run_todoc(["index", "rebuild", "--apply", "--root", str(corpus)], corpus)
+    datasets = ((status.get("envelope") or {}).get("data") or {}).get("result", {}).get("datasets") or [{}]
     meta = {"date": time.strftime("%Y-%m-%d %H:%M:%S"), "corpus": str(corpus),
             "documents": datasets[0].get("documents"), "records": datasets[0].get("records"),
             "relations": datasets[0].get("relations"), "latency_ms": latency,
             "seeded_defects": len(defects)}
 
-    RESULTS.mkdir(parents=True, exist_ok=True)
+    results = args.results_dir
+    results.mkdir(parents=True, exist_ok=True)
     payload = {"meta": meta, "score": {"total": rep.total, "max": rep.max_total},
                "criteria": rep.criteria, "evidence": rep.evidence, "competitors": competitors}
-    (RESULTS / "benchmark.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    (results / "benchmark.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
                                             encoding="utf-8")
-    (RESULTS / "benchmark.md").write_text(render_markdown(rep, meta, competitors), encoding="utf-8")
+    (results / "benchmark.md").write_text(render_markdown(rep, meta, competitors), encoding="utf-8")
 
     print(f"балл: {rep.total} / {rep.max_total:.0f}")
     for criterion in rep.criteria:
         flag = {"pass": "+", "partial": "~", "fail": "-"}[criterion["status"]]
         print(f"  [{flag}] {criterion['id']} {criterion['name']}: {criterion['detail'][:110]}")
-    print(f"результаты: {RESULTS / 'benchmark.json'}")
+    print(f"результаты: {results / 'benchmark.json'}")
     return 1 if any(c["status"] == "fail" for c in rep.criteria) else 0
 
 

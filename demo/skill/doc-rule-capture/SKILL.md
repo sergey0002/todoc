@@ -1,11 +1,13 @@
 ---
+id: "doc:skill/doc-rule-capture/SKILL.md"
+title: "Захват правила"
 name: doc-rule-capture
 description: >
   Фиксация бизнес-правила с примерами-тестами {given/when/then}: дедуп по statement, новая версия -vN+1 с ребром supersedes. Применять, когда пользователь формулирует правило или правило изменилось.
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [skill, documentation, agent]
 ---
 

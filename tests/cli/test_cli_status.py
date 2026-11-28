@@ -30,7 +30,7 @@ def _json(result):
 
 
 def _init_with_types(runner, tmp_path):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     idea = tmp_path / ".todoc" / "doc_types" / "idea"
     idea.mkdir(parents=True)
     (idea / "type.json").write_text(json.dumps(
@@ -61,7 +61,7 @@ def _init_with_types(runner, tmp_path):
     tasks.mkdir()
     (tasks / "demo-1.json").write_text(
         json.dumps(TASK_REC, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
 
 
 def test_docs_status_get(tmp_path):
@@ -69,7 +69,7 @@ def test_docs_status_get(tmp_path):
     _init_with_types(runner, tmp_path)
     r = _run(runner, ["docs", "status", "--root", str(tmp_path), "--id", "doc:idea-x"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert data["id"] == "doc:idea-x" and data["status"] == "captured"
 
 
@@ -79,20 +79,20 @@ def test_docs_status_get_without_status(tmp_path):
     (tmp_path / "ideas" / "x.md").write_text(
         '---\nid: doc:idea-x\ntitle: "Идея"\ndoc_type: idea\nlang: ru\n---\n\n# Идея\n\nТело.\n',
         encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     r = _run(runner, ["docs", "status", "--root", str(tmp_path), "--id", "doc:idea-x"])
     assert r.exit_code == 0
-    assert _json(r)["data"]["status"] is None
+    assert _json(r)["data"]["result"]["status"] is None
 
 
 def test_docs_status_set_ok_preserves_body_and_bumps_updated(tmp_path):
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
     before = (tmp_path / "ideas" / "x.md").read_text(encoding="utf-8")
-    r = _run(runner, ["docs", "status", "--root", str(tmp_path),
+    r = _run(runner, ["docs", "status", "--apply", "--root", str(tmp_path),
                       "--id", "doc:idea-x", "--set", "planned"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert data["status"] == "planned" and data["new_hash"].startswith("sha256:")
     after = (tmp_path / "ideas" / "x.md").read_text(encoding="utf-8")
     # тело байт-в-байт, fm: только status и updated
@@ -110,7 +110,7 @@ def test_docs_status_set_outside_set(tmp_path):
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
     before = (tmp_path / "ideas" / "x.md").read_text(encoding="utf-8")
-    r = _run(runner, ["docs", "status", "--root", str(tmp_path),
+    r = _run(runner, ["docs", "status", "--apply", "--root", str(tmp_path),
                       "--id", "doc:idea-x", "--set", "blah"])
     assert r.exit_code != 0
     assert "docs.status_not_allowed" in getattr(r.exception, "code", str(r.exception))  # код в исключении (envelope — в main())
@@ -123,8 +123,8 @@ def test_docs_status_set_without_status_field(tmp_path):
     (tmp_path / "ideas" / "x.md").write_text(
         '---\nid: doc:idea-x\ntitle: "Идея"\ndoc_type: idea\nlang: ru\n---\n\n# Идея\n\nТело.\n',
         encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
-    r = _run(runner, ["docs", "status", "--root", str(tmp_path),
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
+    r = _run(runner, ["docs", "status", "--apply", "--root", str(tmp_path),
                       "--id", "doc:idea-x", "--set", "planned"])
     assert r.exit_code != 0
     assert "docs.no_status_field" in getattr(r.exception, "code", str(r.exception))
@@ -132,7 +132,7 @@ def test_docs_status_set_without_status_field(tmp_path):
 
 def test_docs_status_not_found(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     r = _run(runner, ["docs", "status", "--root", str(tmp_path), "--id", "doc:ghost"])
     assert r.exit_code != 0
     assert "docs.not_found" in getattr(r.exception, "code", str(r.exception))
@@ -142,12 +142,12 @@ def test_records_status_get_and_set_only_status_changes(tmp_path):
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
     g = _run(runner, ["records", "status", "--root", str(tmp_path), "--id", "task:demo-1"])
-    assert g.exit_code == 0 and _json(g)["data"]["status"] == "open"
+    assert g.exit_code == 0 and _json(g)["data"]["result"]["status"] == "open"
     before = json.loads((tmp_path / "tasks" / "demo-1.json").read_text(encoding="utf-8"))
-    r = _run(runner, ["records", "status", "--root", str(tmp_path),
+    r = _run(runner, ["records", "status", "--apply", "--root", str(tmp_path),
                       "--id", "task:demo-1", "--set", "in_progress"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert data["status"] == "in_progress" and data["new_hash"].startswith("sha256:")
     after = json.loads((tmp_path / "tasks" / "demo-1.json").read_text(encoding="utf-8"))
     assert after.pop("status") == "in_progress" and before.pop("status") == "open"
@@ -160,7 +160,7 @@ def test_records_status_set_outside_enum(tmp_path):
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
     before = (tmp_path / "tasks" / "demo-1.json").read_text(encoding="utf-8")
-    r = _run(runner, ["records", "status", "--root", str(tmp_path),
+    r = _run(runner, ["records", "status", "--apply", "--root", str(tmp_path),
                       "--id", "task:demo-1", "--set", "blah"])
     assert r.exit_code != 0
     assert "records.status_not_allowed" in getattr(r.exception, "code", str(r.exception))
@@ -169,7 +169,7 @@ def test_records_status_set_outside_enum(tmp_path):
 
 def test_records_status_not_found(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     r = _run(runner, ["records", "status", "--root", str(tmp_path), "--id", "task:ghost"])
     assert r.exit_code != 0
     assert "records.not_found" in getattr(r.exception, "code", str(r.exception))
@@ -179,7 +179,7 @@ def test_docs_status_set_rejects_padded_value(tmp_path):
     # docs status: значение с обрамляющими пробелами/переводом строки → usage.error
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
-    r = _run(runner, ["docs", "status", "--root", str(tmp_path),
+    r = _run(runner, ["docs", "status", "--apply", "--root", str(tmp_path),
                       "--id", "doc:idea-x", "--set", " planned "])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "usage.error"
@@ -190,11 +190,11 @@ def test_records_status_with_schemaless_type_sets_openly(tmp_path):
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
     (tmp_path / ".todoc" / "entity_types" / "task" / "schema.json").unlink()
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
-    r = _run(runner, ["records", "status", "--root", str(tmp_path),
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
+    r = _run(runner, ["records", "status", "--apply", "--root", str(tmp_path),
                       "--id", "task:demo-1", "--set", "paused"])
     assert r.exit_code == 0, r.output
-    assert _json(r)["data"]["status"] == "paused"
+    assert _json(r)["data"]["result"]["status"] == "paused"
 
 
 def test_records_status_set_rejects_padded_value(tmp_path):
@@ -202,7 +202,7 @@ def test_records_status_set_rejects_padded_value(tmp_path):
     runner = CliRunner()
     _init_with_types(runner, tmp_path)
     before = (tmp_path / "tasks" / "demo-1.json").read_text(encoding="utf-8")
-    r = _run(runner, ["records", "status", "--root", str(tmp_path),
+    r = _run(runner, ["records", "status", "--apply", "--root", str(tmp_path),
                       "--id", "task:demo-1", "--set", " open "])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "usage.error"

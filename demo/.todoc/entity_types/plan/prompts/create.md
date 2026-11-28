@@ -9,7 +9,7 @@ Entity type plan.
    `todoc records create --type plan --input-file <file.json> --preview`,
    затем то же с `--apply`.
 3. Путь файла определит тип: `records/plan/{slug}.json`. Дальнейшие точечные правки созданного
-   JSON-файла можно делать напрямую в файле с последующим `todoc sync --root KB <путь>`.
+   JSON-файла можно делать напрямую в файле с последующим `todoc sync --apply --root KB <путь>`.
 
 ## Обязательные поля
 

@@ -75,7 +75,7 @@
 todoc validate --root demo --all                        # 0 диагностик
 todoc check --root demo                                 # errors 0, warnings 0, status ok
 todoc types list --root demo                            # 24/31/25/18
-todoc index rebuild --root demo                         # 86 папок, 439 документов, 205 записей, 169 отношений
+todoc index rebuild --apply --root demo                         # 86 папок, 439 документов, 205 записей, 169 отношений
 todoc docs tree --root demo --max-depth 1               # 86 папок
 todoc docs search --root demo --query "портабельность" --limit 3   # total 42
 todoc docs read --root demo --id doc:constitution --section "..."
@@ -108,7 +108,7 @@ todoc doctor --root demo                                # config/index/python: 3
 ## Как пересобрать
 
 Датасет статичен и зафиксирован в репозитории. Производные каталоги `.todoc/index/` и
-`.todoc/cache/` в Git не попадают: достаточно `todoc index rebuild --root demo`.
+`.todoc/cache/` в Git не попадают: достаточно `todoc index rebuild --apply --root demo`.
 
 ## Связанные разделы
 

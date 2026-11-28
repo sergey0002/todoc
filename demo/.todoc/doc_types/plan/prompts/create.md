@@ -12,7 +12,7 @@
 2. Создать одной командой (create-only):
 
    ```bash
-   todoc docs new --type plan --title "<Название>" --dir plan
+   todoc docs new --apply --type plan --title "<Название>" --dir plan
    todoc validate --root KB --all   # 0 диагностик
    ```
 
@@ -65,7 +65,7 @@ Anthropic plan-mode (план коммитится; чекбокс — в ком
 matter (md) или поле `title` записи (json). Имя файла — на английском
 (латиница, kebab-case); заголовок и имя файла независимы. При кириллическом
 заголовке создавай документ с явным путём:
-`todoc docs new --path <dir>/<english-slug>.md` (слаг из заголовка наследует
+`todoc docs new --apply --path <dir>/<english-slug>.md` (слаг из заголовка наследует
 кириллицу — BUG-006). Поле `name` для заголовка не вводится: `title` — уже
 стандарт, дубль = два источника истины. Существующие кириллические имена —
 legacy, не размножать. Подробно: `notes/agent-contract.md` → «Именование

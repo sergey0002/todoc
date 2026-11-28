@@ -1,4 +1,6 @@
 ---
+created: 2026-11-26
+updated: 2026-11-26
 id: doc:state-interop-exports
 title: "Состояние: интероп-экспорты DMN/ASL/Rasa"
 doc_type: reference

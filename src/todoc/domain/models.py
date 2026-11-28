@@ -194,6 +194,10 @@ class WritePlan:
     basis: str
     validations: tuple[str, ...] = ()
 
+    def preview_dict(self) -> dict[str, Any]:
+        """Include the exact proposed content for a read-only review."""
+        return {**self.to_dict(), "new_content": self.new_content}
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "dataset_id": self.dataset_id,

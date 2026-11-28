@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+from collections import defaultdict, deque
 from typing import Any
 
 from todoc.application import temporal
@@ -73,17 +75,22 @@ def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_fi
     groups: dict[str, float] = {}
     group_units: dict[str, str] = {}
     incoming: list[str] = []
+    group_incoming: dict[str, list[str]] = {}
     for record in selected:
         value = _get_field(record.get("data") or {}, metric_field)
         unit = ""
         if isinstance(value, dict) and "value" in value:
             unit = str(value.get("unit", ""))
-            number = float(value["value"])
-        elif isinstance(value, (int, float)):
+            value = value["value"]
+        try:
+            if type(value) not in (int, float):
+                raise TypeError
             number = float(value)
-        else:
-            raise ValidationError(f"Metric field {metric_field!r} is not numeric in {record.get('record_id')}",
-                                  "query.unknown_metric")
+            if not math.isfinite(number):
+                raise ValueError
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValidationError(f"Metric field {metric_field!r} is not a finite number in {record.get('record_id')}",
+                                  "query.unknown_metric") from exc
         key = "all"
         if group_by:
             grouped = _get_field(record.get("data") or {}, group_by)
@@ -94,14 +101,20 @@ def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_fi
         elif known != unit:
             raise ValidationError(f"Unit mismatch in aggregate: group {key!r} mixes {known!r} and {unit!r}",
                                   "query.unit_mismatch")
-        groups[key] = groups.get(key, 0.0) + number
-        incoming.append(str(record.get("record_id", "")))
+        total = groups.get(key, 0.0) + number
+        if not math.isfinite(total):
+            raise ValidationError(f"Aggregate exceeds the numeric range in group {key!r}", "query.aggregate_overflow")
+        groups[key] = total
+        record_id = str(record.get("record_id", ""))
+        incoming.append(record_id)
+        group_incoming.setdefault(key, []).append(record_id)
     distinct = sorted(set(group_units.values()))
     return {
         "entity_type": entity_type,
         "metric": metric_field,
         "units": distinct[0] if len(distinct) == 1 else "",
         "group_units": group_units,
+        "group_incoming_ids": {key: sorted(ids) for key, ids in group_incoming.items()},
         # FR-8.2 требует формулу в ответе. Здесь она честная: описывает то, что ядро
         # действительно сделало (сумма одного поля), а не то, что кто-то объявил.
         # Объявляется в типе не формула, а `prompt` — вычисляемых выражений нет (P1-11).
@@ -114,54 +127,50 @@ def aggregate_records(records: list[dict[str, Any]], entity_type: str, metric_fi
 
 
 def graph_neighbors(relations: list[dict[str, Any]], from_id: str, type_id: str | None = None,
-                    depth: int = 1, limit: int = 100,
+                    depth: int = 1, limit: int | None = 100,
                     mentions: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """BFS over typed edges up to depth, bounded by limit.
-
-    ``mentions`` (план entity-catalog З2/T6): md-упоминания цели добавляются
-    рёбрами ``via: "mention"`` у корня — вершины-md в обход BFS не вовлекаются.
-    """
-    visited = {from_id}
-    frontier = [from_id]
-    result: list[dict[str, Any]] = []
-    for m in mentions or []:
-        if type_id not in (None, "mention"):
+    """Traverse incident edges by distance and keep their original direction and occurrence."""
+    edges = []
+    for relation in relations:
+        edge = {"type_id": relation["type_id"], "from": relation["source_id"], "to": relation["target_id"]}
+        if "source_path" in relation:
+            edge["provenance"] = {"path": relation["source_path"], "pointer": relation["source_pointer"]}
+        edges.append(edge)
+    for mention in mentions or []:
+        edge = {"type_id": "mention", "via": "mention", "from": mention["source_file"],
+                "to": mention["target"], "fragment": mention.get("source_fragment", ""),
+                "provenance": {"path": mention["source_file"], "line": mention.get("source_line")}}
+        edges.append(edge)
+    adjacent: dict[str, list[tuple[int, dict[str, Any], str]]] = defaultdict(list)
+    for position, edge in enumerate(edges):
+        if type_id is not None and edge["type_id"] != type_id:
             continue
-        if m.get("target") == from_id and m.get("source_file") not in visited:
-            visited.add(str(m.get("source_file")))
-            result.append({"type_id": "mention", "via": "mention", "from": from_id,
-                           "to": m.get("source_file"), "fragment": m.get("source_fragment", "")})
-        elif m.get("source_file") == from_id and m.get("target") not in visited:
-            visited.add(str(m.get("target")))
-            result.append({"type_id": "mention", "via": "mention", "from": from_id,
-                           "to": m.get("target"), "fragment": m.get("source_fragment", "")})
-        if len(result) >= limit:
-            return result
-    for _ in range(depth):
-        next_frontier: list[str] = []
-        for node in frontier:
-            for rel in relations:
-                if type_id is not None and rel.get("type_id") != type_id:
-                    continue
-                neighbor = None
-                if rel.get("source_id") == node:
-                    neighbor = rel.get("target_id")
-                elif rel.get("target_id") == node:
-                    neighbor = rel.get("source_id")
-                if neighbor and neighbor not in visited:
-                    visited.add(neighbor)
-                    next_frontier.append(str(neighbor))
-                    result.append({"type_id": rel.get("type_id"), "from": node, "to": neighbor})
-                    if len(result) >= limit:
-                        return result
-        frontier = next_frontier
-        if not frontier:
-            break
+        source, target = edge["from"], edge["to"]
+        adjacent[source].append((position, edge, target))
+        if source != target:
+            adjacent[target].append((position, edge, source))
+    queue = deque([(from_id, 0)])
+    visited_nodes = {from_id}
+    visited_edges = set()
+    result = []
+    while queue:
+        node, distance = queue.popleft()
+        if distance >= depth:
+            continue
+        for occurrence, edge, other in adjacent[node]:
+            if occurrence not in visited_edges:
+                if limit is not None and len(result) >= limit:
+                    return result
+                visited_edges.add(occurrence)
+                result.append(edge)
+            if other not in visited_nodes:
+                visited_nodes.add(other)
+                queue.append((other, distance + 1))
     return result
 
 
 def build_tree(relations: list[dict[str, Any]], from_id: str, type_id: str | None = None,
-               depth: int = 1, limit: int = 100,
+               depth: int = 1, limit: int | None = 100,
                mentions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Вложенное дерево связей (план entity-catalog З3/T11).
 
@@ -170,10 +179,10 @@ def build_tree(relations: list[dict[str, Any]], from_id: str, type_id: str | Non
     несут via "mention". Вершины не разворачиваются повторно (cycle).
     """
     visited = {from_id}
-    counter = {"n": 0}
+    counter = {"n": 0, "truncated": False}
 
     def expand(node: str, level: int) -> list[dict[str, Any]]:
-        if level > depth or counter["n"] >= limit:
+        if level > depth or counter["truncated"]:
             return []
         raw: list[tuple[str, str, str, str]] = []  # (type_id, direction, id, fragment)
         for rel in relations:
@@ -186,7 +195,7 @@ def build_tree(relations: list[dict[str, Any]], from_id: str, type_id: str | Non
         if type_id in (None, "mention"):
             for m in mentions or []:
                 if m.get("target") == node:
-                    raw.append(("mention", "out", str(m.get("source_file")), str(m.get("source_fragment", ""))))
+                    raw.append(("mention", "in", str(m.get("source_file")), str(m.get("source_fragment", ""))))
                 elif m.get("source_file") == node:
                     raw.append(("mention", "out", str(m.get("target")), str(m.get("source_fragment", ""))))
         groups: dict[str, list[dict[str, Any]]] = {}
@@ -196,7 +205,8 @@ def build_tree(relations: list[dict[str, Any]], from_id: str, type_id: str | Non
         for type_ in sorted(groups):
             edges: list[dict[str, Any]] = []
             for item in groups[type_]:
-                if counter["n"] >= limit:
+                if limit is not None and counter["n"] >= limit:
+                    counter["truncated"] = True
                     return result + [{"type_id": type_, "edges": edges, "truncated": True}] if edges else result
                 counter["n"] += 1
                 edge: dict[str, Any] = {"direction": item["direction"], "id": item["id"]}
@@ -214,4 +224,38 @@ def build_tree(relations: list[dict[str, Any]], from_id: str, type_id: str | Non
             result.append({"type_id": type_, "edges": edges})
         return result
 
-    return {"root": from_id, "groups": expand(from_id, 1), "truncated": counter["n"] >= limit}
+    return {"root": from_id, "groups": expand(from_id, 1), "truncated": counter["truncated"]}
+
+
+def slice_relation_tree(tree: dict[str, Any], start: int, end: int) -> tuple[dict[str, Any], int]:
+    """Select traversal occurrences while retaining ancestor context for each page."""
+    ordinal = 0
+
+    def visit(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        nonlocal ordinal
+        result = []
+        for group in groups:
+            selected_edges = []
+            lost = False
+            for edge in group["edges"]:
+                included = start <= ordinal < end
+                ordinal += 1
+                nested = visit(edge.get("children", []))
+                if not included:
+                    lost = True
+                if included or nested:
+                    row = {key: value for key, value in edge.items() if key != "children"}
+                    if nested:
+                        row["children"] = nested
+                    if not included:
+                        row["context_only"] = True
+                    selected_edges.append(row)
+            if selected_edges:
+                item = {"type_id": group["type_id"], "edges": selected_edges}
+                if lost:
+                    item["truncated"] = True
+                result.append(item)
+        return result
+
+    groups = visit(tree["groups"])
+    return {"root": tree["root"], "groups": groups, "truncated": end < ordinal}, ordinal

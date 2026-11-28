@@ -20,7 +20,7 @@ def _json(result):
 
 
 def _init(runner, tmp_path):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
 
 
 def _record(tmp_path, rel, record_id):
@@ -32,7 +32,7 @@ def _record(tmp_path, rel, record_id):
 
 
 def _rebuild(runner, tmp_path):
-    r = _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    r = _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     assert r.exit_code == 0, r.output
     return _json(r)
 
@@ -47,7 +47,7 @@ def test_mentions_published_and_mentioned_in(tmp_path):
                   "Витрина: [[document:plan]]. Поле: [[document:plan#/title]].\n", encoding="utf-8")
     _rebuild(runner, tmp_path)
     r = _run(runner, ["records", "read", "--root", str(tmp_path), "--id", "document:plan"])
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     mentioned = data["mentioned_in"]
     assert [m["file"] for m in mentioned] == ["notes/b.md", "notes/b.md"], mentioned
     assert [m["line"] for m in mentioned] == [7, 7], mentioned
@@ -80,10 +80,11 @@ def test_graph_includes_mention_vertices(tmp_path):
     md.write_text("---\ntitle: B\n---\n\n# B\n\nВитрина: [[document:plan]]\n", encoding="utf-8")
     _rebuild(runner, tmp_path)
     r = _run(runner, ["relations", "graph", "--root", str(tmp_path), "--from", "document:plan"])
-    edges = _json(r)["data"]["edges"]
+    edges = _json(r)["data"]["result"]["edges"]
     mention_edges = [e for e in edges if e.get("via") == "mention"]
-    assert mention_edges == [{"type_id": "mention", "via": "mention", "from": "document:plan",
-                              "to": "notes/b.md", "fragment": ""}], edges
+    edge, = mention_edges
+    assert (edge["from"], edge["to"]) == ("notes/b.md", "document:plan")
+    assert edge["provenance"]["path"] == "notes/b.md" and edge["provenance"]["line"] > 0
 
 
 def test_reuse_keeps_mentions_stable(tmp_path):
@@ -96,6 +97,6 @@ def test_reuse_keeps_mentions_stable(tmp_path):
     _rebuild(runner, tmp_path)
     first = _json(_run(runner, ["records", "read", "--root", str(tmp_path), "--id", "document:plan"]))
     r = _rebuild(runner, tmp_path)  # корпус не менялся
-    assert r["data"]["datasets"][0]["reused"] is True
+    assert r["data"]["result"]["datasets"][0]["reused"] is True
     second = _json(_run(runner, ["records", "read", "--root", str(tmp_path), "--id", "document:plan"]))
-    assert first["data"]["mentioned_in"] == second["data"]["mentioned_in"]
+    assert first["data"]["result"]["mentioned_in"] == second["data"]["result"]["mentioned_in"]

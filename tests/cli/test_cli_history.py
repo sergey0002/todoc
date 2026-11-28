@@ -40,7 +40,7 @@ def kb(root):
     doc.write_text('---\ntitle: "Заметка"\ndoc_type: note\n---\n\n# Заметка\n\n## Решение\n\n'
                    "первая версия\n\n## Итоги\n\nитоги\n", encoding="utf-8")
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "index", "rebuild"])
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
     patch = root / "patch.json"
     patch.write_text(json.dumps({"ops": [{"line": 11, "text": "вторая версия"}]}), encoding="utf-8")
     result = _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/a.md",
@@ -51,7 +51,7 @@ def kb(root):
 
 def _first_rev(root):
     proc = _run_cli(root, ["log", "--limit", "50"])
-    return json.loads(proc.stdout)["data"]["events"][-1]["rev"]
+    return json.loads(proc.stdout)["data"]["result"]["items"][-1]["rev"]
 
 
 # --- log ---------------------------------------------------------------------
@@ -59,9 +59,9 @@ def _first_rev(root):
 
 def test_log_lists_events(root, kb):
     data = _json(_run(CliRunner(), ["--root", str(root), "log"]))["data"]
-    assert data["total"] == 1
-    assert data["events"][0]["kind"] == "doc.edit"
-    assert data["events"][0]["paths"][0]["ranges"] == [[11, 11]]
+    assert data["meta"]["total"] == 1
+    assert data["result"]["items"][0]["kind"] == "doc.edit"
+    assert data["result"]["items"][0]["paths"][0]["ranges"] == [[11, 11]]
 
 
 def test_log_section_requires_path(root, kb):
@@ -74,10 +74,10 @@ def test_log_section_requires_path(root, kb):
 def test_log_by_section(root, kb):
     data = _json(_run(CliRunner(), ["--root", str(root), "log", "--path", "notes/a.md",
                                     "--section", "## Решение"]))["data"]
-    assert data["total"] == 1
+    assert data["meta"]["total"] == 1
     other = _json(_run(CliRunner(), ["--root", str(root), "log", "--path", "notes/a.md",
                                      "--section", "## Итоги"]))["data"]
-    assert other["total"] == 0
+    assert other["meta"]["total"] == 0
 
 
 def test_log_pagination_reports_truncated(root, kb):
@@ -87,15 +87,15 @@ def test_log_pagination_reports_truncated(root, kb):
         _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/a.md",
                       "--patch-file", str(kb["patch"]), "--apply"])
     data = _json(_run(runner, ["--root", str(root), "log", "--limit", "2"]))["data"]
-    assert data["total"] == 4 and len(data["events"]) == 2 and data["truncated"] is True
+    assert data["meta"]["total"] == 4 and len(data["result"]["items"]) == 2 and data["meta"]["truncated"] is True
 
 
 def test_log_filter_by_kind_and_tag(root, kb):
     runner = CliRunner()
-    assert _json(_run(runner, ["--root", str(root), "log", "--kind", "doc.fix"]))["data"]["total"] == 0
+    assert _json(_run(runner, ["--root", str(root), "log", "--kind", "doc.fix"]))["data"]["meta"]["total"] == 0
     rev = _first_rev(root)
-    _run(runner, ["--root", str(root), "tag", "v1", "--rev", rev, "--message", "релиз"])
-    assert _json(_run(runner, ["--root", str(root), "log", "--tag", "v1"]))["data"]["total"] == 1
+    _run(runner, ["--root", str(root), "tag", "v1", "--rev", rev, "--message", "релиз", "--apply"])
+    assert _json(_run(runner, ["--root", str(root), "log", "--tag", "v1"]))["data"]["meta"]["total"] == 1
 
 
 # --- show / diff / blame -----------------------------------------------------
@@ -103,13 +103,13 @@ def test_log_filter_by_kind_and_tag(root, kb):
 
 def test_show_returns_content(root, kb):
     rev = _first_rev(root)
-    data = _json(_run(CliRunner(), ["--root", str(root), "show", rev, "--path", "notes/a.md"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "show", rev, "--path", "notes/a.md"]))["data"]["result"]
     assert "первая версия" in data["content"]
 
 
 def test_show_budget_limits_output(root, kb):
     data = _json(_run(CliRunner(), ["--root", str(root), "show", "--path", "notes/a.md",
-                                    "--budget", "20"]))["data"]
+                                    "--budget", "20"]))["data"]["result"]
     assert len(data["content"]) == 20
 
 
@@ -121,29 +121,33 @@ def test_show_unknown_revision_envelope(root, kb):
 
 def test_diff_detects_change(root, kb):
     rev = _first_rev(root)
-    data = _json(_run(CliRunner(), ["--root", str(root), "diff", rev, "--path", "notes/a.md"]))["data"]
+    kb["patch"].write_text(json.dumps({"ops": [{"line": 11, "text": "Текущая версия"}]}), encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "docs", "edit", "--id", "doc:notes/a.md",
+                               "--patch-file", str(kb["patch"]), "--apply"])
+    assert result.exit_code == 0, result.output
+    data = _json(_run(CliRunner(), ["--root", str(root), "diff", rev, "--path", "notes/a.md"]))["data"]["result"]
     assert data["changed"] is True and data["lines"] > 0
 
 
 def test_diff_identical_is_empty(root, kb):
     rev = _first_rev(root)
-    data = _json(_run(CliRunner(), ["--root", str(root), "diff", rev, rev, "--path", "notes/a.md"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "diff", rev, rev, "--path", "notes/a.md"]))["data"]["result"]
     assert data["changed"] is False
 
 
 def test_blame_lists_events(root, kb):
-    data = _json(_run(CliRunner(), ["--root", str(root), "blame", "--path", "notes/a.md"]))["data"]
-    assert len(data["entries"]) == 1
-    assert data["entries"][0]["kind"] == "doc.edit"
+    data = _json(_run(CliRunner(), ["--root", str(root), "blame", "--path", "notes/a.md"]))["data"]["result"]
+    assert len(data["items"]) == 1
+    assert data["items"][0]["kind"] == "doc.edit"
 
 
 def test_blame_by_section(root, kb):
     inside = _json(_run(CliRunner(), ["--root", str(root), "blame", "--path", "notes/a.md",
-                                      "--section", "## Решение"]))["data"]
-    assert len(inside["entries"]) == 1
+                                      "--section", "## Решение"]))["data"]["result"]
+    assert len(inside["items"]) == 1
     outside = _json(_run(CliRunner(), ["--root", str(root), "blame", "--path", "notes/a.md",
-                                       "--section", "## Итоги"]))["data"]
-    assert outside["entries"] == []
+                                       "--section", "## Итоги"]))["data"]["result"]
+    assert outside["items"] == []
 
 
 # --- revert ------------------------------------------------------------------
@@ -154,12 +158,12 @@ def test_revert_preview_then_apply(root, kb):
     rev = _first_rev(root)
     before = kb["doc"].read_bytes()
 
-    preview = _json(_run(runner, ["--root", str(root), "revert", rev, "--path", "notes/a.md"]))["data"]
+    preview = _json(_run(runner, ["--root", str(root), "revert", rev, "--path", "notes/a.md"]))["data"]["result"]
     assert preview["applied"] is False
     assert kb["doc"].read_bytes() == before
 
     applied = _json(_run(runner, ["--root", str(root), "revert", rev, "--path", "notes/a.md",
-                                  "--apply"]))["data"]
+                                  "--apply"]))["data"]["result"]
     assert applied["applied"] is True
     assert "первая версия" in kb["doc"].read_text(encoding="utf-8")
 
@@ -177,7 +181,7 @@ def test_revert_writes_its_own_event(root, kb):
     runner = CliRunner()
     rev = _first_rev(root)
     _run(runner, ["--root", str(root), "revert", rev, "--path", "notes/a.md", "--apply"])
-    assert _json(_run(runner, ["--root", str(root), "log"]))["data"]["total"] == 2
+    assert _json(_run(runner, ["--root", str(root), "log"]))["data"]["meta"]["total"] == 2
 
 
 def test_revert_unknown_revision(root, kb):
@@ -189,8 +193,15 @@ def test_revert_unknown_revision(root, kb):
 
 
 def test_tag_on_last_event(root, kb):
-    data = _json(_run(CliRunner(), ["--root", str(root), "tag", "rel-1", "--message", "первый"]))["data"]
+    runner = CliRunner()
+    args = ["--root", str(root), "tag", "rel-1", "--message", "первый"]
+    preview = _json(_run(runner, args))["data"]["result"]
+    assert preview["applied"] is False
+    assert not (root / ".todoc/history/refs.json").exists()
+    data = _json(_run(runner, [*args, "--apply", "--if-plan-hash", preview["plan_hash"]]))["data"]["result"]
+    assert data["applied"] is True
     assert data["tag"] == "rel-1" and data["message"] == "первый"
+    assert json.loads((root / ".todoc/history/refs.json").read_text())["tags"]["rel-1"]["rev"] == data["rev"]
 
 
 def test_tag_on_empty_journal(root):
@@ -205,21 +216,49 @@ def test_tag_on_empty_journal(root):
 
 def test_history_gc_dry_run_and_apply(root, kb):
     runner = CliRunner()
-    dry = _json(_run(runner, ["--root", str(root), "history", "gc", "--dry-run"]))["data"]
+    dry = _json(_run(runner, ["--root", str(root), "history", "gc", "--dry-run"]))["data"]["result"]
     assert dry["dry_run"] is True and dry["kept_events"] == 1
-    real = _json(_run(runner, ["--root", str(root), "history", "gc"]))["data"]
+    real = _json(_run(runner, ["--root", str(root), "history", "gc", "--apply"]))["data"]["result"]
     assert real["dry_run"] is False and real["kept_events"] == 1
 
 
 def test_history_gc_purge_before(root, kb):
-    data = _json(_run(CliRunner(), ["--root", str(root), "history", "gc",
-                                    "--purge-before", "2099-01-01T00:00:00Z"]))["data"]
+    runner = CliRunner()
+    args = ["--root", str(root), "history", "gc", "--purge-before", "2099-01-01T00:00:00Z"]
+    preview = _json(_run(runner, args))["data"]["result"]
+    assert preview["dry_run"] is True and preview["removed_events"] == 1
+    assert _json(_run(runner, ["--root", str(root), "log"]))["data"]["meta"]["total"] == 1
+    rejected = _run(runner, [*args, "--preview", "--apply"])
+    assert rejected.exception.code == "usage.error"
+    data = _json(_run(runner, [*args, "--apply"]))["data"]["result"]
     assert data["removed_events"] == 1 and data["kept_events"] == 0
+    assert _json(_run(runner, ["--root", str(root), "log"]))["data"]["meta"]["total"] == 0
 
 
 def test_history_gc_keep_objects(root, kb):
-    data = _json(_run(CliRunner(), ["--root", str(root), "history", "gc", "--keep-objects", "0"]))["data"]
-    assert data["kept_events"] == 1
+    data = _json(_run(CliRunner(), ["--root", str(root), "history", "gc", "--keep-objects", "0"]))["data"]["result"]
+    assert data["kept_events"] == 1 and data["objects_trimmed"] == 1
+
+
+def test_history_gc_preserves_tagged_events(root, kb):
+    runner = CliRunner()
+    tagged = _run(runner, ["--root", str(root), "tag", "v1", "--apply"])
+    assert tagged.exit_code == 0, tagged.output
+    journal = root / ".todoc/history/journal.jsonl"
+    original = journal.read_bytes()
+    result = _run(runner, ["--root", str(root), "history", "gc", "--purge-before", "2099-01-01", "--apply"])
+    assert result.exception.code == "history.tagged_revision"
+    assert journal.read_bytes() == original
+
+
+def test_history_gc_rejects_corrupt_journal(root, kb):
+    runner = CliRunner()
+    journal = root / ".todoc/history/journal.jsonl"
+    corrupt = journal.read_bytes() + b'{'
+    journal.write_bytes(corrupt)
+    result = _run(runner, ["--root", str(root), "history", "gc", "--apply"])
+    assert result.exception.code == "history.journal_truncated_line"
+    assert journal.read_bytes() == corrupt
 
 
 def test_history_adopt(root):
@@ -227,16 +266,20 @@ def test_history_adopt(root):
     notes = root / "notes"
     notes.mkdir()
     (notes / "a.md").write_text("---\ntitle: \"А\"\n---\n\nтекст\n", encoding="utf-8")
-    _run(runner, ["--root", str(root), "index", "rebuild"])
-    data = _json(_run(runner, ["--root", str(root), "history", "adopt"]))["data"]
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
+    data = _json(_run(runner, ["--root", str(root), "history", "adopt", "--apply"]))["data"]["result"]
     assert data["paths"] >= 1
-    assert _json(_run(runner, ["--root", str(root), "log"]))["data"]["events"][0]["kind"] == "snapshot"
+    assert _json(_run(runner, ["--root", str(root), "log"]))["data"]["result"]["items"][0]["kind"] == "snapshot"
 
 
 def test_history_export(root, kb):
     target = root / "backup"
-    data = _json(_run(CliRunner(), ["--root", str(root), "history", "export", "--to", "backup"]))["data"]
-    assert data["exported"] >= 2
+    runner = CliRunner()
+    args = ["--root", str(root), "history", "export", "--to", "backup"]
+    preview = _json(_run(runner, args))["data"]["result"]
+    assert not preview["applied"] and not target.exists()
+    data = _json(_run(runner, [*args, "--apply", "--if-plan-hash", preview["plan_hash"]]))["data"]["result"]
+    assert data["applied"] and data["exported"] == preview["files"] and data["exported"] >= 2
     assert (target / "journal.jsonl").is_file()
 
 
@@ -290,17 +333,22 @@ def test_diff_unavailable_side(root, kb):
 
 def test_diff_budget_truncates_output(root, kb):
     rev = _first_rev(root)
+    kb["patch"].write_text(json.dumps({"ops": [{"line": 11, "text": "Текущая версия"}]}), encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "docs", "edit", "--id", "doc:notes/a.md",
+                               "--patch-file", str(kb["patch"]), "--apply"])
+    assert result.exit_code == 0, result.output
     data = _json(_run(CliRunner(), ["--root", str(root), "diff", rev, "--path", "notes/a.md",
-                                    "--budget", "40"]))["data"]
-    assert 0 < data["lines"] <= 1
+                                    "--budget", "40"]))["data"]["result"]
+    assert data["truncated"] is True
+    assert len("\n".join(data["diff"])) == 40
 
 
 def test_revert_of_creation_has_no_before(root):
     """Откат создания файла: файла до события не было — отдельная ошибка, не падение."""
     runner = CliRunner()
-    created = _run(runner, ["--root", str(root), "docs", "new", "--title", "Новый"])
+    created = _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "Новый"])
     assert created.exit_code == 0, created.output
-    events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["events"]
+    events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["result"]["items"]
     created = [e for e in events if e["kind"] == "doc.create"]
     assert created, events
     path = created[-1]["paths"][0]["path"]
@@ -315,12 +363,13 @@ def test_revert_of_creation_has_no_before(root):
 def test_external_edit_is_observed(root, kb):
     """K-требование Фазы 1: внешняя правка мимо CLI попадает в журнал."""
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "history", "adopt"])
-    before_events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["total"]
+    _run(runner, ["--root", str(root), "history", "adopt", "--apply"])
+    before_events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["meta"]["total"]
 
     kb["doc"].write_text(kb["doc"].read_text(encoding="utf-8") + "внешняя строка\n", encoding="utf-8")
-    _run(runner, ["--root", str(root), "index", "rebuild"])
-    events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["events"]
+    assert _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["meta"]["total"] == before_events
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
+    events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["result"]["items"]
     assert len(events) == before_events + 1
     assert events[0]["kind"] == "external.change"
     assert events[0]["actor"] == "external"
@@ -329,12 +378,12 @@ def test_external_edit_is_observed(root, kb):
 def test_read_commands_do_not_grow_journal(root, kb):
     """Запуск команд сам по себе не пишет событий: журнал растёт только от фактов."""
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "history", "adopt"])
-    total = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["total"]
-    for args in (["index", "rebuild"], ["index", "rebuild"], ["docs", "tree"],
+    _run(runner, ["--root", str(root), "history", "adopt", "--apply"])
+    total = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["meta"]["total"]
+    for args in (["index", "rebuild", "--apply"], ["index", "rebuild", "--apply"], ["docs", "tree"],
                  ["index", "status"], ["stale"], ["log"]):
         _run(runner, ["--root", str(root), *args])
-    assert _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["total"] == total
+    assert _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["meta"]["total"] == total
 
 
 def test_observed_mode_off(root, kb):
@@ -345,10 +394,10 @@ def test_observed_mode_off(root, kb):
     data["history"] = {"mode": "off"}
     config.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    _run(runner, ["--root", str(root), "history", "adopt"])
+    _run(runner, ["--root", str(root), "history", "adopt", "--apply"])
     kb["doc"].write_text(kb["doc"].read_text(encoding="utf-8") + "внешняя строка\n", encoding="utf-8")
-    _run(runner, ["--root", str(root), "index", "rebuild"])
-    events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["events"]
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
+    events = _json(_run(runner, ["--root", str(root), "log", "--limit", "50"]))["data"]["result"]["items"]
     # doc.edit оставлен фикстурой; важно, что внешней правки в журнале нет
     assert [e["kind"] for e in events] == ["snapshot", "doc.edit"]
 
@@ -364,8 +413,8 @@ def test_diff_unknown_second_revision(root, kb):
 def test_revert_of_baseline_says_why(root, kb):
     """Базовая линия: сообщение объясняет, что состояния «до» не существует."""
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "history", "adopt"])
-    events = _json(_run(runner, ["--root", str(root), "log", "--kind", "snapshot"]))["data"]["events"]
+    _run(runner, ["--root", str(root), "history", "adopt", "--apply"])
+    events = _json(_run(runner, ["--root", str(root), "log", "--kind", "snapshot"]))["data"]["result"]["items"]
     result = _run(runner, ["--root", str(root), "revert", events[0]["rev"], "--path", "notes/a.md"])
     assert isinstance(result.exception, TodocError)
     assert "нет состояния «до»" in result.exception.message
@@ -423,7 +472,7 @@ def test_revert_of_old_revision_warns_range_conflict(kb):
     """Файл менялся после откатываемой ревизии: предупреждение в конверте, откат возможен."""
     runner = CliRunner()
     root = kb["doc"].parent.parent
-    first = _json(_run(runner, ["--root", str(root), "log"]))["data"]["events"][0]["rev"]
+    first = _json(_run(runner, ["--root", str(root), "log"]))["data"]["result"]["items"][0]["rev"]
     patch = root / "patch2.json"
     patch.write_text(json.dumps({"ops": [{"line": 12, "text": "третья версия"}]}), encoding="utf-8")
     assert _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/a.md",
@@ -432,7 +481,7 @@ def test_revert_of_old_revision_warns_range_conflict(kb):
     envelope = _json(_run(runner, ["--root", str(root), "revert", first, "--path", "notes/a.md",
                                    "--apply"]))
     assert envelope["ok"] is True, "конфликт — предупреждение, а не отказ"
-    assert envelope["data"]["range_conflict"] is True
+    assert envelope["data"]["result"]["range_conflict"] is True
     codes = [d["code"] for d in envelope["diagnostics"]]
     assert codes == ["history.range_conflict"]
     assert envelope["diagnostics"][0]["severity"] == "warning"
@@ -441,7 +490,26 @@ def test_revert_of_old_revision_warns_range_conflict(kb):
 def test_revert_of_latest_revision_has_no_conflict(kb):
     runner = CliRunner()
     root = kb["doc"].parent.parent
-    latest = _json(_run(runner, ["--root", str(root), "log"]))["data"]["events"][-1]["rev"]
+    latest = _json(_run(runner, ["--root", str(root), "log"]))["data"]["result"]["items"][-1]["rev"]
     envelope = _json(_run(runner, ["--root", str(root), "revert", latest, "--path", "notes/a.md"]))
-    assert envelope["data"]["range_conflict"] is False
+    assert envelope["data"]["result"]["range_conflict"] is False
     assert envelope["diagnostics"] == []
+
+
+def test_show_without_revision_reads_current_bytes(root, kb):
+    result = _run(CliRunner(), ["--root", str(root), "show", "--path", "notes/a.md"])
+    item = _json(result)["data"]["result"]
+    assert item["content"] == kb["doc"].read_text(encoding="utf-8")
+
+
+def test_history_adopt_preview_does_not_publish_and_detects_changes(root, sample_md):
+    runner = CliRunner()
+    args = ["--root", str(root), "history", "adopt"]
+    before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    preview = _json(_run(runner, args))["data"]["result"]
+    assert preview["applied"] is False
+    assert {path: path.read_bytes() for path in root.rglob("*") if path.is_file()} == before
+    sample_md.write_text("# Changed\n", encoding="utf-8")
+    result = runner.invoke(cli, [*args, "--apply", "--if-plan-hash", preview["plan_hash"]])
+    assert result.exception.code == "write.hash_mismatch"
+    assert not (root / ".todoc/history/journal.jsonl").exists()

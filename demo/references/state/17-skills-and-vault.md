@@ -1,4 +1,6 @@
 ---
+created: 2026-11-26
+updated: 2026-11-26
 id: doc:state-skills-vault
 title: "Состояние: скилы — vault и жизненный цикл"
 doc_type: reference

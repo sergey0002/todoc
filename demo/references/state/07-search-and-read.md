@@ -1,4 +1,6 @@
 ---
+created: 2026-11-24
+updated: 2026-11-26
 id: doc:state-search-read
 title: "Состояние: поиск и чтение"
 doc_type: reference

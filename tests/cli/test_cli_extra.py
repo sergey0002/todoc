@@ -27,14 +27,14 @@ def test_init_command(tmp_path):
     runner = CliRunner()
     root = tmp_path / "fresh"
     root.mkdir()
-    result = _run(runner, ["init", "--root", str(root), "--output", "json"])
+    result = _run(runner, ["init", "--apply", "--root", str(root), "--output", "json"])
     assert result.exit_code == 0, result.output
     assert (root / ".todoc" / "dataset.json").is_file()
 
 
 def test_docs_new_conflict(root, sample_md):
     runner = CliRunner()
-    result = _run(runner, ["--root", str(root), "docs", "new", "--title", "Design", "--dir", "notes", "--output", "json"])
+    result = _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "Design", "--dir", "notes", "--output", "json"])
     assert result.exit_code == 5, result.output  # conflict
 
 
@@ -48,7 +48,7 @@ def test_docs_read_line_range(root, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:notes/design.md", "--line-range", "1-3", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]
+    data = _json(result)["data"]["result"]
     assert data["lines"][0] == "---"
 
 
@@ -62,7 +62,7 @@ def test_docs_read_csv_where(root, sample_csv):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:data/runs.csv", "--where", "status=fail", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["rows"] == [{"run_id": "r2", "status": "fail"}]
+    assert _json(result)["data"]["result"]["rows"] == [{"run_id": "r2", "status": "fail"}]
 
 
 def test_docs_read_opaque(root):
@@ -71,15 +71,15 @@ def test_docs_read_opaque(root):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:notes/plain.txt", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert "hello opaque" in _json(result)["data"]["text"]
+    assert "hello opaque" in _json(result)["data"]["result"]["text"]
 
 
 def test_docs_tree_within(root, sample_md):
     runner = CliRunner()
-    result = _run(runner, ["--root", str(root), "docs", "tree", "--within", "notes", "--output", "json"])
+    result = _run(runner, ["--root", str(root), "docs", "tree", "--within", "notes", "--view", "flat", "--output", "json"])
     assert result.exit_code == 0, result.output
     data = _json(result)["data"]
-    assert all(d["path"].startswith("notes") for d in data["documents"])
+    assert all(d["path"].startswith("notes") for d in data["result"]["items"])
 
 
 def test_docs_edit_invalid_patch(root, sample_md, tmp_path):
@@ -104,20 +104,20 @@ def test_records_create_sets_entity_type(root, tmp_path):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "records", "create", "--type", "workout", "--input-file", str(draft), "--preview", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert "workout" in _json(result)["data"]["plan"]["target_path"]
+    assert "workout" in _json(result)["data"]["result"]["plan"]["target_path"]
 
 
 def test_records_list_since_until_relation(root, sample_record):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "records", "list", "--type", "workout", "--since", "2026-11-01", "--until", "2026-11-30", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["total"] == 1
+    assert _json(result)["data"]["meta"]["total"] == 1
     result = _run(runner, ["--root", str(root), "records", "list", "--type", "workout", "--since", "2027-01-01", "--output", "json"])
-    assert _json(result)["data"]["total"] == 0
+    assert _json(result)["data"]["meta"]["total"] == 0
     result = _run(runner, ["--root", str(root), "records", "list", "--type", "workout", "--relation", "performed_by=person:sergei", "--output", "json"])
-    assert _json(result)["data"]["total"] == 1
+    assert _json(result)["data"]["meta"]["total"] == 1
     result = _run(runner, ["--root", str(root), "records", "list", "--type", "workout", "--relation", "performed_by=person:ghost", "--output", "json"])
-    assert _json(result)["data"]["total"] == 0
+    assert _json(result)["data"]["meta"]["total"] == 0
 
 
 def test_records_query_invalid_file(root, tmp_path):
@@ -138,7 +138,7 @@ def test_records_read_view(root, sample_record):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "records", "read", "--id", "workout:2026-11-24-sergei-01", "--view", "summary", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert set(_json(result)["data"]["data"].keys()) == {"date", "volume"}
+    assert set(_json(result)["data"]["result"]["data"].keys()) == {"date", "volume"}
 
 
 def test_types_guide_absolute_out(root):
@@ -146,7 +146,7 @@ def test_types_guide_absolute_out(root):
     out = root / ".todoc" / "guide.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     runner = CliRunner()
-    result = _run(runner, ["--root", str(root), "types", "guide", "--out", str(out), "--output", "json"])
+    result = _run(runner, ["--root", str(root), "types", "guide", "--apply", "--out", str(out), "--output", "json"])
     assert result.exit_code == 0, result.output
     assert out.is_file()
 
@@ -162,7 +162,7 @@ def _run_cli(root, args):
 def test_types_guide_out_outside_root_refused(root, tmp_path):
     """--out may not escape DATA_ROOT (containment, access denied = exit 4)."""
     out = tmp_path / "escaped.md"
-    proc = _run_cli(root, ["types", "guide", "--out", str(out), "--output", "json"])
+    proc = _run_cli(root, ["types", "guide", "--apply", "--out", str(out), "--output", "json"])
     assert proc.returncode == 4, proc.stderr
     assert not out.exists()
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
@@ -170,7 +170,7 @@ def test_types_guide_out_outside_root_refused(root, tmp_path):
 
 def test_types_guide_out_relative_escape_refused(root):
     """A relative --out with .. is resolved before the containment check."""
-    proc = _run_cli(root, ["types", "guide", "--out", "../../escaped-guide.md", "--output", "json"])
+    proc = _run_cli(root, ["types", "guide", "--apply", "--out", "../../escaped-guide.md", "--output", "json"])
     assert proc.returncode == 4, proc.stderr
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
 
@@ -216,12 +216,12 @@ def test_docs_edit_accepts_ops_patch(root, sample_md):
     proc = _run_cli(root, ["docs", "edit", "--id", "doc:notes/design.md",
                            "--patch-file", str(patch), "--preview", "--output", "json"])
     assert proc.returncode == 0, proc.stderr
-    assert json.loads(proc.stdout)["data"]["ops"] == [{"line": 1, "text": "---"}]
+    assert json.loads(proc.stdout)["data"]["result"]["ops"] == [{"line": 1, "text": "---"}]
 
 
 def test_docs_new_dir_cannot_escape_root(root):
     """`docs new --dir ../..` is refused as access denied, not a PermissionError."""
-    proc = _run_cli(root, ["docs", "new", "--title", "Escape", "--dir", "../../outside", "--output", "json"])
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "Escape", "--dir", "../../outside", "--output", "json"])
     assert proc.returncode == 4, proc.stderr
     assert "Traceback" not in proc.stderr
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
@@ -259,14 +259,14 @@ def test_records_create_enforces_the_entity_schema(root):
 
 def test_invalid_cursor_is_an_envelope_not_a_traceback(root, sample_md):
     """Bad --cursor/--line-range values are validation errors, not Python tracebacks."""
-    for args, code in ((["docs", "search", "--query", "x", "--cursor", "abc"], "usage.invalid_cursor"),
-                       (["docs", "search", "--query", "x", "--cursor", "-1"], "usage.invalid_cursor"),
+    for args, code in ((["docs", "search", "--query", "x", "--cursor", "abc"], "cursor.invalid"),
+                       (["docs", "search", "--query", "x", "--cursor", "-1"], "cursor.invalid"),
                        (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "abc"],
                         "usage.invalid_line_range"),
                        (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "5-2"],
                         "usage.invalid_line_range")):
         proc = _run_cli(root, args)
-        assert proc.returncode == 3, proc.stderr
+        assert proc.returncode == (2 if code == "cursor.invalid" else 3), proc.stderr
         assert "Traceback" not in proc.stderr
         assert json.loads(proc.stdout)["diagnostics"][0]["code"] == code
 
@@ -283,7 +283,7 @@ def test_fix_no_fixes(root):
     (root / "notes" / "broken.md").write_text("# Broken\n\nSee [missing](../ops/missing.md).\n", encoding="utf-8")
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    diags = _json(result)["diagnostics"]
     target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
     result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--preview", "--output", "json"])
     assert result.exit_code == 3  # no suggested fixes
@@ -294,7 +294,7 @@ def test_fix_cannot_apply(root):
     (root / "notes" / "broken.md").write_text("# Broken\n\nSee [missing](../ops/missing.md).\n", encoding="utf-8")
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    diags = _json(result)["diagnostics"]
     # Force a fix entry without usable evidence by using a diagnostic with fixes
     # but patching evidence via a second dataset is complex; instead verify the
     # no-fixes path is exit 3 and cannot_apply is covered by unit-level apply_fix.
@@ -326,7 +326,7 @@ def test_explain_path_second_root(root, tmp_path, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "--root", str(root2), "explain-path", "only.md", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["path"] == "only.md"
+    assert _json(result)["data"]["result"]["path"] == "only.md"
 
 
 def test_main_success(root, monkeypatch):
@@ -372,16 +372,16 @@ def test_doctor_scope_selects_check_group(root):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "doctor", "--scope", "environment", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]["datasets"][0]
+    data = _json(result)["data"]["result"]["datasets"][0]
     assert data["scope"] == "environment"
     assert [c["id"] for c in data["checks"]] == ["python"]
 
     dataset = _json(_run(runner, ["--root", str(root), "doctor", "--scope", "dataset",
-                                  "--output", "json"]))["data"]["datasets"][0]
+                                  "--output", "json"]))["data"]["result"]["datasets"][0]
     assert [c["id"] for c in dataset["checks"]] == ["config", "index"]
 
     everything = _json(_run(runner, ["--root", str(root), "doctor", "--scope", "all",
-                                     "--output", "json"]))["data"]["datasets"][0]
+                                     "--output", "json"]))["data"]["result"]["datasets"][0]
     assert everything["checks_total"] == 3
 
 
@@ -398,7 +398,7 @@ def test_doctor_scope_and_check_combine(root):
     result = _run(runner, ["--root", str(root), "doctor", "--scope", "dataset",
                            "--check", "index", "--output", "json"])
     assert result.exit_code == 0
-    assert [c["id"] for c in _json(result)["data"]["datasets"][0]["checks"]] == ["index"]
+    assert [c["id"] for c in _json(result)["data"]["result"]["datasets"][0]["checks"]] == ["index"]
 
 
 # --- P1-4b: мёртвый флаг --if-hash-new убран --------------------------------
@@ -423,10 +423,10 @@ def test_records_create_no_longer_advertises_a_dead_flag(root):
 def test_records_create_refuses_occupied_target_unconditionally(root):
     """Гарантия create-only не зависит от флагов: занятый путь — отказ уже в preview."""
     runner = CliRunner()
-    assert _run(runner, ["--root", str(root), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(root), "index", "rebuild", "--apply"]).exit_code == 0
     input_file = _record_file(root)
     preview = _json(_run(runner, ["--root", str(root), "records", "create", "--type", "note",
-                                  "--input-file", input_file, "--preview", "--output", "json"]))["data"]
+                                  "--input-file", input_file, "--preview", "--output", "json"]))["data"]["result"]
     assert "target_new" not in preview
     target = root / preview["plan"]["target_path"]
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -447,16 +447,16 @@ def test_docs_read_where_applies_before_rows(root):
     lines = ["run_id,status"] + [f"r{i},{'fail' if i % 2 else 'ok'}" for i in range(1, 9)]
     (root / "data" / "runs.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
     runner = CliRunner()
-    assert _run(runner, ["--root", str(root), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(root), "index", "rebuild", "--apply"]).exit_code == 0
 
     result = _json(_run(runner, ["--root", str(root), "docs", "read", "--id", "doc:data/runs.csv",
-                                 "--where", "status=fail", "--rows", "3", "--output", "json"]))["data"]
+                                 "--where", "status=fail", "--rows", "3", "--output", "json"]))["data"]["result"]
     assert len(result["rows"]) == 3
     assert all(r["status"] == "fail" for r in result["rows"])
     assert result["matched"] == 4 and result["truncated"] is True and result["total"] == 8
 
     everything = _json(_run(runner, ["--root", str(root), "docs", "read", "--id", "doc:data/runs.csv",
-                                     "--where", "status=fail", "--output", "json"]))["data"]
+                                     "--where", "status=fail", "--output", "json"]))["data"]["result"]
     assert len(everything["rows"]) == 4 and everything["truncated"] is False
 
 
@@ -466,14 +466,14 @@ def test_docs_read_where_applies_before_rows(root):
 def test_status_before_first_rebuild_reports_nulls(root):
     runner = CliRunner()
     data = _json(_run(runner, ["--root", str(root), "status", "--output", "json"]))
-    entry = data["data"]["datasets"][0]
+    entry = data["data"]["result"]["datasets"][0]
     assert entry["index_built"] is False
     assert entry["documents"] is None and entry["records"] is None
     assert data["next_actions"], "без индекса должно быть сказано, что делать"
-    assert data["next_actions"][0]["action"] == "todoc index rebuild"
+    assert data["next_actions"][0]["argv"] == ["todoc", "index", "rebuild", "--root", str(root)]
 
-    assert _run(runner, ["--root", str(root), "index", "rebuild"]).exit_code == 0
-    after = _json(_run(runner, ["--root", str(root), "status", "--output", "json"]))["data"]["datasets"][0]
+    assert _run(runner, ["--root", str(root), "index", "rebuild", "--apply"]).exit_code == 0
+    after = _json(_run(runner, ["--root", str(root), "status", "--output", "json"]))["data"]["result"]["datasets"][0]
     assert after["index_built"] is True
     assert isinstance(after["documents"], int) and isinstance(after["records"], int)
 
@@ -483,15 +483,45 @@ def test_init_accepts_an_explicit_dataset_id(tmp_path):
     runner = CliRunner()
     fresh = tmp_path / "kb"
     fresh.mkdir()
-    result = _run(runner, ["init", "--root", str(fresh), "--dataset-id", "demo-fixed", "--output", "json"])
+    result = _run(runner, ["init", "--apply", "--root", str(fresh), "--dataset-id", "demo-fixed", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["dataset_id"] == "demo-fixed"
+    assert _json(result)["data"]["result"]["dataset_id"] == "demo-fixed"
 
 
 def test_init_rejects_an_empty_dataset_id(tmp_path):
     runner = CliRunner()
     fresh = tmp_path / "kb"
     fresh.mkdir()
-    result = _run(runner, ["init", "--root", str(fresh), "--dataset-id", "  ", "--output", "json"])
+    result = _run(runner, ["init", "--apply", "--root", str(fresh), "--dataset-id", "  ", "--output", "json"])
     assert result.exit_code == 3, result.output
     assert result.exception.code == "config.invalid_schema"
+
+
+
+def test_doctor_index_repair_requires_apply_and_a_fresh_plan(root, sample_md):
+    runner = CliRunner()
+    args = ["doctor", "--root", str(root), "--check", "index", "--fix"]
+    before = {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    result = _run(runner, args)
+    assert result.exit_code == 0, result.output
+    repair = _json(result)["data"]["result"]["datasets"][0]["repair"]
+    assert repair["index_before"] == "missing" and repair["applied"] is False
+    assert {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()} == before
+    sample_md.write_text("# Updated before review\n", encoding="utf-8")
+    failed = _run(runner, [*args, "--apply", "--if-plan-hash", repair["plan_hash"]])
+    assert failed.exception.code == "write.hash_mismatch"
+    assert not (root / ".todoc/index").exists()
+    repair = _json(_run(runner, args))["data"]["result"]["datasets"][0]["repair"]
+    applied = _json(_run(runner, [*args, "--apply", "--if-plan-hash", repair["plan_hash"]]))
+    assert applied["data"]["result"]["datasets"][0]["repair"]["applied"] is True
+    sample_md.write_text("# Changed after publication\n", encoding="utf-8")
+    stale = _json(_run(runner, args))["data"]["result"]["datasets"][0]
+    assert stale["repair"]["index_before"] == "stale"
+    assert stale["checks"][0]["status"] == "fail"
+
+
+def test_doctor_rejects_apply_without_an_index_repair(root):
+    runner = CliRunner()
+    base = ["doctor", "--root", str(root), "--apply"]
+    for options in ([], ["--fix", "--scope", "environment"]):
+        assert _run(runner, [*base, *options]).exception.code == "usage.error"

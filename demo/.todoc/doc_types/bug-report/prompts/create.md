@@ -37,7 +37,7 @@
 3. Скелет:
 
    ```bash
-   todoc docs new --root KB --type bug-report --title "BUG-NNN: <суть>" --dir bugs
+   todoc docs new --apply --root KB --type bug-report --title "BUG-NNN: <суть>" --dir bugs
    ```
 
 4. Заполни все секции шаблона; `status` и `severity` — во front matter.
@@ -120,7 +120,7 @@ evidence-first и честный severity — см. `docs/state/06-validation-an
 matter (md) или поле `title` записи (json). Имя файла — на английском
 (латиница, kebab-case); заголовок и имя файла независимы. При кириллическом
 заголовке создавай документ с явным путём:
-`todoc docs new --path <dir>/<english-slug>.md` (слаг из заголовка наследует
+`todoc docs new --apply --path <dir>/<english-slug>.md` (слаг из заголовка наследует
 кириллицу — BUG-006). Поле `name` для заголовка не вводится: `title` — уже
 стандарт, дубль = два источника истины. Существующие кириллические имена —
 legacy, не размножать. Подробно: `notes/agent-contract.md` → «Именование

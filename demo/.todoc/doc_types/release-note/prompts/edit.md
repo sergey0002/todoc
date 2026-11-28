@@ -8,5 +8,5 @@
 ```bash
 todoc docs read --root KB --id doc:<id> --output json   # при необходимости прочитать секцию/hash
 # внести изменения напрямую в .md-файл (не трогая created и updated)
-todoc sync --root KB <путь-к-файлу.md>                  # обновит updated, историю, индекс и проверит 0 диагностик
+todoc sync --apply --root KB <путь-к-файлу.md>                  # обновит updated, историю, индекс и проверит 0 диагностик
 ```

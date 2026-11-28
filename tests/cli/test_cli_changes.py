@@ -39,11 +39,11 @@ def kb(root):
         '---\ntitle: "Д"\ndoc_type: note\n---\n\n# Д\n\n## Суть\n\nстарое\n\n'
         "## Устаревшее\n\nмусор\n", encoding="utf-8")
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "index", "rebuild"])
-    opened = _run(runner, ["--root", str(root), "change", "open", "--title", "Обновить суть",
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
+    opened = _run(runner, ["--root", str(root), "change", "open", "--apply", "--title", "Обновить суть",
                            "--artifact", "notes/a.md"])
     assert opened.exit_code == 0, opened.output
-    data = _json(opened)["data"]
+    data = _json(opened)["data"]["result"]
     deltas = root / "changes" / data["change_id"].split(":", 1)[-1] / "deltas"
     deltas.mkdir(parents=True, exist_ok=True)
     (deltas / "d.md").write_text(DELTA, encoding="utf-8")
@@ -55,42 +55,54 @@ def kb(root):
 
 
 def test_open_reports_path_and_status(root):
-    data = _json(_run(CliRunner(), ["--root", str(root), "change", "open", "--title", "Первое"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "change", "open", "--apply", "--title", "Первое"]))["data"]["result"]
     assert data["change_id"] == "change:pervoe"
     assert data["status"] == "proposed"
     assert data["path"] == "changes/pervoe/change.json"
 
 
+def test_open_preview_does_not_write_and_detects_changed_artifact(root, sample_md):
+    runner = CliRunner()
+    args = ["--root", str(root), "change", "open", "--title", "Новое", "--artifact", "notes/design.md"]
+    draft = _json(_run(runner, args))["data"]["result"]
+    assert draft["preview"] and not (root / "changes").exists()
+    assert not (root / ".todoc/cache").exists()
+    sample_md.write_text("# Новая базовая линия\n", encoding="utf-8")
+    denied = _run(runner, [*args, "--apply", "--if-plan-hash", draft["plan_hash"]])
+    assert denied.exception.code == "write.hash_mismatch"
+    assert not (root / "changes").exists()
+
+
 def test_open_cyrillic_title_is_transliterated(root):
-    data = _json(_run(CliRunner(), ["--root", str(root), "change", "open",
-                                    "--title", "Журнал и откат"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "change", "open", "--apply",
+                                    "--title", "Журнал и откат"]))["data"]["result"]
     assert data["change_id"] == "change:zhurnal-i-otkat"
 
 
 def test_open_duplicate_refused(root):
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "change", "open", "--title", "Одно"])
-    result = _run(runner, ["--root", str(root), "change", "open", "--title", "Одно"])
+    _run(runner, ["--root", str(root), "change", "open", "--apply", "--title", "Одно"])
+    result = _run(runner, ["--root", str(root), "change", "open", "--apply", "--title", "Одно"])
     assert isinstance(result.exception, TodocError)
     assert result.exception.code == "change.id_invalid"
 
 
 def test_list_and_filter(kb):
     runner = CliRunner()
-    assert _json(_run(runner, ["--root", str(kb["root"]), "change", "list"]))["data"]["total"] == 1
+    assert _json(_run(runner, ["--root", str(kb["root"]), "change", "list"]))["data"]["meta"]["total"] == 1
     assert _json(_run(runner, ["--root", str(kb["root"]), "change", "list",
-                               "--status", "proposed"]))["data"]["total"] == 1
+                               "--status", "proposed"]))["data"]["meta"]["total"] == 1
     assert _json(_run(runner, ["--root", str(kb["root"]), "change", "list",
-                               "--status", "applied"]))["data"]["total"] == 0
+                               "--status", "applied"]))["data"]["meta"]["total"] == 0
 
 
 def test_list_does_not_leak_baseline(kb):
-    items = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "list"]))["data"]["items"]
+    items = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "list"]))["data"]["result"]["items"]
     assert "baseline" not in items[0]
 
 
 def test_show_returns_record_and_deltas(kb):
-    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "show", kb["id"]]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "show", kb["id"]]))["data"]["result"]
     assert data["record"]["record_id"] == kb["id"]
     assert [(o["op"], o["anchor"]) for o in data["deltas"][0]["ops"]] == [
         ("MODIFIED", "## Суть"), ("REMOVED", "## Устаревшее")]
@@ -106,7 +118,7 @@ def test_show_unknown_change(kb):
 
 
 def test_validate_reports_applicable(kb):
-    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate", kb["id"]]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate", kb["id"]]))["data"]["result"]
     assert data["applicable"] is True and data["errors"] == 0
 
 
@@ -114,13 +126,13 @@ def test_validate_emits_diagnostics_in_envelope(kb):
     (kb["deltas"] / "bad.md").write_text(
         "---\ntarget: notes/net.md\n---\n\n## MODIFIED: ## Суть\n\nт\n", encoding="utf-8")
     envelope = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate", kb["id"]]))
-    assert envelope["data"]["applicable"] is False
+    assert envelope["data"]["result"]["applicable"] is False
     assert [d["code"] for d in envelope["diagnostics"]] == ["change.delta_target_missing"]
 
 
 def test_verify_flags_untouched_artifact(kb):
     """Свежее изменение ещё ничего не поменяло — это честный warning, а не «чисто»."""
-    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "verify", kb["id"]]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "verify", kb["id"]]))["data"]["result"]
     assert data["found"] is True and data["clean"] is False
     assert [f["dimension"] for f in data["findings"]] == ["completeness"]
     assert data["findings"][0]["severity"] == "warning"
@@ -135,7 +147,7 @@ def test_verify_unknown_change(kb):
 def test_verify_reports_unchecked_tasks(kb):
     tasks = kb["deltas"].parent / "tasks.md"
     tasks.write_text("- [x] готово\n- [ ] не готово\n", encoding="utf-8")
-    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "verify", kb["id"]]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "verify", kb["id"]]))["data"]["result"]
     assert data["clean"] is False
     assert any(f["dimension"] == "completeness" for f in data["findings"])
 
@@ -145,18 +157,18 @@ def test_verify_reports_unchecked_tasks(kb):
 
 def test_apply_preview_writes_nothing(kb):
     before = kb["doc"].read_bytes()
-    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "apply", kb["id"]]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "apply", kb["id"]]))["data"]["result"]
     assert data["applied"] is False and data["preview"] is True
     assert kb["doc"].read_bytes() == before
 
 
 def test_apply_writes_and_records_history(kb):
     runner = CliRunner()
-    data = _json(_run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"]))["data"]
+    data = _json(_run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"]))["data"]["result"]
     assert data["applied"] is True and data["status"] == "applied"
     assert "новое тело раздела" in kb["doc"].read_text(encoding="utf-8")
     assert "## Устаревшее" not in kb["doc"].read_text(encoding="utf-8")
-    events = _json(_run(runner, ["--root", str(kb["root"]), "log"]))["data"]["events"]
+    events = _json(_run(runner, ["--root", str(kb["root"]), "log"]))["data"]["result"]["items"]
     assert any(e["kind"] == "change.apply" and f"change apply {kb['id']}" in e["basis"]
                for e in events)
 
@@ -165,7 +177,7 @@ def test_apply_twice_is_refused(kb):
     runner = CliRunner()
     _run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"])
     second = _json(_run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"]))
-    assert second["data"]["applied"] is False
+    assert second["data"]["result"]["applied"] is False
     assert [d["code"] for d in second["diagnostics"]] == ["change.already_applied"]
 
 
@@ -188,7 +200,7 @@ def test_apply_rejected_delta_changes_nothing(kb):
         "---\ntarget: notes/net.md\n---\n\n## MODIFIED: ## Суть\n\nт\n", encoding="utf-8")
     before = kb["doc"].read_bytes()
     data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "apply", kb["id"],
-                                    "--apply"]))["data"]
+                                    "--apply"]))["data"]["result"]
     assert data["applied"] is False
     assert kb["doc"].read_bytes() == before
 
@@ -199,22 +211,22 @@ def test_apply_rejected_delta_changes_nothing(kb):
 def test_archive_with_tag(kb):
     runner = CliRunner()
     _run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"])
-    data = _json(_run(runner, ["--root", str(kb["root"]), "change", "archive", kb["id"],
-                               "--tag", "rel-1"]))["data"]
+    data = _json(_run(runner, ["--root", str(kb["root"]), "change", "archive", kb["id"], "--apply",
+                               "--tag", "rel-1"]))["data"]["result"]
     assert data["status"] == "archived" and data["tag"] == "rel-1"
     tags = _json(_run(runner, ["--root", str(kb["root"]), "log", "--tag", "rel-1"]))["data"]
-    assert tags["total"] == 1
+    assert tags["meta"]["total"] == 1
 
 
 def test_revert_restores_original(kb):
     runner = CliRunner()
     original = kb["doc"].read_bytes()
     _run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"])
-    preview = _json(_run(runner, ["--root", str(kb["root"]), "change", "revert", kb["id"]]))["data"]
+    preview = _json(_run(runner, ["--root", str(kb["root"]), "change", "revert", kb["id"]]))["data"]["result"]
     assert preview["applied"] is False and preview["preview"] is True
     assert kb["doc"].read_bytes() != original
 
-    data = _json(_run(runner, ["--root", str(kb["root"]), "change", "revert", kb["id"], "--apply"]))["data"]
+    data = _json(_run(runner, ["--root", str(kb["root"]), "change", "revert", kb["id"], "--apply"]))["data"]["result"]
     assert data["applied"] is True and data["status"] == "reverted"
     assert kb["doc"].read_bytes() == original
 
@@ -236,7 +248,7 @@ def test_context_requires_selector(kb):
 
 def test_context_returns_everything_in_one_call(kb):
     data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "context", "--change", kb["id"],
-                                    "--budget", "8000"]))["data"]
+                                    "--budget", "8000"]))["data"]["result"]
     assert data["record"]["title"] == "Обновить суть"
     assert len(data["deltas"]) == 1
     assert [f["path"] for f in data["files"]] == ["notes/a.md"]
@@ -245,15 +257,15 @@ def test_context_returns_everything_in_one_call(kb):
 
 def test_context_respects_budget(kb):
     data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "context", "--change", kb["id"],
-                                    "--budget", "200"]))["data"]
-    assert data["truncated"] is True and data["used_bytes"] <= 200
+                                    "--budget", "200"]))["data"]["result"]
+    assert data["truncated"] is True and data["used_chars"] <= 200
 
 
 def test_context_by_tag(kb):
     runner = CliRunner()
     _run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"])
-    _run(runner, ["--root", str(kb["root"]), "change", "archive", kb["id"], "--tag", "rel-1"])
-    data = _json(_run(runner, ["--root", str(kb["root"]), "context", "--tag", "rel-1"]))["data"]
+    _run(runner, ["--root", str(kb["root"]), "change", "archive", kb["id"], "--apply", "--tag", "rel-1"])
+    data = _json(_run(runner, ["--root", str(kb["root"]), "context", "--tag", "rel-1"]))["data"]["result"]
     assert data["events_total"] >= 1
 
 
@@ -261,7 +273,7 @@ def test_context_with_diff(kb):
     runner = CliRunner()
     _run(runner, ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"])
     data = _json(_run(runner, ["--root", str(kb["root"]), "context", "--change", kb["id"],
-                               "--with-diff"]))["data"]
+                               "--with-diff"]))["data"]["result"]
     assert "diffs" in data
 
 
@@ -307,7 +319,7 @@ def test_validate_checks_target_structure_after_apply(kb):
     envelope = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate", kb["id"]]))
     codes = [d["code"] for d in envelope["diagnostics"]]
     assert "markdown.section.missing" in codes
-    assert envelope["data"]["applicable"] is False
+    assert envelope["data"]["result"]["applicable"] is False
 
 
 def test_validate_checks_doc_type_schema_after_apply(kb):
@@ -320,14 +332,14 @@ def test_validate_checks_doc_type_schema_after_apply(kb):
     found = [d for d in envelope["diagnostics"] if d["code"] == "change.post_apply_invalid"]
     assert found and "owner" in found[0]["message"]
     assert found[0]["evidence"] == "схема doc_type после применения"
-    assert envelope["data"]["applicable"] is False
+    assert envelope["data"]["result"]["applicable"] is False
 
 
 def test_validate_survives_broken_doc_type_schema(kb):
     """Нечитаемая схема не ломает проверку: она просто не применяется."""
     (_note_type_dir(kb) / "schema.json").write_text("{ это не json", encoding="utf-8")
     data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate",
-                                    kb["id"]]))["data"]
+                                    kb["id"]]))["data"]["result"]
     assert data["applicable"] is True
 
 
@@ -335,7 +347,7 @@ def test_validate_skips_structure_check_without_doc_type(kb):
     """Без типа документа проверять нечего — и это не ошибка."""
     _rewrite(kb, '---\ntitle: "Д"\n---')
     data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate",
-                                    kb["id"]]))["data"]
+                                    kb["id"]]))["data"]["result"]
     assert data["applicable"] is True
 
 
@@ -343,7 +355,7 @@ def test_validate_skips_unknown_doc_type(kb):
     """Незнакомый doc_type не имеет описателя: проверка структуры пропускается."""
     _rewrite(kb, '---\ntitle: "Д"\ndoc_type: несуществующий\n---')
     data = _json(_run(CliRunner(), ["--root", str(kb["root"]), "change", "validate",
-                                    kb["id"]]))["data"]
+                                    kb["id"]]))["data"]["result"]
     assert data["applicable"] is True
 
 
@@ -372,11 +384,11 @@ def five_docs(root):
             f'---\ntitle: "Д{i}"\ndoc_type: note\n---\n\n# Д{i}\n\n## Суть\n\n'
             f"тело {i}\n\n## Старое\n\nмусор {i}\n", encoding="utf-8")
     runner = CliRunner()
-    _run(runner, ["--root", str(root), "index", "rebuild"])
-    opened = _run(runner, ["--root", str(root), "change", "open", "--title", "Пять документов",
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
+    opened = _run(runner, ["--root", str(root), "change", "open", "--apply", "--title", "Пять документов",
                            *sum((["--artifact", f"notes/d{i}.md"] for i in range(1, 6)), [])])
     assert opened.exit_code == 0, opened.output
-    data = _json(opened)["data"]
+    data = _json(opened)["data"]["result"]
     deltas = root / "changes" / data["change_id"].split(":", 1)[-1] / "deltas"
     for i in range(1, 6):
         (deltas / f"d{i}.md").write_text(
@@ -389,7 +401,7 @@ def test_k42_context_returns_all_artifacts_in_one_call(five_docs):
     """K42: полнота 1.0 — все пять артефактов и все пять дельт за один вызов."""
     envelope = _json(_run(CliRunner(), ["--root", str(five_docs["root"]), "context",
                                         "--change", five_docs["id"], "--budget", "20000"]))
-    data = envelope["data"]
+    data = envelope["data"]["result"]
     artifacts = {f["path"] for f in data["files"]}
     expected = {f"notes/d{i}.md" for i in range(1, 6)}
     assert expected <= artifacts, f"потеряны артефакты: {expected - artifacts}"
@@ -403,7 +415,40 @@ def test_k43_context_without_diff_has_no_bodies_and_fits_budget(five_docs):
         envelope = _json(_run(CliRunner(), ["--root", str(five_docs["root"]), "context",
                                             "--change", five_docs["id"],
                                             "--budget", str(budget)]))
-        data = envelope["data"]
+        data = envelope["data"]["result"]
         assert "diffs" not in data, "без --with-diff диффов быть не должно"
-        assert data["used_bytes"] <= budget
+        assert data["used_chars"] <= budget
         assert len(json.dumps(data, ensure_ascii=False)) <= budget * 4
+
+
+
+def test_change_list_filters_then_pages_and_binds_cursor_to_full_snapshot(kb):
+    runner = CliRunner()
+    root = kb["root"]
+    for title in ("Два", "Три"):
+        opened = _run(runner, ["change", "open", "--root", str(root), "--title", title, "--apply"])
+        assert opened.exit_code == 0, opened.output
+    args = ["change", "list", "--root", str(root), "--status", "archived|proposed",
+            "--fields", "title", "--limit", "2", "--view", "tree"]
+    first = _json(_run(runner, args))
+    assert first["diagnostics"][0]["code"] == "view.fallback"
+    assert first["data"]["meta"]["total"] == 3
+    assert first["data"]["meta"]["actual_view"] == "flat"
+    rows = first["data"]["result"]["items"]
+    assert all(set(row) == {"record_id", "path", "title"} for row in rows)
+    cursor = first["data"]["meta"]["next_cursor"]
+    second = _json(_run(runner, [*args, "--cursor", cursor]))
+    assert second["data"]["meta"]["next_cursor"] is None
+    assert len({row["record_id"] for row in rows + second["data"]["result"]["items"]}) == 3
+    opened = _run(runner, ["change", "open", "--root", str(root), "--title", "Четыре", "--apply"])
+    assert opened.exit_code == 0, opened.output
+    assert _run(runner, [*args, "--cursor", cursor]).exception.code == "cursor.invalid"
+
+
+@pytest.mark.parametrize("content", ["{", "[]", '{"title":"No identity"}'])
+def test_change_list_refuses_incomplete_source(root, content):
+    path = root / "changes/test/change.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(content, encoding="utf-8")
+    result = _run(CliRunner(), ["change", "list", "--root", str(root), "--status", "archived"])
+    assert result.exception.code == "change.unreadable"

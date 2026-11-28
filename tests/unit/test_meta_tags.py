@@ -19,14 +19,14 @@ def _json(result):
 
 
 def _init(runner, tmp_path):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
 
 
 def _doc(runner, tmp_path, rel, body):
     path = tmp_path / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
-    r = _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    r = _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     assert r.exit_code == 0, r.output
 
 
@@ -109,7 +109,7 @@ def test_tag_boost_puts_tagged_doc_first(tmp_path):
     _init(runner, tmp_path)
     _setup_two_docs(runner, tmp_path)
     r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "search"])
-    hits = _json(r)["data"]["items"]
+    hits = _json(r)["data"]["result"]["items"]
     assert [h["path"] for h in hits] == ["notes/tagged.md", "notes/plain.md"]
 
 
@@ -118,9 +118,11 @@ def test_tag_exact_adds_eight_partial_adds_three(tmp_path):
     _init(runner, tmp_path)
     _doc(runner, tmp_path, "notes/w.md",
          "---\ntitle: T\ntags: [front-matter, поиск]\n---\n\n# T\n\nтело.\n")
-    from todoc.application.search import _document_text, search_documents
+    from todoc.application.search import search_documents
 
-    docs = _json(_run(runner, ["docs", "tree", "--root", str(tmp_path)]))["data"]["documents"]
+    from todoc.service import DatasetContext
+
+    docs = DatasetContext(tmp_path).read_index()["documents"]
     hits, _t, _tr = search_documents(tmp_path, docs, "front-matter")
     assert hits[0].path == "notes/w.md"  # exact-тег
     # partial: токен «matter» внутри тега front-matter
@@ -133,7 +135,7 @@ def test_tag_filter_cli(tmp_path):
     _init(runner, tmp_path)
     _setup_two_docs(runner, tmp_path)
     r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "refresh", "--tag", "search"])
-    hits = _json(r)["data"]["items"]
+    hits = _json(r)["data"]["result"]["items"]
     assert [h["path"] for h in hits] == ["notes/tagged.md"]
 
 
@@ -142,7 +144,7 @@ def test_tag_filter_empty_when_no_match(tmp_path):
     _init(runner, tmp_path)
     _setup_two_docs(runner, tmp_path)
     r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "refresh", "--tag", "нет-такого"])
-    assert _json(r)["data"]["items"] == []
+    assert _json(r)["data"]["result"]["items"] == []
 
 
 def test_read_output_carries_meta_fields(tmp_path):
@@ -152,7 +154,7 @@ def test_read_output_carries_meta_fields(tmp_path):
          "---\nid: doc:notes/meta.md\ntitle: T\ncreated: 2026-11-25\nupdated: 2026-11-26\n"
          "tags: [a1, b2]\nrelated: [\"[[x]]\"]\n---\n\n# T\n\nтело.\n")
     r = _run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:notes/meta.md"])
-    d = _json(r)["data"]
+    d = _json(r)["data"]["result"]
     assert d["tags"] == ["a1", "b2"]
     assert d["updated"] == "2026-11-26"
     assert d["related"] == ["[[x]]"]
@@ -166,7 +168,7 @@ def test_docs_new_writes_front_matter_with_dates(tmp_path, monkeypatch):
     import re
     runner = CliRunner()
     _init(runner, tmp_path)
-    r = _run(runner, ["docs", "new", "--root", str(tmp_path), "--title", "Свежая заметка",
+    r = _run(runner, ["docs", "new", "--apply", "--root", str(tmp_path), "--title", "Свежая заметка",
                       "--dir", "inbox", "--template", "note"])
     assert r.exit_code == 0, r.output
     text = (tmp_path / "inbox/svezhaya-zametka.md").read_text(encoding="utf-8")
@@ -187,12 +189,12 @@ def test_docs_edit_apply_bumps_updated(tmp_path):
     (tmp_path / "notes/d.md").write_text(
         "---\ntitle: D\ncreated: 2026-01-01\nupdated: 2026-02-02\n---\n\n# D\n\nстарая строка\n",
         encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     pf = tmp_path / "p.json"
     pf.write_text(json.dumps({"ops": [{"line": 6, "text": "новая строка"}]}), encoding="utf-8")
     r = _run(runner, ["docs", "edit", "--root", str(tmp_path), "--id", "doc:notes/d.md",
                       "--patch-file", str(pf), "--apply"])
-    d = _json(r)["data"]
+    d = _json(r)["data"]["result"]
     assert d["updated_bumped"] is True
     text = (tmp_path / "notes/d.md").read_text(encoding="utf-8")
     assert "created: 2026-01-01" in text
@@ -209,12 +211,12 @@ def test_docs_edit_preview_keeps_file_bytes(tmp_path):
     (tmp_path / "notes").mkdir()
     body = "---\ntitle: D\ncreated: 2026-01-01\nupdated: 2026-02-02\n---\n\n# D\n\nстрока\n"
     (tmp_path / "notes/d.md").write_text(body, encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     pf = tmp_path / "p.json"
     pf.write_text(json.dumps({"ops": [{"line": 6, "text": "новая"}]}), encoding="utf-8")
     r = _run(runner, ["docs", "edit", "--root", str(tmp_path), "--id", "doc:notes/d.md",
                       "--patch-file", str(pf)])
-    assert _json(r)["data"]["preview"] is True
+    assert _json(r)["data"]["result"]["preview"] is True
     assert (tmp_path / "notes/d.md").read_text(encoding="utf-8") == body  # байт-в-байт
 
 

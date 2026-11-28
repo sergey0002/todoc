@@ -13,14 +13,18 @@ from typing import Any
 from todoc.adapters.filesystem.scanner import ScannedFile
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
+from todoc.adapters.formats.metadata import get_attributes
 from todoc.adapters.formats.markdown import (doc_from_payload, doc_to_payload, parse_markdown,
                                              resolve_link_target)
-from todoc.application.registry import read_parse_cache, write_parse_cache
+from todoc.application.registry import JsonParseCache
+from todoc.application.storage import ParseCache
 from todoc.application import temporal
 from todoc.domain.models import Diagnostic, SuggestedFix
 from todoc.errors import ValidationError
 from todoc.typing_system.descriptors import load_json_file, parse_heading_selector, schema_file
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
+from todoc.typing_system.document_metadata import (SCHEMA_PATH, load_metadata_schema, metadata_errors,
+                                                 normalize_markdown_attributes)
 
 
 def stable_id(*parts: Any) -> str:
@@ -137,14 +141,14 @@ def _link_diagnostic(dataset_id: str, scanned: ScannedFile, link: Any, candidate
     )
 
 
-def _markdown_doc(root: Path, scanned: ScannedFile) -> Any:
+def _markdown_doc(cache: ParseCache, scanned: ScannedFile) -> Any:
     """Разбор Markdown из кэша парсинга либо None, если кэш не пригоден.
 
     Промахом считается всё, что не даёт разбор, идентичный повторному: нет записи,
     не совпал хеш содержимого, другая версия разбора, битый JSON или запись чужой
     формы. Тогда вызывающий читает и парсит файл сам и кладет результат в кэш.
     """
-    cached = read_parse_cache(root, scanned.rel_path, scanned.hash)
+    cached = cache.read(scanned.rel_path, scanned.hash)
     if cached is None:
         return None
     try:
@@ -154,7 +158,7 @@ def _markdown_doc(root: Path, scanned: ScannedFile) -> Any:
 
 
 def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[dict[str, Any]],
-                   all_paths: set[str]) -> list[dict[str, Any]]:
+                   all_paths: set[str], *, parse_cache: ParseCache | None = None) -> list[dict[str, Any]]:
     """Плоский индекс упоминаний md → цели (план entity-catalog З2, T8).
 
     Источник — кеш парсинга (P1-3): validate_dataset уже разобрал md и положил
@@ -165,10 +169,11 @@ def build_mentions(root: Path, scanned_files: list[ScannedFile], records: list[d
     by_basename, _ = _basename_index(all_paths)
     record_ids = {r["record_id"] for r in records}
     mentions: list[dict[str, Any]] = []
+    cache = parse_cache if parse_cache is not None else JsonParseCache(root)
     for scanned in sorted(scanned_files, key=lambda f: f.rel_path):
         if scanned.format != "markdown":
             continue
-        doc = _markdown_doc(root, scanned)
+        doc = _markdown_doc(cache, scanned)
         if doc is None:
             try:
                 doc = parse_markdown(scanned.abs_path.read_text(encoding="utf-8"))
@@ -523,6 +528,10 @@ def validate_dataset(
     dir_rules: list[dict[str, Any]],
     doc_rules: list[dict[str, Any]],
     registry: Any = None,
+    *,
+    write_cache: bool = True,
+    parse_cache: ParseCache | None = None,
+    check_content: bool = True,
 ) -> tuple[list[Diagnostic], dict[str, dict[str, Any]]]:
     """Validate all scanned files. Returns (diagnostics, doc_info).
 
@@ -532,6 +541,7 @@ def validate_dataset(
     ``required_sections``/``section_rules`` are enforced against the parsed headings.
     """
     dataset_id = dataset["dataset_id"]
+    cache = parse_cache if parse_cache is not None else JsonParseCache(root)
     limits = dataset.get("limits") or {}
     max_depth = int(limits.get("max_json_depth", 128))
     max_rows = int(limits.get("max_csv_rows", 1000000))
@@ -545,9 +555,10 @@ def validate_dataset(
         doc_type_descriptors = getattr(registry, "doc_types", None) or (
             registry.get("doc_types", {}) if isinstance(registry, dict) else {})
     doc_schemas = _load_schemas(root, registry, dataset, "doc_type", _doc_types_of)
+    metadata_schema = load_metadata_schema(root)
     # план entity-catalog З1: record_id нужны md-циклу (skip record-целей) —
     # дешёвый regexp-сбор по тексту json-файлов (полный разбор записей — ниже).
-    record_ids_known = _collect_record_ids(scanned_files)
+    record_ids_known = _collect_record_ids(scanned_files) if check_content else set()
 
     for scanned in scanned_files:
         fmt = scanned.format
@@ -563,10 +574,13 @@ def validate_dataset(
             doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
             continue
         front_matter: dict[str, Any] = {}
+        metadata_pointer = ""
+        document_profile = False
         title = ""
         headings: list[Any] = []
+        parsed_record = None
         # Сквозной кэш парсинга (P1-3): при попадании файл не читается и не парсится.
-        doc = _markdown_doc(root, scanned) if fmt == "markdown" else None
+        doc = _markdown_doc(cache, scanned) if fmt == "markdown" else None
         if doc is not None:
             parsed_docs[scanned.rel_path] = doc  # план entity-catalog З1: кеш тоже в прогон
         if doc is None:
@@ -577,20 +591,21 @@ def validate_dataset(
                 doc_info[scanned.rel_path] = {"doc_type": "unknown", "rule_source": "default", "front_matter": {}, "title": "", "format": fmt}
                 continue
             if fmt == "markdown":
-                doc = parse_markdown(text)
-                write_parse_cache(root, scanned.rel_path, scanned.hash, doc_to_payload(doc))
+                doc = parse_markdown(text) if check_content else parse_markdown(text, include_links=False)
+                if write_cache and check_content:
+                    cache.write(scanned.rel_path, scanned.hash, doc_to_payload(doc))
                 parsed_docs[scanned.rel_path] = doc
         if fmt == "markdown":
-            front_matter = doc.front_matter
+            front_matter, metadata_pointer, document_profile = get_attributes(fmt, doc)
             title = doc.title
             headings = doc.headings
             for lineno, message in doc.warnings:
                 diags.append(_diag(dataset_id, scanned.rel_path, "markdown.front_matter.yaml_unsafe",
                                    message, severity="warning", location={"line": lineno, "column": 1}))
             # Разбор уже в руках — второй раз файл не читается и не парсится.
-            diags.extend(_check_markdown_links(dataset_id, scanned, root, all_paths, by_basename,
-                                               doc=doc, record_ids=record_ids_known))
-            diags.extend(_check_meta_fields(dataset_id, scanned.rel_path, front_matter))  # план doc-tags З1: только markdown
+            if check_content:
+                diags.extend(_check_markdown_links(dataset_id, scanned, root, all_paths, by_basename,
+                                                   doc=doc, record_ids=record_ids_known))
         elif fmt == "csv":
             csv_doc = parse_csv(text, max_rows=max_rows)
             for err in csv_doc.errors:
@@ -606,8 +621,22 @@ def validate_dataset(
                 location: dict[str, Any] = ({"line": err.line, "column": err.column or 1}
                                             if err.line else {})
                 diags.append(_diag(dataset_id, scanned.rel_path, code, rest or err, location=location))
-            if isinstance(value, dict):
-                front_matter = value
+            front_matter, metadata_pointer, document_profile = get_attributes(fmt, value)
+            if not errors and isinstance(value, dict) and "record_id" in value:
+                parsed_record = (value, text)
+            if metadata_pointer and not isinstance(value["meta"], dict):
+                diags.append(_diag(dataset_id, scanned.rel_path, "document.metadata_type",
+                                   "JSON document metadata must be an object.", location={"pointer": "/meta"}))
+            if metadata_pointer:
+                for key in sorted(front_matter.keys() & value.keys() - {"meta"}):
+                    if front_matter[key] != value[key]:
+                        diags.append(_diag(
+                            dataset_id, scanned.rel_path, "document.metadata_conflict",
+                            f"Conflicting values for metadata field {key!r}.", location={"pointer": "/meta"},
+                        ))
+            source_title = front_matter.get("title")
+            if isinstance(source_title, str):
+                title = source_title
 
         basename = Path(scanned.rel_path).name
         doc_type, source, conflicts = resolve_type(
@@ -619,23 +648,34 @@ def validate_dataset(
         descriptor = doc_type_descriptors.get(doc_type)
         if descriptor and headings:
             diags.extend(_check_structure(dataset_id, scanned.rel_path, headings, descriptor))
-        # план «скилы-взаимодействия» З1: закрытый набор статусов doc_type.
-        # Только markdown: у JSON-записей статус правит enum их схемы (record.schema_violation).
-        if descriptor and fmt == "markdown":
+        # Typed JSON records keep the status enum from their entity schema.
+        if descriptor and document_profile:
             diags.extend(_check_status_set(dataset_id, scanned.rel_path, front_matter, descriptor))
-        loaded_schema = doc_schemas.get(doc_type)
-        if loaded_schema and front_matter:
-            # Front matter документов раньше не проверялся вообще; схема объявляется
-            # в описателе doc_type и остаётся необязательной (план §19, вариант (a)).
-            schema, evidence = loaded_schema
-            for message in validate_against_schema(front_matter, schema):
-                pointer, _, rest = message.partition(": ")
+        schemas = []
+        managed_metadata = document_profile and (doc_type != "unknown" or bool(metadata_pointer))
+        if fmt == "markdown" and (metadata_schema is None or not managed_metadata):
+            diags.extend(_check_meta_fields(dataset_id, scanned.rel_path, front_matter))
+        if metadata_schema is not None and managed_metadata:
+            schemas.append((metadata_schema, SCHEMA_PATH))
+        if (loaded_schema := doc_schemas.get(doc_type)) is not None:
+            schemas.append(loaded_schema)
+        if fmt == "markdown" and schemas:
+            front_matter = normalize_markdown_attributes(front_matter, schemas)
+        for schema, evidence in schemas:
+            for pointer, message in metadata_errors(front_matter, schema, metadata_pointer):
                 diags.append(_diag(
-                    dataset_id, scanned.rel_path, "document.schema_violation", rest or message,
+                    dataset_id, scanned.rel_path, "document.schema_violation", message,
                     location={"pointer": pointer, "doc_type": doc_type}, evidence=evidence,
                 ))
         doc_info[scanned.rel_path] = {
             "doc_type": doc_type, "rule_source": source, "front_matter": front_matter, "title": title, "format": fmt,
+            "managed_metadata": managed_metadata, "metadata_pointer": metadata_pointer,
+            "parsed_record": parsed_record,
+            "headings": [
+                {"title": heading.title, "level": heading.level, "line": heading.line, "anchor": heading.anchor,
+                 "parent_index": heading.parent_index}
+                for heading in headings
+            ],
         }
 
     # Record validation: JSON files with record_id/entity_type.
@@ -781,15 +821,10 @@ def _validate_records(
     seen_ids: set[str] = set()
     schemas = _load_schemas(root, registry, dataset, "entity_type", _entity_types_of)
     for scanned in scanned_files:
-        if scanned.format != "json" or scanned.status != "ok":
+        cached = doc_info.get(scanned.rel_path, {}).get("parsed_record")
+        if cached is None:
             continue
-        try:
-            text = scanned.abs_path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        value, _ = parse_json(text)
-        if not isinstance(value, dict) or "record_id" not in value:
-            continue
+        value, text = cached
         record_id = str(value.get("record_id"))
         entity_type = str(value.get("entity_type", ""))
         if record_id in seen_ids:

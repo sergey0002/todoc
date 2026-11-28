@@ -5,15 +5,14 @@ Pure application module: no ``click`` imports and no direct console I/O.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
 from todoc.adapters.formats.markdown import parse_markdown
-from todoc.adapters.history import journal
 from todoc.application.history import open_backend, record_write
-from todoc.application.registry import invalidate_parse_cache
 from todoc.application.validator import stable_id
 from todoc.application.write import bump_front_matter_updated
 from todoc.errors import AccessError, ConflictError, ValidationError
@@ -56,7 +55,7 @@ def normalize_sync_path(root: Path, raw_path: str, cwd: Path | None = None) -> s
 
 
 def _indexed_hashes(ctx: "DatasetContext") -> dict[str, str]:
-    current = ctx.store.load_current()
+    current = ctx.load_published_index()
     docs = (current or {}).get("documents") or []
     return {str(d["path"]): str(d["hash"]) for d in docs if "path" in d and "hash" in d}
 
@@ -71,26 +70,25 @@ def detect_dirty_paths(ctx: "DatasetContext") -> list[str]:
     return sorted(set(dirty))
 
 
-def _previous_hash_and_bytes(ctx: "DatasetContext", rel_path: str,
-                             indexed: dict[str, str], backend: Any,
-                             record_history: bool) -> tuple[str | None, bytes | None]:
-    journal_hash: str | None = None
-    for event in reversed(journal.read_events(ctx.root)):
+def _journal_hashes(events: list[dict[str, Any]]) -> dict[str, str]:
+    hashes = {}
+    for event in events:
         if event.get("kind") == "external.change":
             continue
         for item in event.get("paths") or []:
-            if item.get("path") == rel_path and item.get("after"):
-                journal_hash = str(item["after"])
-                break
-        if journal_hash is not None:
-            break
+            if item.get("path") and item.get("after"):
+                hashes[str(item["path"])] = str(item["after"])
+    return hashes
+
+
+def _previous_hash_and_bytes(rel_path: str, indexed: dict[str, str], journal_hash: str | None,
+                             backend: Any, record_history: bool) -> tuple[str | None, bytes | None]:
 
     head = backend.head()
     before_bytes = backend.read_at(head, rel_path) if head else None
     if journal_hash is not None:
         return journal_hash, before_bytes
     if before_bytes is not None and record_history:
-        import hashlib
         return "sha256:" + hashlib.sha256(before_bytes).hexdigest(), before_bytes
     return indexed.get(rel_path), before_bytes
 
@@ -127,6 +125,7 @@ def sync_files(
     allow_derived: bool = False,
     record_history: bool = True,
     cwd: Path | None = None,
+    apply: bool = True,
 ) -> dict[str, Any]:
     """Synchronize directly edited files: bump ``updated``, record history, refresh index & validate."""
     indexed = _indexed_hashes(ctx)
@@ -139,6 +138,8 @@ def sync_files(
         raise ValidationError("--if-hash requires exactly one target path.", "sync.if_hash_multi_target")
 
     backend, _ = open_backend(ctx.root, ctx.dataset)
+    store = ctx.history_store
+    hashes = _journal_hashes(store.read_events(strict=True))
     synced_items: list[dict[str, Any]] = []
     blocked_diags: list[dict[str, Any]] = []
     blocked_sources: list[str] = []
@@ -146,16 +147,17 @@ def sync_files(
 
     for rel_path in targets:
         target = ctx.root / rel_path
-        prev_hash, before_bytes = _previous_hash_and_bytes(ctx, rel_path, indexed, backend, record_history)
+        prev_hash, before_bytes = _previous_hash_and_bytes(rel_path, indexed, hashes.get(rel_path), backend, record_history)
 
         if not target.is_file():
             if expected_hash is not None and prev_hash != expected_hash:
                 raise ConflictError(f"Hash mismatch for deleted {rel_path}: expected {expected_hash}",
                                     "write.hash_mismatch")
-            invalidate_parse_cache(ctx.root, rel_path)
-            if record_history:
-                record_write(ctx.root, rel_path, before_bytes, b"", kind="file.delete",
-                             actor="cli", basis="todoc sync", backend=backend)
+            if apply:
+                ctx.parse_cache.invalidate(rel_path)
+                if record_history:
+                    record_write(ctx.root, rel_path, before_bytes, b"", kind="file.delete",
+                                 actor="cli", basis="todoc sync", backend=backend, store=store)
             synced_items.append({"path": rel_path, "status": "deleted", "hash": None, "updated_bumped": False})
             any_mutated = True
             continue
@@ -195,31 +197,31 @@ def sync_files(
                 synced_items.append({"path": rel_path, "status": "blocked", "hash": disk_hash, "updated_bumped": False})
                 continue
 
-        updated_bumped = False
-        if is_md:
-            new_text, updated_bumped = bump_front_matter_updated(text)
+        new_text, updated_bumped = bump_front_matter_updated(text) if is_md else ("", False)
+        planned_hash = "sha256:" + hashlib.sha256(new_text.encode("utf-8")).hexdigest() if updated_bumped else disk_hash
+        if apply:
             if updated_bumped:
                 atomic_write(target, new_text)
-                disk_hash = file_hash(target)
-
-        final_bytes = target.read_bytes()
-        invalidate_parse_cache(ctx.root, rel_path)
-        if record_history:
-            kind = "doc.sync" if is_md else "record.sync"
-            record_write(ctx.root, rel_path, before_bytes, final_bytes, kind=kind,
-                         actor="cli", basis="todoc sync", backend=backend)
+            ctx.parse_cache.invalidate(rel_path)
+            if record_history:
+                kind = "doc.sync" if is_md else "record.sync"
+                record_write(ctx.root, rel_path, before_bytes, target.read_bytes(), kind=kind,
+                             actor="cli", basis="todoc sync", backend=backend, store=store)
         synced_items.append({
             "path": rel_path,
             "status": "synced",
-            "hash": disk_hash,
+            "hash": planned_hash,
+            "current_hash": disk_hash,
             "updated_bumped": updated_bumped,
         })
         any_mutated = True
 
-    if any_mutated or ctx.store.load_current() is None:
-        ctx.rebuild_index(force=True, observe=record_history)
-
-    published = ctx.store.load_current() or {}
+    if apply:
+        if any_mutated or ctx.load_published_index() is None:
+            ctx.rebuild_index(force=True, observe=record_history)
+        published = ctx.load_published_index() or {}
+    else:
+        published = ctx.read_index(include_mentions=False)
     target_set = set(targets)
     index_diags = [
         d for d in (published.get("diagnostics") or [])
@@ -236,7 +238,7 @@ def sync_files(
             "sources": blocked_sources,
             "fix_hint": (
                 "Откатите ручную правку витрины, отредактируйте исходную запись из sources, "
-                "запустите todoc sync на ней и пересоберите витрину командой render/export --write "
+                "запустите todoc sync --apply на ней и пересоберите витрину командой render/export --write "
                 "(либо передайте --allow-derived, если правка осознанная)."
             ),
         }

@@ -30,7 +30,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.history import journal
+from todoc.adapters.history.store import FileHistoryStore
 
 TEMPORAL_FIELDS = ("valid_from", "valid_to", "observed_at", "superseded_at")
 
@@ -174,7 +174,7 @@ def relations_as_of(relations: list[dict[str, Any]], as_of: str | None) -> list[
 
 def timeline(root: Path, records: list[dict[str, Any]], relations: list[dict[str, Any]], *,
              as_of: str | None = None, path: str | None = None,
-             limit: int = 200) -> dict[str, Any]:
+             limit: int | None = 200, events: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Единая лента: события журнала (время знания) + интервалы фактов (время правды).
 
     Это ответ на «что было известно на дату T» — то, чего не даёт ни ``git log``
@@ -190,7 +190,7 @@ def timeline(root: Path, records: list[dict[str, Any]], relations: list[dict[str
     by_record = {str(r.get("record_id", "")): str(r.get("path", "")) for r in records}
     entries: list[dict[str, Any]] = []
 
-    for event in journal.read_events(root):
+    for event in FileHistoryStore(root).read_events() if events is None else events:
         at = str(event.get("at") or "")
         if moment is not None and at and at > moment:
             continue
@@ -239,5 +239,5 @@ def timeline(root: Path, records: list[dict[str, Any]], relations: list[dict[str
     total = len(entries)
     for entry in entries:
         entry.pop("sort", None)
-    return {"as_of": moment, "path": path, "count": total, "truncated": total > limit,
+    return {"as_of": moment, "path": path, "count": total, "truncated": limit is not None and total > limit,
             "entries": entries[:limit]}

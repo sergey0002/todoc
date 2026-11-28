@@ -90,7 +90,7 @@ def _now(now: str | None) -> str:
     return now or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def set_var(dataset_id: str, key: str, value: str, *, now: str | None = None) -> dict[str, Any]:
+def set_var(dataset_id: str, key: str, value: str, *, now: str | None = None, apply: bool = True) -> dict[str, Any]:
     """Записать значение переменной стейта (whitelist + лимиты), вернуть новый стейт."""
     _check_key(key)
     if not isinstance(value, str) or not (1 <= len(value) <= _MAX_VALUE):
@@ -100,8 +100,9 @@ def set_var(dataset_id: str, key: str, value: str, *, now: str | None = None) ->
     data = load_state(dataset_id)
     data["schema_version"] = 1
     data["vars"][key] = value
-    data["updated_at"] = _now(now)
-    _save(dataset_id, data)
+    if apply:
+        data["updated_at"] = _now(now)
+        _save(dataset_id, data)
     return data
 
 

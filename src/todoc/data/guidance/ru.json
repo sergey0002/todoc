@@ -1,0 +1,82 @@
+{
+  "cursor.invalid": "Запросите первую страницу с текущими фильтрами и используйте курсор из её ответа.",
+  "docs.invalid_scope": "Укажите путь относительно DATA_ROOT, например ideas.",
+  "docs.multiple_roots": "Укажите один --root для обзора документов.",
+  "fields.conflict": "Выберите --fields или --exclude-fields.",
+  "fields.unknown": "Проверьте доступные поля через docs list --fields-help.",
+  "file.permission_denied": "Проверьте доступ к файлу из диагностики и повторите выборку.",
+  "file.unreadable": "Проверьте читаемость и кодировку файла из диагностики.",
+  "file.unsupported": "Проверьте ограничения размера и формат файла из диагностики.",
+  "generation.incomplete": "Проверьте доступ к датасету и повторите запрос после завершения текущих правок.",
+  "markdown.front_matter.yaml_unsafe": "Проверьте front matter файла из диагностики.",
+  "usage.error": "Проверьте синтаксис в справке команды.",
+  "usage.missing_root": "Передайте --root с путём к датасету.",
+  "filter.invalid": {
+    "hint": "Сверь ключ и его тип через docs list --filter-fields. Передавай значения через | одним аргументом; даты задавай календарным YYYY-MM-DD.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "metadata.invalid_schema": {
+    "hint": "Проверь JSON Schema датасета через check-config. Допустимые поля перечисляет types show с --kind doc_type.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "metadata.invalid_patch": {
+    "hint": "Передай массив metadata с операциями set, remove, add_item или remove_item. Повтори preview и проверь типы полей.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "document.schema_violation": {
+    "hint": "Открой эффективную схему через types show с --kind doc_type. Для существующего датасета types metadata покажет набор нарушений до включения общей схемы.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "docs.invalid_selector": {
+    "hint": "Выбери селектор формата: section или line-range для Markdown, pointer для JSON, columns и where для CSV.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "history.journal_invalid": {
+    "hint": "Проверь указанную строку журнала и восстанови целостность по проверенной копии перед операциями записи.",
+    "skills": [],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "history.journal_truncated_line": {
+    "hint": "Последняя строка журнала требует проверки. Сохрани исходный журнал перед восстановлением.",
+    "skills": [],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "read.changed": {
+    "hint": "Повтори исходную команду с первой страницы, чтобы использовать актуальный снимок датасета.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  }
+}

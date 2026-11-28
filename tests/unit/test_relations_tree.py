@@ -20,7 +20,7 @@ def _json(result):
 
 
 def _init(runner, tmp_path):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
 
 
 def _record(tmp_path, rel, record_id, relations=None):
@@ -37,14 +37,14 @@ def test_docs_read_fragment_equals_section(tmp_path):
     md = tmp_path / "notes/a.md"
     md.parent.mkdir(parents=True, exist_ok=True)
     md.write_text("---\nid: doc:a\ntitle: A\n---\n\n# A\n\n## Принципы\n\nтекст раздела.\n", encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     by_fragment = _json(_run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:a#Принципы"]))
     by_section = _json(_run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:a",
                                      "--section", "Принципы"]))
     assert by_fragment["ok"] and by_section["ok"]
-    assert by_fragment["data"]["section"] == "Принципы"
-    assert by_fragment["data"]["text"] == by_section["data"]["text"] == "## Принципы\n\nтекст раздела."
-    assert by_fragment["data"]["line_start"] == by_section["data"]["line_start"]
+    assert by_fragment["data"]["result"]["section"] == "Принципы"
+    assert by_fragment["data"]["result"]["text"] == by_section["data"]["result"]["text"] == "## Принципы\n\nтекст раздела."
+    assert by_fragment["data"]["result"]["line_start"] == by_section["data"]["result"]["line_start"]
 
 
 def test_docs_read_fragment_conflict_with_section(tmp_path):
@@ -65,9 +65,9 @@ def test_tree_groups_directions_mentions(tmp_path):
     md = tmp_path / "notes/b.md"
     md.parent.mkdir(parents=True, exist_ok=True)
     md.write_text("---\ntitle: B\n---\n\n# B\n\nВитрина: [[document:a]]\n", encoding="utf-8")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
     tree = _json(_run(runner, ["relations", "tree", "--root", str(tmp_path),
-                               "--from", "document:a", "--depth", "2"]))["data"]
+                               "--from", "document:a", "--depth", "2"]))["data"]["result"]["tree"]
     assert tree["root"] == "document:a"
     groups = {g["type_id"]: g for g in tree["groups"]}
     assert set(groups) == {"supports", "blocked_by", "mention"}, tree["groups"]
@@ -89,9 +89,9 @@ def test_tree_depth_limit_markdown(tmp_path):
     _record(tmp_path, "records/documents/b.json", "document:b",
             [{"type_id": "supports", "target": {"kind": "record", "id": "document:c"}}])
     _record(tmp_path, "records/documents/c.json", "document:c")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
     deep = _json(_run(runner, ["relations", "tree", "--root", str(tmp_path),
-                               "--from", "document:a", "--depth", "2"]))["data"]
+                               "--from", "document:a", "--depth", "2"]))["data"]["result"]["tree"]
     groups = {g["type_id"]: g for g in deep["groups"]}
     child = groups["supports"]["edges"][0]
     assert child["id"] == "document:b"
@@ -100,16 +100,16 @@ def test_tree_depth_limit_markdown(tmp_path):
     assert any(e["direction"] == "out" and e["id"] == "document:c" and "cycle" not in e
                for e in nested[0]["edges"]), nested
     shallow = _json(_run(runner, ["relations", "tree", "--root", str(tmp_path),
-                                  "--from", "document:a", "--depth", "1"]))["data"]
+                                  "--from", "document:a", "--depth", "1"]))["data"]["result"]["tree"]
     shallow_child = {g["type_id"]: g for g in shallow["groups"]}["supports"]["edges"][0]
     assert shallow_child.get("children", []) == []
     # цикл не разворачивается повторно
     _record(tmp_path, "records/documents/b.json", "document:b",
             [{"type_id": "supports", "target": {"kind": "record", "id": "document:c"}},
              {"type_id": "supports", "target": {"kind": "record", "id": "document:a"}}])
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
     cycled = _json(_run(runner, ["relations", "tree", "--root", str(tmp_path),
-                                 "--from", "document:a", "--depth", "3"]))["data"]
+                                 "--from", "document:a", "--depth", "3"]))["data"]["result"]["tree"]
     assert cycled["groups"], cycled
     # markdown-рендер: компактные строки с отступами, mention помечен
     text = _run(runner, ["relations", "tree", "--root", str(tmp_path), "--from", "document:a",

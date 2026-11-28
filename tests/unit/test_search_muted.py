@@ -24,13 +24,13 @@ def _mk_skill(root: Path, rel: str, name: str, body: str) -> None:
 
 def test_muted_skill_excluded_from_docs_search(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     _mk_skill(tmp_path, "deploy/active-deploy", "active-deploy", "# Деплой\nСлово deploy в живом скиле.")
     _mk_skill(tmp_path, "deploy/!legacy-deploy", "legacy-deploy", "# Legacy\nСлово deploy в мьюте.")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
     r = _run(runner, ["docs", "search", "--root", str(tmp_path), "--query", "deploy"])
     assert r.exit_code == 0, r.output
-    hits = json.loads(r.output)["data"]["items"]
+    hits = json.loads(r.output)["data"]["result"]["items"]
     paths = [h["path"] for h in hits]
     assert any("active" in p for p in paths), paths
     assert not any("!legacy-deploy" in p for p in paths), paths

@@ -51,10 +51,10 @@ SPEC_TEMPLATE = ("# {title}\n\n- Тип: `{type_id}`\n- Дата: {date}\n- ID: 
 
 def test_docs_new_uses_the_type_template(root):
     _add_doc_type(root, "spec", SPEC, SPEC_TEMPLATE)
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "Оплата",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "Оплата",
                                 "--type", "spec", "--dir", "specs", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]
+    data = _json(result)["data"]["result"]
     assert data["doc_type"] == "spec"
     assert data["template"] == ".todoc/doc_types/spec/template.md"
     text = (root / data["path"]).read_text(encoding="utf-8")
@@ -68,30 +68,30 @@ def test_docs_new_uses_the_type_template(root):
 
 def test_docs_new_accepts_a_type_id_in_template_flag(root):
     _add_doc_type(root, "spec", SPEC, SPEC_TEMPLATE)
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--template", "spec", "--dir", "specs", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["doc_type"] == "spec"
+    assert _json(result)["data"]["result"]["doc_type"] == "spec"
 
 
 def test_docs_new_accepts_an_explicit_template_file(root, tmp_path):
     outside = root / "custom.md"
     outside.write_text("# {title}\n\n## Своя форма\n", encoding="utf-8")
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--template", "custom.md", "--dir", "inbox", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]
+    data = _json(result)["data"]["result"]
     assert data["template"] == "custom.md"
     assert "## Своя форма" in (root / data["path"]).read_text(encoding="utf-8")
 
 
 def test_docs_new_missing_template_file_is_a_validation_error(root):
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--template", "nope.md", "--output", "json"])
     assert result.exit_code == 3
     assert result.exception.code == "types.template_missing"
     # the envelope of a failure is only emitted by main(), hence the subprocess pair
-    proc = _run_cli(root, ["docs", "new", "--title", "T", "--template", "nope.md", "--output", "json"])
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "T", "--template", "nope.md", "--output", "json"])
     assert proc.returncode == 3, proc.stderr
     payload = json.loads(proc.stdout)
     assert payload["ok"] is False
@@ -99,20 +99,20 @@ def test_docs_new_missing_template_file_is_a_validation_error(root):
 
 
 def test_docs_new_unknown_type_is_a_validation_error(root):
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--type", "ghost", "--output", "json"])
     assert result.exit_code == 3
     assert result.exception.code == "types.unknown"
-    proc = _run_cli(root, ["docs", "new", "--title", "T", "--type", "ghost", "--output", "json"])
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "T", "--type", "ghost", "--output", "json"])
     assert proc.returncode == 3, proc.stderr
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "types.unknown"
 
 
 def test_docs_new_without_type_stays_a_bare_title(root):
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "Просто",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "Просто",
                                 "--dir", "inbox", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]
+    data = _json(result)["data"]["result"]
     assert data["doc_type"] is None and data["template"] == "none"
     # план doc-tags З3: fm-блок ставит движок; без типа строки doc_type нет
     text = (root / data["path"]).read_text(encoding="utf-8")
@@ -125,31 +125,31 @@ def test_docs_new_without_type_stays_a_bare_title(root):
 def test_docs_new_type_without_declared_template(root):
     _add_doc_type(root, "bare", {"schema_version": 1, "type_id": "bare", "version": "0.1",
                                  "kind": "doc_type", "format": "markdown"})
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--type", "bare", "--dir", "inbox", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["template"] == "type-without-template"
+    assert _json(result)["data"]["result"]["template"] == "type-without-template"
 
 
 def test_docs_new_declared_but_missing_template(root):
     _add_doc_type(root, "spec", SPEC)  # declares template.md but does not ship it
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--type", "spec", "--dir", "specs", "--output", "json"])
     assert result.exit_code == 3
     assert result.exception.code == "types.template_missing"
-    proc = _run_cli(root, ["docs", "new", "--title", "T", "--type", "spec", "--dir", "specs",
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "T", "--type", "spec", "--dir", "specs",
                            "--output", "json"])
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "types.template_missing"
 
 
 def test_docs_new_refuses_a_template_that_breaks_the_type(root):
     _add_doc_type(root, "spec", SPEC, "# {title}\n\n## Purpose\n\nonly one section\n")
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--type", "spec", "--dir", "specs", "--output", "json"])
     assert result.exit_code == 3
     assert result.exception.code == "types.template_invalid"
     assert not (root / "specs").exists()
-    proc = _run_cli(root, ["docs", "new", "--title", "T", "--type", "spec", "--dir", "specs",
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "T", "--type", "spec", "--dir", "specs",
                            "--output", "json"])
     assert proc.returncode == 3, proc.stderr
     assert "Purpose" not in json.loads(proc.stdout)["diagnostics"][0]["message"] or True
@@ -159,17 +159,17 @@ def test_docs_new_refuses_a_template_that_breaks_the_type(root):
 
 def test_docs_new_explicit_path_and_containment(root):
     _add_doc_type(root, "spec", SPEC, SPEC_TEMPLATE)
-    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T", "--type", "spec",
+    result = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T", "--type", "spec",
                                 "--path", "specs/deep/name.md", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["path"] == "specs/deep/name.md"
+    assert _json(result)["data"]["result"]["path"] == "specs/deep/name.md"
 
-    escape = _run(CliRunner(), ["--root", str(root), "docs", "new", "--title", "T",
+    escape = _run(CliRunner(), ["--root", str(root), "docs", "new", "--apply", "--title", "T",
                                 "--path", "../outside.md", "--output", "json"])
     assert escape.exit_code == 4
     assert escape.exception.code == "access.outside_data_root"
     assert not (root.parent / "outside.md").exists()
-    proc = _run_cli(root, ["docs", "new", "--title", "T", "--path", "../outside.md", "--output", "json"])
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "T", "--path", "../outside.md", "--output", "json"])
     assert proc.returncode == 4, proc.stderr
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "access.outside_data_root"
 
@@ -177,13 +177,13 @@ def test_docs_new_explicit_path_and_containment(root):
 def test_docs_new_existing_target_is_a_conflict(root):
     _add_doc_type(root, "spec", SPEC, SPEC_TEMPLATE)
     runner = CliRunner()
-    assert _run(runner, ["--root", str(root), "docs", "new", "--title", "T", "--type", "spec",
+    assert _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "T", "--type", "spec",
                          "--dir", "specs", "--output", "json"]).exit_code == 0
-    second = _run(runner, ["--root", str(root), "docs", "new", "--title", "T", "--type", "spec",
+    second = _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "T", "--type", "spec",
                            "--dir", "specs", "--output", "json"])
     assert second.exit_code == 5
     assert second.exception.code == "docs.target_exists"
-    proc = _run_cli(root, ["docs", "new", "--title", "T", "--type", "spec", "--dir", "specs",
+    proc = _run_cli(root, ["docs", "new", "--apply", "--title", "T", "--type", "spec", "--dir", "specs",
                            "--output", "json"])
     assert proc.returncode == 5, proc.stderr
     assert json.loads(proc.stdout)["diagnostics"][0]["code"] == "docs.target_exists"
@@ -198,7 +198,7 @@ def test_created_document_is_valid_against_its_type(root):
                    "assign": {"doc_type": "spec"}, "priority": 80}],
     }), encoding="utf-8")
     runner = CliRunner()
-    created = _run(runner, ["--root", str(root), "docs", "new", "--title", "T", "--type", "spec",
+    created = _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "T", "--type", "spec",
                             "--dir", "specs", "--output", "json"])
     assert created.exit_code == 0, created.output
     check = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
@@ -214,7 +214,7 @@ def test_types_show_reports_template_and_prompt_locations(root):
     _add_doc_type(root, "spec", SPEC, SPEC_TEMPLATE)
     (root / ".todoc" / "doc_types" / "spec" / "prompts").mkdir()
     (root / ".todoc" / "doc_types" / "spec" / "prompts" / "read.md").write_text("# read\n", encoding="utf-8")
-    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "spec", "--output", "json"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "spec", "--output", "json"]))["data"]["result"]
     assert data["kind"] == "doc_type"
     assert data["template"] == {"path": ".todoc/doc_types/spec/template.md", "exists": True}
     assert data["prompts"]["read"] == {"path": ".todoc/doc_types/spec/prompts/read.md", "exists": True}
@@ -222,7 +222,7 @@ def test_types_show_reports_template_and_prompt_locations(root):
 
 
 def test_types_show_for_a_dir_type_has_no_assets(root):
-    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "plan", "--output", "json"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "plan", "--output", "json"]))["data"]["result"]
     assert data["kind"] == "dir_type"
     assert data["template"] is None and data["prompts"] == {}
 
@@ -234,7 +234,7 @@ def test_types_show_for_a_type_without_a_declared_template(root):
     descriptor.pop("template")
     type_file.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2), encoding="utf-8")
     data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "workout",
-                                    "--output", "json"]))["data"]
+                                    "--output", "json"]))["data"]["result"]
     assert data["kind"] == "entity_type"
     assert data["template"] is None
     assert data["prompts"]["create"]["exists"] is True
@@ -255,7 +255,7 @@ def test_types_prompt_returns_each_crud_instruction(root):
         result = _run(runner, ["--root", str(root), "types", "prompt", "note", "--op", operation,
                                "--output", "json"])
         assert result.exit_code == 0, result.output
-        data = _json(result)["data"]
+        data = _json(result)["data"]["result"]
         assert data["operation"] == operation
         assert data["kind"] == "doc_type"
         assert data["path"] == f".todoc/doc_types/note/prompts/{operation}.md"
@@ -265,7 +265,7 @@ def test_types_prompt_returns_each_crud_instruction(root):
 
 def test_types_prompt_works_for_entity_types(root):
     data = _json(_run(CliRunner(), ["--root", str(root), "types", "prompt", "workout",
-                                    "--op", "create", "--output", "json"]))["data"]
+                                    "--op", "create", "--output", "json"]))["data"]["result"]
     assert data["kind"] == "entity_type"
     assert "records create" in data["prompt"]
 
@@ -299,7 +299,7 @@ def test_types_prompt_rejects_an_unknown_operation(root):
 def test_check_config_is_clean_on_a_fresh_dataset(root):
     data = _json(_run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"]))
     assert data["ok"] is True
-    assert data["data"]["datasets"][0]["issues"] == 0
+    assert data["data"]["result"]["datasets"][0]["issues"] == 0
 
 
 def test_check_config_reports_unknown_field_and_missing_template(root):
@@ -310,8 +310,8 @@ def test_check_config_reports_unknown_field_and_missing_template(root):
     assert payload["ok"] is False
     codes = {d["code"] for d in payload["diagnostics"]}
     assert codes == {"config.unknown_field", "config.template_missing"}
-    assert payload["data"]["datasets"][0]["ok"] is False
-    assert payload["data"]["datasets"][0]["issues"] == 2
+    assert payload["data"]["result"]["datasets"][0]["ok"] is False
+    assert payload["data"]["result"]["datasets"][0]["issues"] == 2
 
 
 def test_check_config_envelope_and_exit_code_agree_in_a_subprocess(root):
@@ -337,7 +337,7 @@ def test_types_show_reports_the_schema_of_an_entity_type(root):
     # `workout` is entity-only: `note` exists as a doc_type too and would be found first.
     (root / ".todoc" / "entity_types" / "workout" / "schema.json").write_text(
         json.dumps({"type": "object", "required": ["record_id"]}), encoding="utf-8")
-    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"]))["data"]
+    data = _json(_run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"]))["data"]["result"]
     assert data["schema"] == {"path": ".todoc/entity_types/workout/schema.json", "exists": True}
 
 
@@ -351,7 +351,7 @@ def test_types_show_reports_an_asset_outside_data_root_as_is(root):
     (base / "type.json").write_text(json.dumps(declared, indent=2), encoding="utf-8")
     result = _run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["schema"] == {"path": str(outside), "exists": True}
+    assert _json(result)["data"]["result"]["schema"] == {"path": str(outside), "exists": True}
 
 
 def test_check_config_accepts_a_schema_kept_in_the_type_folder(root):
@@ -360,7 +360,7 @@ def test_check_config_accepts_a_schema_kept_in_the_type_folder(root):
         json.dumps({"type": "object", "required": ["record_id"]}), encoding="utf-8")
     result = _run(CliRunner(), ["--root", str(root), "check-config", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["datasets"][0]["issues"] == 0
+    assert _json(result)["data"]["result"]["datasets"][0]["issues"] == 0
 
 
 def test_check_config_flags_a_schema_declared_twice(root):
@@ -391,7 +391,7 @@ def test_check_config_flags_a_declared_schema_that_is_missing(root):
 def test_init_keeps_every_type_asset_inside_the_type_folder(root):
     """A fresh dataset has no parallel templates/ or schemas/ catalogs to drift from."""
     fresh = root / "fresh"
-    assert _run(CliRunner(), ["init", "--root", str(fresh), "--output", "json"]).exit_code == 0
+    assert _run(CliRunner(), ["init", "--apply", "--root", str(fresh), "--output", "json"]).exit_code == 0
     todoc = fresh / ".todoc"
     assert not (todoc / "templates").exists()
     assert not (todoc / "schemas").exists()
@@ -412,7 +412,7 @@ def test_a_template_outside_the_type_folder_is_not_used(root):
         encoding="utf-8")
     result = _run(CliRunner(), ["--root", str(root), "types", "show", "workout", "--output", "json"])
     assert result.exit_code == 0, result.output
-    data = _json(result)["data"]
+    data = _json(result)["data"]["result"]
     assert data["template"] == {"path": ".todoc/entity_types/workout/template.json", "exists": False}
 
 
@@ -429,3 +429,26 @@ def test_a_schema_violation_points_at_the_schema_in_the_type_folder(root):
     diagnostics = _json(result)["diagnostics"]
     assert [d["code"] for d in diagnostics] == ["record.schema_violation"]
     assert diagnostics[0]["evidence"] == "schema: .todoc/entity_types/workout/schema.json"
+
+
+def test_doc_type_schema_and_status_apply_to_creates_and_metadata_edits(root, tmp_path):
+    _add_doc_type(root, "spec", {**SPEC, "allowed_statuses": ["ready"]}, SPEC_TEMPLATE)
+    schema = root / ".todoc/doc_types/spec/schema.json"
+    schema.write_text(json.dumps({"type": "object", "properties": {"rank": {"type": "integer"}}}), encoding="utf-8")
+    attributes = tmp_path / "attributes.json"
+    args = ["--root", str(root), "docs", "new", "--title", "Specification", "--type", "spec",
+            "--attributes-file", str(attributes), "--path", "spec.md"]
+    attributes.write_text('{"status":"unknown","rank":3}', encoding="utf-8")
+    result = _run(CliRunner(), args + ["--apply"])
+    assert result.exception.code == "docs.status_not_allowed"
+    assert not (root / "spec.md").exists()
+
+    attributes.write_text('{"status":"ready","rank":3}', encoding="utf-8")
+    result = _run(CliRunner(), args + ["--apply"])
+    assert result.exit_code == 0, result.exception
+
+    patch = tmp_path / "edit.json"
+    patch.write_text('{"metadata":[{"op":"set","field":"rank","value":4}]}', encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(root), "docs", "edit", "--id", "doc:spec.md",
+                                "--patch-file", str(patch)])
+    assert result.exit_code == 0, result.exception

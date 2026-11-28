@@ -11,6 +11,7 @@ validated independently.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
@@ -20,6 +21,7 @@ from urllib.parse import unquote
 from markdown_it import MarkdownIt
 
 _MD = MarkdownIt("commonmark")  # shared parser instance (parse is stateless per call)
+_MD_OUTLINE = MarkdownIt("commonmark").disable("inline")
 
 # Only for column location of token-confirmed inline links, never for discovery.
 _INLINE_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
@@ -76,12 +78,16 @@ def _yaml_unsafe(value: str) -> bool:
     return ": " in value or value.endswith(":")
 
 
+def _reject_json_constant(name: str) -> None:
+    raise ValueError(f'Unsupported JSON constant: {name}')
+
+
 def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int, list[tuple[int, str]]]:
     """Return (front_matter, body, body_start_line_1based, warnings).
 
     YAML-lite subset: ``key: value`` pairs, ``true``/``false`` booleans and
-    inline ``[a, b]`` lists. Numbers stay strings; nested maps and multiline
-    blocks are not supported (minimal front matter schema, MD-KB guide).
+    inline ``[a, b]`` lists and inline JSON objects. Bare numbers stay strings
+    for compatibility. Multiline YAML blocks remain unsupported.
     Duplicate keys: last wins. Warnings carry (1-based line, message) for
     values a real YAML parser would reject.
     """
@@ -107,13 +113,27 @@ def _parse_front_matter(text: str) -> tuple[dict[str, Any], str, int, list[tuple
         if _yaml_unsafe(value):
             warnings.append((lineno, f"Значение ключа {key!r} нужно взять в кавычки: "
                                      f"YAML-парсер отклонит незакавыченное {value!r}."))
+        if quoted and value.startswith('"'):
+            try:
+                fm[key] = json.loads(value, parse_constant=_reject_json_constant)
+                continue
+            except ValueError:
+                pass
         if quoted:
-            value = value[1:-1]
-        if value in ("true", "false"):
-            fm[key] = value == "true"
+            fm[key] = value[1:-1]
+        elif value in ("true", "false", "null"):
+            fm[key] = {"true": True, "false": False, "null": None}[value]
         elif value.startswith("[") and value.endswith("]"):
-            inner = value[1:-1].strip()
-            fm[key] = [v.strip().strip('"').strip("'") for v in inner.split(",") if v.strip()] if inner else []
+            try:
+                fm[key] = json.loads(value, parse_constant=_reject_json_constant)
+            except (ValueError, RecursionError):
+                inner = value[1:-1].strip()
+                fm[key] = [v.strip().strip('"').strip("'") for v in inner.split(",") if v.strip()] if inner else []
+        elif value.startswith("{") and value.endswith("}"):
+            try:
+                fm[key] = json.loads(value, parse_constant=_reject_json_constant)
+            except (ValueError, RecursionError):
+                fm[key] = value
         else:
             fm[key] = value
     body = "\n".join(lines[end + 1 :])
@@ -263,11 +283,12 @@ def _wikilinks(body_lines: list[str], body_start: int, regions: list[tuple[int, 
     return links
 
 
-def parse_markdown(text: str) -> MarkdownDoc:
+def parse_markdown(text: str, *, include_links: bool = True) -> MarkdownDoc:
     if text.startswith("\ufeff"):
         text = text[1:]
     front_matter, body, body_start, fm_warnings = _parse_front_matter(text)
-    tokens = _MD.parse(body)
+    env: dict[str, Any] = {}
+    tokens = (_MD if include_links else _MD_OUTLINE).parse(body, env)
     headings: list[Heading] = []
     stack: list[tuple[int, int]] = []  # (level, index)
     seen_anchors: dict[str, int] = {}
@@ -280,7 +301,11 @@ def parse_markdown(text: str) -> MarkdownDoc:
             # markdown-it always emits an inline token after heading_open;
             # `children or []` keeps this safe if a plugin changes that.
             inline = tokens[i + 1] if i + 1 < len(tokens) else None
-            title = _inline_text(inline.children or []).strip() if inline is not None else ""
+            if inline is not None and not include_links:
+                children = _MD.parseInline(inline.content, env)[0].children
+            else:
+                children = inline.children if inline is not None else None
+            title = _inline_text(children or []).strip()
             base = _slugify(title)
             count = seen_anchors.get(base, 0)
             anchor = base if count == 0 else f"{base}-{count}"
@@ -296,11 +321,13 @@ def parse_markdown(text: str) -> MarkdownDoc:
         if h.parent_index is not None:
             headings[h.parent_index].children.append(h)
 
-    body_lines = body.splitlines()
-    raw_links = _token_links(tokens, body_start)
-    links = _locate_columns(raw_links, body_lines, body_start)
-    links.extend(_wikilinks(body_lines, body_start, _code_regions(tokens, body_start)))
-    links.sort(key=lambda link: (link.line, link.column))
+    links = []
+    if include_links:
+        body_lines = body.splitlines()
+        raw_links = _token_links(tokens, body_start)
+        links = _locate_columns(raw_links, body_lines, body_start)
+        links.extend(_wikilinks(body_lines, body_start, _code_regions(tokens, body_start)))
+        links.sort(key=lambda link: (link.line, link.column))
 
     title = ""
     if front_matter.get("title"):

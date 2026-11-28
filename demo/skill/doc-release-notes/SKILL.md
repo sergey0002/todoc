@@ -1,11 +1,13 @@
 ---
+id: "doc:skill/doc-release-notes/SKILL.md"
+title: "Сборка release-note"
 name: doc-release-notes
 description: >
   Сборка релизной сводки release-note из существующих данных: release-запись + task-snapshot'и + affected flow/rule + incident/fixes. Применять при выпуске версии.
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [skill, documentation, agent]
 ---
 

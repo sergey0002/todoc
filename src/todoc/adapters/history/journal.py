@@ -90,28 +90,26 @@ def truncated_last_line(root: Path) -> bool:
     return False
 
 
-def events_bytes(events: list[dict[str, Any]]) -> int:
-    """Объём журнала, который заняли бы эти события, — в тех же байтах, что на диске.
+def _retained_line(event: dict[str, Any]) -> str:
+    payload = {key: value for key, value in event.items() if key != "rev"}
+    line = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    revision = event.get("rev")
+    if revision is None or revision == event_rev(line):
+        return line
+    # Older or imported JSONL may have different whitespace. Both readers
+    # recognize an explicit revision, so compaction keeps existing references.
+    return json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
-    Считается той же сериализацией, что и при записи, иначе потолок ``max_journal_bytes``
-    сравнивался бы с числом, которого в файле никогда не было.
-    """
-    return sum(
-        len(json.dumps({k: v for k, v in e.items() if k != "rev"}, ensure_ascii=False,
-                       sort_keys=True, separators=(",", ":")).encode("utf-8")) + 1
-        for e in events
-    )
+
+def events_bytes(events: list[dict[str, Any]]) -> int:
+    """Return the size of the serialized journal after compaction."""
+    return sum(len(_retained_line(event).encode("utf-8")) + 1 for event in events)
 
 
 def rewrite(root: Path, events: list[dict[str, Any]]) -> None:
-    """Перезаписывает журнал (используется только сборкой мусора), атомарно."""
+    """Replace the journal atomically, preserving existing revision identifiers."""
     from todoc.adapters.filesystem.scanner import atomic_write
 
     path = journal_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    body = "".join(
-        json.dumps({k: v for k, v in e.items() if k != "rev"}, ensure_ascii=False, sort_keys=True,
-                   separators=(",", ":")) + "\n"
-        for e in events
-    )
+    body = "".join(_retained_line(event) + "\n" for event in events)
     atomic_write(path, body)

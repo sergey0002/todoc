@@ -1,4 +1,6 @@
 ---
+created: 2026-11-25
+updated: 2026-11-26
 id: doc:state-benchmark
 title: "Состояние: бенчмарк качества и сравнение с конкурентами"
 doc_type: reference

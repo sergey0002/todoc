@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import hashlib
 import re
 import shutil
 import sys
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,26 +16,31 @@ from typing import Any
 import click
 
 from todoc import __version__
-from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root
-from todoc.adapters.history.journal import read_events
+from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root, read_verified_text
 from todoc.adapters.formats.csvfmt import parse_csv
 from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
 from todoc.adapters.formats.markdown import (heading_path_for, parse_markdown,
                                            resolve_link_target)
 from todoc.application.history import (add_tag, blame as history_blame, content_at, diff_texts,
-                                       export as history_export_run, gc as history_gc_run,
+                                       gc as history_gc_run,
                                        adopt as history_adopt_run, journal_diagnostics,
                                        log as history_log, resolve_rev,
                                        revert_plan, show as history_show)
 from todoc.application.changes import (TRANSLIT, apply_change, archive_change, change_id_for,
-                                       collect_deltas, list_changes, load_change,
+                                       collect_deltas, list_change_entries, load_change,
                                        open_change, record_path, revert_change,
                                        validate_change, verify_change)
 from todoc.application.flow_view import build_flow_view
 from todoc.application.interop import (anchor_for, build_export_doc, flow_to_asl,
                                        related_flow_id, rule_to_dmn, terms_to_rasa)
 from todoc.application.context import build_context
-from todoc.application.query import aggregate_records, build_tree, graph_neighbors, query_records
+from todoc.application.documents import (FIELDS as DOCUMENT_LIST_FIELDS, folder_tree, list_documents,
+                                         matching_documents, normalize_scope, select_document_attributes, within_depth)
+from todoc.application.metadata_patch import plan_metadata_patch, rewrite_markdown_attributes
+from todoc.application.paging import cursor_offset, next_page_cursor, page, selection_key
+from todoc.application.filters import OPERATORS, compile_conditions, matches_conditions, split_values, tag_matches
+from todoc.application.query import (aggregate_records, build_tree, graph_neighbors, query_records,
+                                     slice_relation_tree)
 from todoc.application.folder_config import load_folder_configs, score_folder_configs
 from todoc.application.state import get_var, load_state, set_var, unset_var
 from todoc.application.search import search_documents
@@ -41,39 +48,55 @@ from todoc.application.skills import scan_skills
 from todoc.application.staleness import check_all, collect_owners, current_hashes, fragment_hash, plan_ack
 from todoc.application.temporal import InvalidInstant, timeline as build_timeline
 from todoc.domain.models import WritePlan
-from todoc.application.validator import (_basename_index, _entity_types_of,
+from todoc.application.validator import (_basename_index, _check_meta_fields, _doc_types_of, _entity_types_of,
                                          _load_schemas, _wikilink_candidates, stable_id)
 from todoc.application.sync import sync_files
-from todoc.application.write import (apply_edit_ops, apply_fix, apply_undo_relation, apply_write_plan,
+from todoc.application.write import (apply_undo_relation, apply_write_plan,
                                      create_document_plan, create_record_plan, load_input_record,
-                                     plan_undo_relation)
+                                     plan_edit_ops, plan_undo_relation)
 from todoc.config import init_dataset
 from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_USAGE, EXIT_VALIDATION,
-                          AccessError, ConflictError, TodocError, ValidationError)
-from todoc.output.envelope import emit, make_envelope
+                          AccessError, ConflictError, IncompleteError, TodocError, ValidationError)
+from todoc.output.envelope import Envelope, emit
+from todoc.output.guidance import guidance_for
+from todoc.output.capabilities import UnifiedCommand, command_name, group_discovery
+from todoc.output.filter_options import AttributeFilterCommand
+from todoc.output.views import mermaid_graph, project_fields, selected_fields
 from todoc.service import DatasetContext, resolve_roots
+from todoc.typing_system.document_metadata import (SCHEMA_PATH, default_metadata_schema, load_metadata_schema,
+                                                 metadata_errors, normalize_markdown_attributes)
 from todoc.typing_system.descriptors import (PROMPT_OPERATIONS, descriptor_diagnostics,
                                              load_json_file, prompt_files, schema_file,
                                              template_file, type_kind_dir)
 
 
-def _emit_ok(data: dict[str, Any], output: str, out: str | None, diagnostics: list[dict[str, Any]] | None = None,
-             next_actions: list[dict[str, Any]] | None = None) -> None:
-    emit(make_envelope(True, data, diagnostics, next_actions), output, out)
-
-
 def _emit_result(data: dict[str, Any], output: str, diagnostics: list[dict[str, Any]], failed: bool) -> None:
-    """Emit a validation result whose envelope agrees with the exit code.
-
-    Findings live in the envelope's ``diagnostics`` (not only inside ``data``),
-    and ``ok`` is ``false`` whenever the call exits non-zero — a caller must not
-    have to reconcile ``ok: true`` with exit code 3.
-    """
-    actions = [{"argv": ["todoc", "fix", "--diagnostic", str(diagnostics[0].get("id", "")), "--preview"],
-                "purpose": "Показать план исправления первой диагностики"}] if diagnostics else []
-    emit(make_envelope(not failed, data, diagnostics, actions), output, None)
+    """Emit a dataset report with one diagnostics list and the matching exit code."""
+    command = command_name(click.get_current_context())
+    roots = [report["root"] for report in data["datasets"]]
+    response = Envelope.result({"command": command, "scope": {"roots": roots}}, data, diagnostics=diagnostics)
+    response.ok = not failed
+    if diagnostics:
+        first = diagnostics[0]
+        if any(fix.get("autofixable") for fix in first.get("suggested_fixes", [])):
+            response.next_actions = [
+                {"argv": ["todoc", "fix", "--root", first["root"], "--diagnostic", first["id"], "--preview"],
+                 "purpose": "Показать план исправления"}
+            ]
+        else:
+            response.next_actions = [
+                {"argv": ["todoc", command, "--help"], "purpose": "Посмотреть инструкции команды"}
+            ]
+    emit(response, output)
     if failed:
-        sys.exit(3)
+        raise click.exceptions.Exit(EXIT_VALIDATION)
+
+
+def _scan_sources(ctx: DatasetContext):
+    try:
+        return ctx.scan_and_validate(ctx.scan(strict=True), write_cache=False)
+    except OSError as exc:
+        raise IncompleteError(f"Could not read dataset {ctx.root}: {exc}") from exc
 
 
 SECTION_MAX_LINES = 40
@@ -151,7 +174,29 @@ def _parse_line_range(line_range: str) -> tuple[int, int]:
     return start, end
 
 
-@click.group(invoke_without_command=True)
+class DiscoverableGroup(click.Group):
+    group_class = type
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        if not args and ctx.parent is not None:
+            _emit_group_discovery(self, ctx, ctx.find_root().params["output"])
+            ctx.exit()
+        return super().parse_args(ctx, args)
+
+
+def _emit_group_discovery(group: click.Group, ctx: click.Context, output: str) -> None:
+    names = []
+    while ctx.parent is not None:
+        names.append(ctx.info_name or "")
+        ctx = ctx.parent
+    name = " ".join(reversed(names)) or "todoc"
+    emit(Envelope(
+        True, group_discovery(group, name), schema_version=2,
+        guidance={"profile": "ru", "mode": "compact", "items": []},
+    ), output)
+
+
+@click.group(cls=DiscoverableGroup, invoke_without_command=True)
 @click.option("--root", "roots", multiple=True, help="DATA_ROOT (repeatable). Or set TODOC_ROOT.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True, help="Non-interactive mode (never prompts).")
@@ -167,26 +212,48 @@ def cli(ctx: click.Context, roots: tuple[str, ...], output: str, no_input: bool)
     ctx.obj["output"] = output
     ctx.obj["no_input"] = no_input
     if ctx.invoked_subcommand is None:
-        click.echo("todoc — portable typed knowledge substrate")
-        click.echo("Commands: init, check, scan, check-config, validate, index, explain-path,")
-        click.echo("  docs, records, relations, types, fix, doctor, status")
-        click.echo("Use `todoc --help` for details. Pass --root <DATA_ROOT> (repeatable) or set TODOC_ROOT.")
+        _emit_group_discovery(cli, ctx, output)
 
 
-@cli.command()
+@cli.command(cls=UnifiedCommand)
 @click.option("--root", "root", required=True, help="DATA_ROOT to initialize.")
 @click.option("--dataset-id", default=None,
               help="Идентификатор датасета. По умолчанию случаен; явное значение делает "
                    "демо-датасет и фикстуры воспроизводимыми.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def init(root: str, dataset_id: str | None, output: str, no_input: bool) -> None:
+@click.option("--document-metadata", is_flag=True, help="Install the shared schema for managed documents.")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def init(root: str, dataset_id: str | None, output: str, no_input: bool, document_metadata: bool,
+         preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Create portable .todoc/ control files (never scans/moves user data)."""
-    dataset = init_dataset(Path(root), dataset_id)
-    _emit_ok({"dataset_id": dataset["dataset_id"], "root": str(Path(root).resolve()), "created": ".todoc/"}, output, None)
+    _check_action_flags(preview, apply_)
+    target = Path(root).resolve()
+    control = target / ".todoc"
+    if control.is_symlink():
+        raise AccessError(f"Dataset control path is a symlink: {control}", "access.outside_data_root")
+    if document_metadata and (target / SCHEMA_PATH).exists():
+        raise ValidationError(f"Metadata schema already exists at {target / SCHEMA_PATH}", "metadata.schema_exists")
+    if (control / "dataset.json").is_file():
+        raise ValidationError(f"Dataset already initialized at {target}", "config.already_initialized")
+    if dataset_id is not None:
+        dataset_id = dataset_id.strip()
+        if not dataset_id:
+            raise ValidationError("dataset_id must be a non-empty string", "config.invalid_schema")
+    plan_hash = selection_key([str(target), dataset_id, document_metadata])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The initialization plan is stale.", "write.hash_mismatch")
+    if apply_:
+        dataset_id = init_dataset(target, dataset_id, document_metadata=document_metadata)["dataset_id"]
+    emit(Envelope.result({"command": "init", "scope": {"root": str(target)}},
+                         {"dataset_id": dataset_id, "root": str(target), "path": ".todoc/",
+                          "created": ".todoc/" if apply_ else None, "applied": apply_,
+                          "document_metadata": document_metadata, "plan_hash": plan_hash}), output)
 
 
-@cli.command("check-config")
+@cli.command("check-config", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -201,6 +268,7 @@ def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     collected: list[dict[str, Any]] = []
     failed = False
     for ctx in _contexts(roots):
+        load_metadata_schema(ctx.root)
         findings: list[dict[str, Any]] = []
         for kind, store in (("dir_type", ctx.registry_types.dir_types), ("doc_type", ctx.registry_types.doc_types),
                             ("entity_type", ctx.registry_types.entity_types),
@@ -209,7 +277,7 @@ def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
                 rel = f".todoc/{type_kind_dir(ctx.dataset, kind)}/{type_id}/type.json"
                 for item in descriptor_diagnostics(ctx.root, ctx.dataset, kind, store[type_id], rel):
                     findings.append({
-                        "dataset_id": ctx.dataset_id, "id": stable_id(rel, item["code"], item["message"]),
+                        "dataset_id": ctx.dataset_id, "root": str(ctx.root), "id": stable_id(rel, item["code"], item["message"]),
                         "code": item["code"], "severity": item.get("severity", "error"),
                         "path": item["path"], "location": {},
                         "evidence": f"type_id: {type_id}", "message": item["message"], "suggested_fixes": [],
@@ -218,7 +286,7 @@ def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
         errors = [item for item in findings if item["severity"] == "error"]
         if errors:
             failed = True
-        results.append({"dataset_id": ctx.dataset_id, "ok": not errors,
+        results.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "ok": not errors,
                         "warnings": len(findings) - len(errors),
                         "dir_types": len(ctx.registry_types.dir_types),
                         "doc_types": len(ctx.registry_types.doc_types),
@@ -228,7 +296,7 @@ def check_config(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     _emit_result({"datasets": results}, output, collected, failed)
 
 
-@cli.command()
+@cli.command("check", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -239,18 +307,18 @@ def check(roots: tuple[str, ...], output: str, no_input: bool, strict: bool) -> 
     collected: list[dict[str, Any]] = []
     has_error = False
     for ctx in _contexts(roots):
-        _folders, documents, _records, _relations, diagnostics = ctx.scan_and_validate()
+        _folders, documents, _records, _relations, diagnostics = _scan_sources(ctx)
         errors = sum(1 for d in diagnostics if d.get("severity") == "error")
         warnings = sum(1 for d in diagnostics if d.get("severity") == "warning")
-        if errors or (strict and warnings):
-            has_error = True
-        reports.append({"dataset_id": ctx.dataset_id, "documents": len(documents), "errors": errors,
-                        "warnings": warnings, "status": "issues_found" if errors else "ok"})
-        collected.extend(diagnostics)
+        bad = bool(errors or (strict and warnings))
+        has_error |= bad
+        reports.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "documents": len(documents), "errors": errors,
+                        "warnings": warnings, "status": "issues_found" if bad else "ok"})
+        collected.extend({**item, "root": str(ctx.root)} for item in diagnostics)
     _emit_result({"datasets": reports}, output, collected, has_error)
 
 
-@cli.command()
+@cli.command("scan", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -258,13 +326,13 @@ def scan(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     """Deterministic traversal without writing indexes."""
     results = []
     for ctx in _contexts(roots):
-        folders, documents, _r, _rel, diagnostics = ctx.scan_and_validate()
-        results.append({"dataset_id": ctx.dataset_id, "folders": len(folders), "documents": len(documents),
+        folders, documents, _r, _rel, diagnostics = _scan_sources(ctx)
+        results.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "folders": len(folders), "documents": len(documents),
                         "diagnostics": len(diagnostics)})
-    _emit_ok({"datasets": results}, output, None)
+    _emit_result({"datasets": results}, output, [], False)
 
 
-@cli.command()
+@cli.command("validate", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -275,12 +343,12 @@ def validate(roots: tuple[str, ...], output: str, no_input: bool, all_: bool) ->
     collected: list[dict[str, Any]] = []
     has_error = False
     for ctx in _contexts(roots):
-        _f, documents, _r, _rel, diagnostics = ctx.scan_and_validate()
+        _f, documents, _r, _rel, diagnostics = _scan_sources(ctx)
         errors = [d for d in diagnostics if d.get("severity") == "error"]
         if errors:
             has_error = True
-        reports.append({"dataset_id": ctx.dataset_id, "documents": len(documents), "diagnostics": diagnostics})
-        collected.extend(diagnostics)
+        reports.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "documents": len(documents), "diagnostic_count": len(diagnostics)})
+        collected.extend({**item, "root": str(ctx.root)} for item in diagnostics)
     _emit_result({"datasets": reports}, output, collected, has_error)
 
 
@@ -290,28 +358,43 @@ def index(ctx: click.Context) -> None:
     """Index status/rebuild (derived, rebuildable)."""
 
 
-@index.command("status")
+@index.command("status", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def index_status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     results = []
     for ctx in _contexts(roots):
-        meta = ctx.store.read_current_meta() or {}
-        gen = meta.get("generation_id")
-        results.append({"dataset_id": ctx.dataset_id, "generation_id": gen, "current": gen is not None,
-                        "corpus_digest": meta.get("corpus_digest"), "created_at": meta.get("created_at")})
-    _emit_ok({"datasets": results}, output, None)
+        snapshot = ctx.index_status()
+        meta = snapshot.meta or {}
+        results.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root),
+                        "generation_id": meta.get("generation_id"), "current": snapshot.state == "valid",
+                        "state": snapshot.state, "freshness": None, "corpus_digest": meta.get("corpus_digest"),
+                        "created_at": meta.get("created_at")})
+    _emit_result({"datasets": results}, output, [], False)
 
 
-@index.command("rebuild")
+@index.command("rebuild", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--force", is_flag=True, help="Recompute even when the corpus digest is unchanged.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def index_rebuild(roots: tuple[str, ...], force: bool, output: str, no_input: bool) -> None:
-    results = [ctx.rebuild_index(force=force) for ctx in _contexts(roots)]
-    _emit_ok({"datasets": results}, output, None)
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+def index_rebuild(roots: tuple[str, ...], force: bool, output: str, no_input: bool,
+                  preview: bool, apply_: bool) -> None:
+    """Preview or publish a rebuilt index."""
+    _check_action_flags(preview, apply_)
+    results = []
+    for ctx in _contexts(roots):
+        if apply_:
+            report = ctx.rebuild_index(force=force)
+        else:
+            snapshot = ctx.read_index(include_mentions=False)
+            report = {"documents": len(snapshot["documents"]), "records": len(snapshot["records"]),
+                      "corpus_digest": snapshot["corpus_digest"], "force": force}
+        results.append({"dataset_id": ctx.dataset_id, **report, "root": str(ctx.root), "applied": apply_})
+    _emit_result({"datasets": results}, output, [], False)
 
 
 @cli.group()
@@ -319,7 +402,7 @@ def skills() -> None:
     """Skills vault (open Agent Skills standard): tree/read/attach/import."""
 
 
-@skills.command("tree")
+@skills.command("tree", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--vault", default="skills", show_default=True, help="Vault dir relative to DATA_ROOT.")
 @click.option("--within", default=None, help="Срез раздела: префикс пути секции (напр. coding/git).")
@@ -327,13 +410,13 @@ def skills() -> None:
 @click.option("--all", "show_all", is_flag=True, help="Показать мьютнутые (!-папки) с пометкой [!].")
 @click.option("--limit", type=int, default=100, show_default=True, help="Bounded output (P7).")
 @click.option("--max-depth", type=int, default=6, show_default=True, help="Глубина печатаемого дерева.")
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: str | None,
                 show_all: bool, limit: int, max_depth: int, output: str, no_input: bool) -> None:
     """Оглавление хранилища скилов на лету (live-scan, без индекса — P1)."""
-    ctx = _contexts(roots)[0]
-    vault_root = ctx.root / vault
+    ctx = _single_context(roots, "skills")
+    vault_root = _contained_out(ctx.root, vault)
     skills_list, _diags = scan_skills(vault_root)
     if not vault_root.is_dir():
         raise TodocError(f"Хранилище скилов не найдено: {vault}/ (DATA_ROOT: {ctx.root})",
@@ -374,10 +457,9 @@ def skills_tree(roots: tuple[str, ...], vault: str, within: str | None, query: s
         "section_meta": section_meta,
         "truncated": truncated,
     }
-    if output == "table":
-        click.echo(_skills_tree_text(items, data["counts"], truncated, max_depth, section_meta))
-        return
-    _emit_ok(data, output, None,
+    if output != "json":
+        data["tree_text"] = _skills_tree_text(items, data["counts"], truncated, max_depth, section_meta)
+    _emit_command_result(ctx, data, output,
              next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", "<путь из дерева>"],
                             "purpose": "Прочитать SKILL.md выбранного скила"}])
 
@@ -427,69 +509,82 @@ def _skills_tree_text(shown: list[dict[str, Any]], counts: dict[str, int],
     return "\n".join(lines)
 
 
-@skills.command("read")
+@skills.command("read", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--vault", default="skills", show_default=True)
-@click.option("--path", "p", required=True, help="Папка скила или путь к SKILL.md (можно с префиксом vault).")
-@click.option("--line-range", default=None, help="Диапазон строк A-B (дефис).")
-@click.option("--budget", type=int, default=None, help="Максимум байт содержимого (честный бюджет).")
-@click.option("--output", type=click.Choice(["json", "markdown"]), default="json", show_default=True)
+@click.option("--path", "p", help="Skill folder or relative path to SKILL.md.")
+@click.option("--line-range", help="Inclusive line range A-B.")
+@click.option("--budget", type=click.IntRange(min=1), default=4000,
+              help="Maximum Unicode characters of skill content.", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
 @click.option("--no-input", is_flag=True)
-def skills_read(roots: tuple[str, ...], vault: str, p: str, line_range: str | None,
-                budget: int | None, output: str, no_input: bool) -> None:
-    """Прочитать SKILL.md скила: путь резолвится только внутри vault (confinement)."""
-    ctx = _contexts(roots)[0]
-    vault_root = (ctx.root / vault).resolve()
-    skills_list, _diags = scan_skills(vault_root)
-    rel = Path(p.strip("/"))
-    parts = rel.as_posix().split("/")
-    if parts and parts[0] == vault:
-        parts = parts[1:]
-    rel = Path("/".join(parts))
-    if rel.as_posix().endswith("/SKILL.md"):
-        folder_rel = rel.parent.as_posix()
-    else:
-        folder_rel = rel.as_posix()
-    skill = next((s for s in skills_list
-                  if s.path == folder_rel or s.path.lstrip("!") == folder_rel), None)
-    target = vault_root / folder_rel / "SKILL.md" if skill is None else vault_root / skill.skill_md
-    if skill is None or not target.is_file() or not is_within_root(vault_root, target):
-        raise TodocError(
-            f"Скил не найден вне/внутри vault: {p} (vault: {vault}/). Сначала: todoc skills tree",
-            EXIT_OPERATION, "skills.not_found")
-    content = target.read_text(encoding="utf-8")
-    truncated = False
-    if line_range:
-        a, _, b = line_range.partition("-")
-        lo, hi = max(1, int(a or 1)), int(b or 10**9)
-        lines = content.splitlines(keepends=True)
-        content = "".join(lines[lo - 1:hi])
-    if budget is not None:
-        encoded = content.encode("utf-8")
-        if len(encoded) > budget:
-            content = encoded[:budget].decode("utf-8", errors="ignore")
-            truncated = True
-    if output == "markdown":
-        click.echo(content)
+def skills_read(roots: tuple[str, ...], vault: str, p: str | None, line_range: str | None,
+                budget: int, output: str, no_input: bool) -> None:
+    """Read one bounded skill source and its metadata."""
+    meta = {"command": "skills read", "scope": None}
+    if p is None:
+        emit(Envelope(True, {"meta": meta, "executed": False, "result": {"input": "Pass --path."}},
+                      schema_version=2, guidance=guidance_for([])), output)
         return
-    _emit_ok({"path": skill.skill_md, "name": skill.name, "description": skill.description,
-              "muted": skill.muted, "content": content, "truncated": truncated},
-             output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["skills", "read", "--path", skill.path],
-                            "purpose": "Перечитать скил"},
-                           {"argv": _root_argv(roots) + ["docs", "read", "--id",
-                                                         f"doc:{skill.skill_md.removesuffix('/SKILL.md')}"],
-                            "purpose": "Прочитать скил как документ датасета (bounded)"}])
+    ctx = _single_context(roots, "skills")
+    vault = normalize_scope(vault)
+    vault_root = _contained_out(ctx.root, vault)
+    scope = normalize_scope(p)
+    if scope.startswith(vault + "/"):
+        scope = scope[len(vault) + 1:]
+    if Path(scope).name == "SKILL.md":
+        scope = Path(scope).parent.as_posix()
+    skills_list, findings = scan_skills(vault_root)
+    skill = next((item for item in skills_list if item.path in (scope, f"!{scope}")), None)
+    if skill is None:
+        issue = next((item for item in findings
+                      if item["path"] in (f"{scope}/SKILL.md", "SKILL.md" if scope == "." else "")), None)
+        if issue is not None:
+            raise IncompleteError(issue["message"], issue["code"])
+        raise TodocError(f"Skill not found: {p}", EXIT_OPERATION, "skills.not_found")
+    target = vault_root / skill.skill_md
+    if not is_within_root(vault_root, target):
+        raise AccessError("Skill source is outside its vault.", "access.outside_data_root")
+    try:
+        expected = file_hash(target)
+        source = read_verified_text(vault_root, skill.skill_md, expected)
+    except OSError as exc:
+        raise IncompleteError(f"Could not read skill file: {p}", "file.unreadable") from exc
+    attributes = parse_markdown(source).front_matter
+    name = str(attributes.get("name") or "")
+    description = str(attributes.get("description") or "")
+    if (name, description) != (skill.name, skill.description):
+        raise IncompleteError(f"Skill metadata changed while reading: {p}", "read.changed")
+    if line_range:
+        start, end = _parse_line_range(line_range)
+        source = "".join(source.splitlines(keepends=True)[start - 1:end])
+    content = source[:budget]
+    meta["scope"] = {"dataset_id": ctx.dataset_id, "vault": vault, "path": skill.skill_md}
+    response = Envelope.result(meta, {
+        "path": skill.skill_md, "name": name, "description": description,
+        "muted": skill.muted, "content": content, "hash": expected, "truncated": len(content) < len(source),
+    })
+    if len(content) < len(source):
+        args = _root_argv(roots) + ["skills", "read", "--vault", vault, "--path", skill.path,
+                                    "--budget", str(len(source))]
+        if line_range:
+            args += ["--line-range", line_range]
+        response.next_actions = [{"argv": args, "purpose": "Дочитать содержимое с увеличенным лимитом"}]
+    emit(response, output)
 
 
-@skills.command("attach")
+@skills.command("attach", cls=UnifiedCommand)
 @click.option("--to", "to_dir", required=True,
               help="Каталог скилов платформы (.claude/skills/, .agents/skills/, .cursor/skills/, ...).")
 @click.option("--root", "roots", multiple=True, help="DATA_ROOT, вшиваемый в тело диспетчера ({ROOT}).")
 @click.option("--force", is_flag=True, help="Перезаписать существующий скил todoc.")
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def skills_attach(roots: tuple[str, ...], to_dir: str, force: bool, output: str, no_input: bool) -> None:
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def skills_attach(roots: tuple[str, ...], to_dir: str, force: bool, output: str, no_input: bool,
+                  preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Диспетчер-скил todoc → одна точка входа для любого агента.
 
     Копирует пакетную папку `todoc/` в платформенный каталог скилов, подставляя
@@ -498,56 +593,78 @@ def skills_attach(roots: tuple[str, ...], to_dir: str, force: bool, output: str,
     """
     from importlib import resources
 
-    if not roots:
-        raise TodocError("Укажите --root DATA_ROOT (вшивается в тело диспетчера).",
-                         EXIT_USAGE, "usage.error")
-    root_resolved = Path(_effective_roots(roots)[0]).resolve()
-    dest = Path(to_dir) / "todoc"
-    if dest.exists() and not force:
+    _check_action_flags(preview, apply_)
+    effective_roots = _effective_roots(roots)
+    if len(effective_roots) != 1:
+        raise TodocError("Укажите один --root DATA_ROOT.", EXIT_USAGE, "usage.error")
+    root_resolved = Path(effective_roots[0]).resolve()
+    dest = Path(to_dir).resolve() / "todoc"
+    if dest.is_symlink() or (dest.exists() and not force):
         raise TodocError(f"{dest} уже существует; обновление — с --force.",
                          EXIT_CONFLICT, "attach.exists")
-    dest.mkdir(parents=True, exist_ok=force)
     pkg = resources.files("todoc") / "data" / "agent-skill" / "todoc"
-    copied = 0
+    files = {}
+    manifest = []
     with resources.as_file(pkg) as src_dir:
         for src in sorted(Path(src_dir).rglob("*")):
             if not src.is_file():
                 continue
-            rel = src.relative_to(src_dir)
+            rel = src.relative_to(src_dir).as_posix()
             target = dest / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if rel.name == "SKILL.md":
-                target.write_text(src.read_text(encoding="utf-8")
-                                  .replace("{ROOT}", str(root_resolved)), encoding="utf-8")
-            else:
-                target.write_bytes(src.read_bytes())
-            copied += 1
-    _emit_ok({"installed": str(dest / "SKILL.md"), "skill": "todoc", "files": copied,
-              "root_embedded": str(root_resolved),
-              "mount_hint": "для платформ без нативных скилов — строка роутинга в AGENTS.md "
-                            "(demo/notes/agent-contract.md → «Скилы»)"},
-             output, None,
-             next_actions=[{"argv": ["todoc", "skills", "tree", "--root", str(root_resolved)],
-                            "purpose": "Проверить, что дерево хранилища доступно диспетчеру"}])
+            if target.is_symlink() or not is_within_root(dest, target):
+                raise AccessError(f"Target is outside the dispatcher directory: {rel}", "access.outside_data_root")
+            content = (src.read_text(encoding="utf-8").replace("{ROOT}", str(root_resolved)).encode("utf-8")
+                       if src.name == "SKILL.md" else src.read_bytes())
+            before = file_hash(target) if target.is_file() else None
+            digest = "sha256:" + hashlib.sha256(content).hexdigest()
+            files[rel] = (content, before)
+            manifest.append({"path": rel, "source_hash": digest, "expected_hash": before})
+    plan_hash = selection_key([str(root_resolved), str(dest), manifest])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The dispatcher install plan is stale.", "write.hash_mismatch")
+    if apply_:
+        dest.mkdir(parents=True, exist_ok=force)
+        for rel, (content, expected) in files.items():
+            target = dest / rel
+            if target.is_symlink() or not is_within_root(dest, target):
+                raise AccessError(f"Target is outside the dispatcher directory: {rel}", "access.outside_data_root")
+            if expected is not None and (not target.is_file() or file_hash(target) != expected):
+                raise ConflictError(f"Dispatcher target changed: {target}", "write.hash_mismatch")
+            try:
+                atomic_write(target, content, exclusive=expected is None)
+            except FileExistsError as exc:
+                raise ConflictError(f"Dispatcher target already exists: {target}", "attach.exists") from exc
+    envelope = Envelope.result({"command": "skills attach", "scope": {"root": str(root_resolved)}},
+                               {"installed": str(dest / "SKILL.md") if apply_ else None,
+                                "path": str(dest), "files": len(files), "manifest": manifest,
+                                "root_embedded": str(root_resolved), "applied": apply_, "plan_hash": plan_hash})
+    emit(envelope, output)
 
 
-@skills.command("import")
+@skills.command("import", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--src", "src_dir", required=True, help="Локальная папка-скил или репо-пакет (**/SKILL.md).")
 @click.option("--skill", "skill_filter", default=None, help="Копировать один скил (по имени папки).")
 @click.option("--into", "section", required=True, help="Раздел vault, куда класть (напр. coding/review).")
 @click.option("--vault", default="skills", show_default=True)
-@click.option("--dry-run", is_flag=True, help="Показать план без записи.")
+@click.option("--dry-run", "--preview", "dry_run", is_flag=True, help="Показать план без записи.")
 @click.option("--adopt", is_flag=True, help="Источник уже в vault: валидировать и отчитаться без копии.")
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None, section: str,
-                  vault: str, dry_run: bool, adopt: bool, output: str, no_input: bool) -> None:
+                  vault: str, dry_run: bool, adopt: bool, output: str, no_input: bool,
+                  apply_: bool, if_plan_hash: str | None) -> None:
     """Офлайн-импорт чужих скилов: папки со SKILL.md, обвязка пакетов не переносится."""
     from todoc.application.skills import scan_skills, validate_skills, effective_name
 
-    ctx = _contexts(roots)[0]
-    vault_root = (ctx.root / vault).resolve()
+    _check_action_flags(dry_run or adopt, apply_)
+    ctx = _single_context(roots, "skills")
+    vault = normalize_scope(vault)
+    section = normalize_scope(section)
+    vault_root = _contained_out(ctx.root, vault)
+    section_root = _contained_out(vault_root, section)
     src = Path(src_dir).resolve()
     if not src.is_dir():
         raise TodocError(f"Источник не найден: {src}", EXIT_OPERATION, "skills.not_found")
@@ -565,31 +682,51 @@ def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None
     imported: list[dict[str, str]] = []
     adopted: list[str] = []
     skipped: list[dict[str, str]] = []
-    written = False
+    targets = []
+    manifest = []
     for folder in folders:
         name = effective_name(folder.name)
         if adopt:
-            dest = vault_root / section / name
+            dest = _contained_out(section_root, name)
             if not (dest / "SKILL.md").is_file():
                 raise TodocError(f"Скил «{name}» не найден в vault: {section}/{name}/SKILL.md. "
                                  f"Скопируй папку в vault и повтори --adopt.",
                                  EXIT_OPERATION, "skills.not_found")
             adopted.append(name)
             continue
-        dest = vault_root / section / folder.name
+        dest = section_root / folder.name
+        if dest.is_symlink() or not is_within_root(section_root, dest):
+            raise AccessError(f"Destination is outside the skill section: {dest}", "access.outside_data_root")
         if (dest / "SKILL.md").exists() or (dest.exists() and any(dest.iterdir())):
             skipped.append({"name": name, "path": str(dest)})
             continue
-        if not dry_run:
-            shutil.copytree(folder, dest)
-            written = True
+        files = []
+        for source in sorted(folder.rglob("*")):
+            if source.is_symlink() or not is_within_root(folder, source):
+                raise AccessError(f"Skill source contains a symlink: {source}", "access.outside_data_root")
+            if source.is_dir():
+                continue
+            if not source.is_file():
+                raise AccessError(f"Unsupported skill source: {source}", "skills.unsupported_source")
+            files.append({"path": source.relative_to(folder).as_posix(), "hash": file_hash(source),
+                          "mode": source.stat().st_mode})
+        targets.append((folder, dest))
+        manifest.append({"path": dest.relative_to(ctx.root).as_posix(), "files": files})
         imported.append({"name": name, "path": f"{vault}/{section}/{folder.name}"})
     if skipped and not imported:
         raise TodocError(f"Все цели существуют ({', '.join(s['name'] for s in skipped)}); "
                          f"перезапись запрещена (no-overwrite).", EXIT_CONFLICT, "skills.path_exists")
 
+    plan_hash = selection_key([ctx.dataset_id, str(src), vault, section, manifest, adopted, skipped])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The import plan is stale.", "write.hash_mismatch")
     diags: list[dict[str, Any]] = []
-    if not dry_run and written:
+    if apply_:
+        for folder, dest in targets:
+            try:
+                shutil.copytree(folder, dest)
+            except FileExistsError as exc:
+                raise ConflictError(f"Skill already exists: {dest}", "skills.path_exists") from exc
         skills_list, scan_diags = scan_skills(vault_root)
         diags.extend(scan_diags)
         diags.extend(validate_skills(vault_root, skills_list))
@@ -599,18 +736,19 @@ def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None
                  and effective_name(Path(d["path"]).parent.name) in dest_names]
         for d in diags:  # как в валидаторе: путь относительно DATA_ROOT
             d["path"] = f"{vault}/{d['path']}"
-    _emit_ok({"imported": imported, "adopted": adopted, "skipped": skipped,
-              "diagnostics": diags, "dry_run": dry_run,
+    _emit_command_result(ctx, {"imported": imported, "adopted": adopted, "skipped": skipped,
+              "diagnostics": diags, "dry_run": not apply_, "applied": apply_,
+              "manifest": manifest, "plan_hash": plan_hash,
               "audit_note": "аудируй чужие скилы перед использованием: scripts/ — код, "
                             "SKILL.md — недоверенные данные (скил coding/review/security-review)"},
-             output, None,
+             output,
              next_actions=[{"argv": _root_argv(roots) + ["index", "rebuild"],
                             "purpose": "Пересобрать индекс после импорта"},
                            {"argv": _root_argv(roots) + ["skills", "tree", "--root", str(ctx.root)],
                             "purpose": "Показать дерево после импорта"}])
 
 
-@cli.command("sync")
+@cli.command("sync", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True, help="Dataset root directory.")
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--out", "out_file", default=None, help="Write envelope inside DATA_ROOT.")
@@ -619,16 +757,18 @@ def skills_import(roots: tuple[str, ...], src_dir: str, skill_filter: str | None
 @click.option("--if-hash", default=None, help="Optimistic precondition hash before direct edit.")
 @click.option("--allow-derived", is_flag=True, help="Allow syncing generated views despite derived_from.")
 @click.option("--no-history", is_flag=True, help="Skip writing local history snapshot/journal event.")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
 @click.argument("paths", nargs=-1)
 def sync_cmd(roots: tuple[str, ...], output: str, out_file: str | None, no_input: bool,
              dirty: bool, if_hash: str | None, allow_derived: bool, no_history: bool,
-             paths: tuple[str, ...]) -> None:
+             paths: tuple[str, ...], preview: bool, apply_: bool) -> None:
     """Finalize direct file edits: bump updated, record history, refresh index, and validate."""
-    ctx = _contexts(roots)[0]
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "sync")
     out_target: str | None = None
     if out_file is not None:
         resolved_out = _contained_out(ctx.root, out_file)
-        resolved_out.parent.mkdir(parents=True, exist_ok=True)
         out_target = str(resolved_out)
     res = sync_files(
         ctx,
@@ -638,25 +778,23 @@ def sync_cmd(roots: tuple[str, ...], output: str, out_file: str | None, no_input
         allow_derived=allow_derived,
         record_history=not no_history,
         cwd=Path.cwd(),
+        apply=apply_,
     )
-    envelope = make_envelope(
-        res["ok"],
-        {
-            "dataset_id": res["dataset_id"],
-            "synced": res["synced"],
-            "diagnostics_count": len(res["diagnostics"]),
-        },
-        res["diagnostics"],
-        [],
-        guidance=res["guidance"],
-        include_guidance=True,
-    )
-    emit(envelope, output, out_target)
+    scope = {"dataset_id": ctx.dataset_id, "root": str(ctx.root)}
+    envelope = Envelope.result({"command": "sync", "scope": scope},
+                               {"synced": res["synced"], "diagnostics_count": len(res["diagnostics"]),
+                                "preview": not apply_, "applied": apply_, "out": out_target},
+                               diagnostics=res["diagnostics"])
+    if res["guidance"] is not None:
+        envelope.guidance["items"].append(res["guidance"])
+    if apply_ and out_target is not None:
+        Path(out_target).parent.mkdir(parents=True, exist_ok=True)
+    emit(envelope, output, out_target if apply_ else None)
     if not res["ok"]:
-        sys.exit(EXIT_VALIDATION)
+        raise click.exceptions.Exit(EXIT_VALIDATION)
 
 
-@cli.command("stale")
+@cli.command("stale", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -664,20 +802,24 @@ def sync_cmd(roots: tuple[str, ...], output: str, out_file: str | None, no_input
 @click.option("--severity", default=None, help="Filter diagnostics by severity.")
 @click.option("--ack", "ack_path", default=None, help="Acknowledge staleness of this owner.")
 @click.option("--reason", default=None, help="Why the drift is not relevant (required with --ack).")
+@click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_ack", is_flag=True, help="Write the acknowledgement (default: preview).")
 @click.option("--expected-hash", default=None)
 def stale(roots: tuple[str, ...], output: str, no_input: bool, path: str | None, severity: str | None,
-          ack_path: str | None, reason: str | None, apply_ack: bool, expected_hash: str | None) -> None:
+          ack_path: str | None, reason: str | None, preview: bool, apply_ack: bool, expected_hash: str | None) -> None:
     """Report documents whose dependencies drifted, or acknowledge a drift."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    _check_action_flags(preview, apply_ack)
+    if apply_ack and not ack_path:
+        raise TodocError("--apply requires --ack.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "stale")
+    payload = ctx.read_index()
     if ack_path:
         _stale_ack(ctx, ack_path, reason, apply_ack, expected_hash, output, payload)
         return
     diagnostics = check_all(ctx.dataset_id, ctx.root, payload, only_path=path)
     if severity:
         diagnostics = [d for d in diagnostics if d.severity == severity]
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "stale": len(diagnostics)}, output, None,
+    _emit_command_result(ctx, {"path": path, "stale": len(diagnostics)}, output,
              [d.to_dict() for d in diagnostics])
 
 
@@ -696,147 +838,245 @@ def _stale_ack(ctx: DatasetContext, ack_path: str, reason: str | None, apply_ack
     current = current_hashes(ctx.root, owner)
     if not current:
         raise TodocError(f"No resolvable dependencies in {ack_path}", EXIT_OPERATION, "staleness.ack_unsupported")
+    source_hash = file_hash(ctx.root / ack_path)
+    if expected_hash is not None and source_hash != expected_hash:
+        raise ConflictError("The acknowledgement plan is stale.", "write.hash_mismatch")
     new_text = plan_ack(ctx.root, ack_path, reason, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), current)
     if not apply_ack:
-        _emit_ok({"dataset_id": ctx.dataset_id, "path": ack_path, "applied": False,
-                  "reason": reason, "acknowledged_hashes": current}, output, None)
+        _emit_command_result(ctx, {"path": ack_path, "applied": False,
+                  "reason": reason, "acknowledged_hashes": current, "expected_hash": source_hash}, output)
         return
-    new_hash = _write_whole(ctx.root, ack_path, new_text, expected_hash,
+    new_hash = _write_whole(ctx, ack_path, new_text, source_hash,
                             history=ctx.history_recorder(), basis="stale --ack")
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": ack_path, "applied": True, "new_hash": new_hash,
-              "reason": reason, "acknowledged_hashes": current}, output, None)
+    _emit_command_result(ctx, {"path": ack_path, "applied": True, "new_hash": new_hash,
+              "reason": reason, "acknowledged_hashes": current}, output)
 
 
 # --- история: журнал, откат, метки -------------------------------------------
 
 
-@cli.command("log")
+@cli.command("log", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--path", default=None)
 @click.option("--section", default=None, help="Только события, пересекающие этот заголовок.")
 @click.option("--change", "change_id", default=None)
-@click.option("--tag", default=None)
+@click.option("--history-tag", "--tag", "tag", default=None)
 @click.option("--kind", default=None)
 @click.option("--since", default=None)
 @click.option("--until", default=None)
-@click.option("--limit", type=int, default=20)
+@click.option("--limit", type=click.IntRange(1, 1000), default=20)
 @click.option("--cursor", default=None)
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--view", default="flat")
 def log_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str | None, section: str | None,
             change_id: str | None, tag: str | None, kind: str | None, since: str | None, until: str | None,
-            limit: int, cursor: str | None) -> None:
-    """Журнал событий записи: что, когда и в каких строках менялось."""
-    ctx = _contexts(roots)[0]
-    ctx.ensure_index()
+            limit: int, cursor: str | None, include: str | None, exclude: str | None, view: str) -> None:
+    """List matching history events in reverse journal order."""
     if section and not path:
         raise TodocError("--section требует --path: раздел ищется внутри файла", EXIT_USAGE, "usage.error")
-    events, total, truncated = history_log(ctx.root, path=path, section=section, kind=kind,
-                                           change_id=change_id, tag=tag, since=since, until=until,
-                                           limit=limit, cursor=_parse_offset(cursor))
-    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "truncated": truncated,
-              "cursor": str(_parse_offset(cursor) + len(events)), "events": events}, output, None,
-             [d.to_dict() for d in journal_diagnostics(ctx.dataset_id, ctx.root)])
+    meta = _collection_meta("log")
+    meta["requested_view"] = view
+    try:
+        resolved = resolve_roots(_effective_roots(roots))
+        if len(resolved) != 1:
+            raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "history.multiple_roots")
+        ctx = DatasetContext(resolved[0])
+        if path is not None:
+            path = normalize_scope(path)
+            _contained_out(ctx.root, path)
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "path": path}
+        entries = ctx.history_store.read_events(strict=True)
+        refs = ctx.history_store.read_refs() if tag else {}
+        text_hash = None
+        if section and path:
+            target = ctx.root / path
+            try:
+                text_hash = file_hash(target)
+            except OSError as exc:
+                raise IncompleteError(f"Could not read {path}.", "history.source_unreadable") from exc
+        fields = ("rev", "schema_version", "at", "kind", "actor", "change_id", "paths", "basis")
+        extra_fields = {key for event in entries for key in event if key not in fields}
+        fields = selected_fields(fields + tuple(sorted(extra_fields)), include, exclude, structural=("rev",))
+        events, total, _ = history_log(ctx.root, path=path, section=section, kind=kind,
+                                       change_id=change_id, tag=tag, since=since, until=until,
+                                       limit=len(entries), events=entries, refs=refs)
+        if section and path:
+            try:
+                if file_hash(ctx.root / path) != text_hash:
+                    raise IncompleteError(f"Source changed while reading {path}.", "history.source_changed")
+            except OSError as exc:
+                raise IncompleteError(f"Could not read {path}.", "history.source_unreadable") from exc
+        cursor_args = [2, "log", ctx.dataset_id, entries, refs, path, section,
+                       change_id, tag, kind, since, until, text_hash]
+        selected, next_cursor = page(events, cursor_args, limit, cursor)
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    meta.update(complete=True, total=total, returned=len(selected),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    emit(Envelope.collection(meta, [project_fields(event, fields) for event in selected],
+                            diagnostics=_view_diagnostics(meta)), output)
 
 
-@cli.command("show")
+def _check_action_flags(preview: bool, apply_: bool) -> None:
+    if preview and apply_:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+
+
+def _emit_command_result(ctx: DatasetContext, result: dict[str, Any], output: str,
+                         diagnostics: list[dict[str, Any]] | None = None, *,
+                         next_actions: list[dict[str, Any]] | None = None) -> None:
+    scope = {"dataset_id": ctx.dataset_id, "root": str(ctx.root)}
+    envelope = Envelope.result({"command": command_name(click.get_current_context()), "scope": scope},
+                               result, diagnostics=diagnostics)
+    if next_actions is not None:
+        envelope.next_actions = next_actions
+    emit(envelope, output)
+
+
+@cli.command("show", cls=UnifiedCommand)
 @click.argument("rev", required=False, default=None)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--path", required=True)
-@click.option("--budget", type=int, default=None)
+@click.option("--budget", type=click.IntRange(min=1), default=None)
 def show_cmd(rev: str | None, roots: tuple[str, ...], output: str, no_input: bool, path: str,
              budget: int | None) -> None:
     """Содержимое файла на ревизии (или текущее, если rev не задан)."""
-    ctx = _contexts(roots)[0]
-    resolved = resolve_rev(ctx.root, rev) if rev else None
-    text, status = history_show(ctx.root, resolved, path, backend=ctx.history_recorder().backend)
+    ctx = _single_context(roots, "history")
+    path = normalize_scope(path)
+    _contained_out(ctx.root, path)
+    resolved = resolve_rev(ctx.root, rev, refs=ctx.history_store.read_refs()) if rev else None
+    text, status = history_show(ctx.root, resolved, path, backend=ctx.history_recorder().backend,
+                                store=ctx.history_store)
     if text is None:
         raise _history_unavailable(status, path)
-    if budget is not None:
-        text = text[:budget]
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": resolved, "content": text}, output, None)
+    content = text[:budget]
+    _emit_command_result(ctx, {"path": path, "rev": resolved, "content": content,
+                               "truncated": len(content) < len(text)}, output)
 
 
-@cli.command("diff")
+@cli.command("diff", cls=UnifiedCommand)
 @click.argument("rev_a", required=False, default=None)
 @click.argument("rev_b", required=False, default=None)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--path", required=True)
-@click.option("--context", "ctx_lines", type=int, default=3)
-@click.option("--budget", type=int, default=None)
+@click.option("--context", "ctx_lines", type=click.IntRange(min=0), default=3)
+@click.option("--budget", type=click.IntRange(min=1), default=None)
 def diff_cmd(rev_a: str | None, rev_b: str | None, roots: tuple[str, ...], output: str, no_input: bool,
              path: str, ctx_lines: int, budget: int | None) -> None:
     """Разница между двумя ревизиями файла; без rev_b — против текущего состояния."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "history")
+    path = normalize_scope(path)
+    _contained_out(ctx.root, path)
     backend = ctx.history_recorder().backend
-    left, status_a = history_show(ctx.root, resolve_rev(ctx.root, rev_a) if rev_a else None, path, backend=backend)
-    right, status_b = history_show(ctx.root, resolve_rev(ctx.root, rev_b) if rev_b else None, path, backend=backend)
+    refs = ctx.history_store.read_refs() if rev_a or rev_b else {}
+    left, status_a = history_show(ctx.root, resolve_rev(ctx.root, rev_a, refs=refs) if rev_a else None, path, backend=backend,
+                                   store=ctx.history_store)
+    right, status_b = history_show(ctx.root, resolve_rev(ctx.root, rev_b, refs=refs) if rev_b else None, path, backend=backend,
+                                   store=ctx.history_store)
     if left is None:
         raise _history_unavailable(status_a, path)
     if right is None:
         raise _history_unavailable(status_b, path)
     lines = diff_texts(left, right, context=ctx_lines)
-    if budget is not None:
-        lines = lines[: max(budget // 40, 1)]
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev_a": rev_a, "rev_b": rev_b,
-              "changed": bool(lines), "lines": len(lines), "diff": lines}, output, None)
+    text = "\n".join(lines)
+    excerpt = text[:budget]
+    returned = excerpt.split("\n") if excerpt else []
+    _emit_command_result(ctx, {"path": path, "rev_a": rev_a, "rev_b": rev_b,
+                               "changed": bool(lines), "lines": len(returned), "diff": returned,
+                               "truncated": len(excerpt) < len(text)}, output)
 
 
-@cli.command("blame")
+@cli.command("blame", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--path", required=True)
 @click.option("--section", default=None)
-def blame_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str, section: str | None) -> None:
-    """Кто и когда менял файл или его раздел."""
-    ctx = _contexts(roots)[0]
-    ctx.ensure_index()
-    entries = history_blame(ctx.root, path, section)
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "section": section,
-              "entries": entries}, output, None)
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--limit", type=click.IntRange(1, 1000), default=50, show_default=True)
+@click.option("--cursor")
+@click.option("--view", default="flat")
+def blame_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str, section: str | None,
+              include: str | None, exclude: str | None, limit: int, cursor: str | None, view: str) -> None:
+    """List changes to a file or one of its sections."""
+    ctx = _single_context(roots, "history")
+    path = normalize_scope(path)
+    _contained_out(ctx.root, path)
+    entries = history_blame(ctx.root, path, section, store=ctx.history_store)
+    fields = selected_fields(("rev", "at", "kind", "actor", "change_id", "ranges"), include, exclude,
+                             structural=("rev",))
+    meta = _collection_meta("blame")
+    scope = {"dataset_id": ctx.dataset_id, "path": path, "section": section}
+    meta.update(scope=scope, requested_view=view)
+    _emit_flat_page(meta, entries, [2, "blame", scope, entries], fields, limit, cursor, output)
 
 
-@cli.command("timeline")
+@cli.command("timeline", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--as-of", "as_of", default=None, help="Состояние на этот момент (ISO-8601).")
 @click.option("--path", default=None, help="Только события и факты этого файла.")
-@click.option("--limit", type=int, default=200, show_default=True)
+@click.option("--limit", type=click.IntRange(0, 1000), default=200, show_default=True)
+@click.option("--cursor")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--view", default="flat")
 def timeline_cmd(roots: tuple[str, ...], output: str, no_input: bool, as_of: str | None,
-                 path: str | None, limit: int) -> None:
-    """Единая лента: события записи и интервалы фактов в одном хронологическом порядке."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+                 path: str | None, limit: int, cursor: str | None, include: str | None,
+                 exclude: str | None, view: str) -> None:
+    """List journal events and fact intervals in chronological order."""
+    ctx = _single_context(roots, "history")
+    if path is not None:
+        path = normalize_scope(path)
+        _contained_out(ctx.root, path)
+    payload = ctx.read_index(include_mentions=False)
+    events = ctx.history_store.read_events(strict=True)
     try:
         result = build_timeline(ctx.root, payload["records"], payload["relations"],
-                                as_of=as_of, path=path, limit=limit)
+                                as_of=as_of, path=path, limit=None, events=events)
     except InvalidInstant as exc:
         raise ValidationError(str(exc), "temporal.invalid_instant") from exc
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None,
-             [d.to_dict() for d in journal_diagnostics(ctx.dataset_id, ctx.root)])
+    scope = {"dataset_id": ctx.dataset_id, "as_of": result["as_of"], "path": path}
+    meta = _collection_meta("timeline")
+    meta.update(scope=scope, requested_view=view)
+    fields = selected_fields(("kind", "entry", "at", "path", "rev", "change_id", "valid_from",
+                              "valid_to", "observed_at", "superseded_at", "source_id", "target_id", "type_id"),
+                             include, exclude, structural=("entry", "path"))
+    selection = [2, "timeline", scope, payload["corpus_digest"], events]
+    _emit_flat_page(meta, result["entries"], selection, fields, limit, cursor, output)
 
 
-@cli.command("revert")
+@cli.command("revert", cls=UnifiedCommand)
 @click.argument("rev")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--path", required=True)
+@click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_revert", is_flag=True)
 @click.option("--expected-hash", default=None)
 def revert_cmd(rev: str, roots: tuple[str, ...], output: str, no_input: bool, path: str,
-               apply_revert: bool, expected_hash: str | None) -> None:
+               preview: bool, apply_revert: bool, expected_hash: str | None) -> None:
     """Откат файла к ревизии. Без --apply — только план (review-first)."""
-    ctx = _contexts(roots)[0]
+    if preview and apply_revert:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "history")
+    path = normalize_scope(path)
+    _contained_out(ctx.root, path)
     recorder = ctx.history_recorder()
-    plan = revert_plan(ctx.root, resolve_rev(ctx.root, rev), path, backend=recorder.backend)
+    resolved = resolve_rev(ctx.root, rev, refs=ctx.history_store.read_refs())
+    plan = revert_plan(ctx.root, resolved, path, backend=recorder.backend, store=ctx.history_store)
     if plan["status"] != "ok":
         raise _history_unavailable(plan["status"], path)
     # Файл менялся после этой ревизии: откат сотрёт более поздние правки. Не ошибка
@@ -851,37 +1091,49 @@ def revert_cmd(rev: str, roots: tuple[str, ...], output: str, no_input: bool, pa
             "suggested_fixes": [],
         })
     if not apply_revert:
-        _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": rev, "applied": False,
+        _emit_command_result(ctx, {"path": path, "rev": rev, "applied": False,
                   "current_hash": plan["current_hash"], "new_hash": plan["new_hash"],
-                  "range_conflict": bool(plan.get("range_conflict"))}, output, None,
-                 diagnostics=warnings)
+                  "range_conflict": bool(plan.get("range_conflict"))}, output, warnings)
         return
     if expected_hash is not None and expected_hash != plan["current_hash"]:
         raise ConflictError(f"Hash mismatch for {path}", "write.hash_mismatch")
-    new_hash = _write_whole(ctx.root, path, plan["content"], None, history=recorder,
+    new_hash = _write_whole(ctx, path, plan["content"], plan["current_hash"], history=recorder,
                             basis=f"revert {rev}")
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "rev": rev, "applied": True,
+    _emit_command_result(ctx, {"path": path, "rev": rev, "applied": True,
               "new_hash": new_hash, "range_conflict": bool(plan.get("range_conflict"))},
-             output, None, diagnostics=warnings)
+             output, warnings)
 
 
-@cli.command("tag")
+@cli.command("tag", cls=UnifiedCommand)
 @click.argument("name")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--rev", default=None, help="По умолчанию — последнее событие журнала.")
 @click.option("--message", default="")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def tag_cmd(name: str, roots: tuple[str, ...], output: str, no_input: bool, rev: str | None,
-            message: str) -> None:
+            message: str, preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Метка на ревизии: привязка истории к релизу."""
-    ctx = _contexts(roots)[0]
-    target = resolve_rev(ctx.root, rev) if rev else (read_events(ctx.root)[-1]["rev"] if read_events(ctx.root) else None)
-    if not target:
-        raise TodocError("Журнал пуст: метку ставить не на что", EXIT_INCOMPLETE, "history.revision_unknown")
-    entry = add_tag(ctx.root, name, target, message)
-    _emit_ok({"dataset_id": ctx.dataset_id, "tag": name, **entry}, output, None)
+    if preview and apply_:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "history")
+    store = ctx.history_store
+    events = store.read_events(strict=True)
+    refs = store.read_refs()
+    target = resolve_rev(ctx.root, rev, refs=refs) if rev else (events[-1]["rev"] if events else None)
+    if target is None or not any(event["rev"] == target for event in events):
+        raise IncompleteError("Нет события для этой метки.", "history.revision_unknown")
+    plan_hash = selection_key([ctx.dataset_id, refs, name, target, message])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The tag plan is stale.", "write.hash_mismatch")
+    entry = {"rev": target, "message": message}
+    if apply_:
+        entry = add_tag(ctx.root, name, target, message, store=store)
+    _emit_command_result(ctx, {"tag": name, **entry, "plan_hash": plan_hash, "applied": apply_}, output)
 
 
 @cli.group()
@@ -890,50 +1142,95 @@ def history(ctx: click.Context) -> None:
     """Обслуживание истории: сборка мусора, миграция, бэкап."""
 
 
-@history.command("gc")
+@history.command("gc", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-@click.option("--keep-objects", type=int, default=None)
+@click.option("--keep-objects", type=click.IntRange(min=0), default=None)
 @click.option("--purge-before", default=None)
-@click.option("--dry-run", is_flag=True)
+@click.option("--dry-run", "--preview", "dry_run", is_flag=True, help="Preview without modifying history.")
+@click.option("--apply", "apply_", is_flag=True, help="Apply history cleanup.")
+@click.option("--if-plan-hash")
 def history_gc(roots: tuple[str, ...], output: str, no_input: bool, keep_objects: int | None,
-               purge_before: str | None, dry_run: bool) -> None:
-    """Удаляет события и снимки, на которые больше никто не ссылается."""
-    ctx = _contexts(roots)[0]
+               purge_before: str | None, dry_run: bool, apply_: bool, if_plan_hash: str | None) -> None:
+    """Удаляет события и снимки согласно плану очистки."""
+    if dry_run and apply_:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "history")
+    store = ctx.history_store
+    events = store.read_events(strict=True)
+    refs = store.read_refs()
+    manifest = store.backup_manifest()
+    snapshots = store.list_snapshots()
+    limits = ctx.dataset.get("limits") or {}
+    plan_hash = selection_key([ctx.dataset_id, manifest, snapshots, keep_objects, purge_before, limits])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The cleanup plan is stale.", "write.hash_mismatch")
     result = history_gc_run(ctx.root, keep_objects=keep_objects, purge_before=purge_before,
-                            dry_run=dry_run, limits=ctx.dataset.get("limits") or {})
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+                            dry_run=not apply_, limits=limits, events=events, refs=refs,
+                            store=store, snapshots=snapshots)
+    _emit_command_result(ctx, {**result, "plan_hash": plan_hash, "applied": apply_}, output)
 
 
-@history.command("adopt")
+@history.command("adopt", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def history_adopt(roots: tuple[str, ...], output: str, no_input: bool) -> None:
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def history_adopt(roots: tuple[str, ...], output: str, no_input: bool,
+                  preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Миграция: снимок текущего состояния как базовая линия журнала."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    files = [{"path": d["path"], "hash": d["hash"]} for d in payload["documents"]]
-    result = history_adopt_run(ctx.root, files)
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+    if preview and apply_:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "history")
+    payload = ctx.read_index(include_mentions=False)
+    if _document_read_failures(payload, "."):
+        raise IncompleteError("The dataset has unreadable source files.", "history.source_unreadable")
+    files = [{"path": doc["path"], "hash": doc["hash"]} for doc in payload["documents"]]
+    store = ctx.history_store
+    plan_hash = selection_key([ctx.dataset_id, payload["corpus_digest"],
+                               store.read_events(strict=True), store.read_refs()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The adoption plan is stale.", "write.hash_mismatch")
+    if apply_:
+        result = history_adopt_run(ctx.root, files, store=store)
+    else:
+        result = {"paths": len(files)}
+    _emit_command_result(ctx, {**result, "plan_hash": plan_hash, "applied": apply_}, output)
 
 
-@history.command("export")
+@history.command("export", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--to", "destination", required=True)
-def history_export(roots: tuple[str, ...], output: str, no_input: bool, destination: str) -> None:
-    """Бэкап истории для бэкенда embedded."""
-    ctx = _contexts(roots)[0]
-    target = Path(destination)
-    if not target.is_absolute():
-        target = ctx.root / target
-    if not is_within_root(ctx.root, target):
-        raise AccessError("--to указывает вне DATA_ROOT", "access.outside_data_root")
-    result = history_export_run(ctx.root, target)
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def history_export(roots: tuple[str, ...], output: str, no_input: bool, destination: str,
+                   preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
+    """Preview a backup manifest and export it into a new directory."""
+    if preview and apply_:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "history")
+    target = _contained_out(ctx.root, destination)
+    source = ctx.root / ".todoc" / "history"
+    if is_within_root(source, target):
+        raise AccessError("Backup cannot be inside the history directory.", "access.outside_data_root")
+    if target.exists():
+        raise ConflictError(f"Backup already exists: {target}", "write.target_exists")
+    store = ctx.history_store
+    store.read_events(strict=True)
+    store.read_refs()
+    manifest = store.backup_manifest()
+    plan_hash = selection_key([ctx.dataset_id, target.relative_to(ctx.root).as_posix(), manifest])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The export plan is stale.", "write.hash_mismatch")
+    exported = store.write_backup(target, manifest) if apply_ else 0
+    _emit_command_result(ctx, {"to": str(target), "files": len(manifest), "exported": exported,
+                               "plan_hash": plan_hash, "applied": apply_}, output)
 
 
 @cli.group()
@@ -944,7 +1241,7 @@ def change(ctx: click.Context) -> None:
 
 def _descriptor_lookup(ctx: Any):
     """Описатель doc_type для пробной проверки структуры после применения дельты."""
-    payload = ctx.ensure_index()
+    payload = ctx.read_index(include_mentions=False)
 
     def lookup(front_matter: dict[str, Any], rel_path: str) -> dict[str, Any] | None:
         # Тип документа объявлен в его front matter; индекс хранит результат
@@ -974,102 +1271,137 @@ def _descriptor_lookup(ctx: Any):
     return lookup
 
 
-@change.command("list")
+_CHANGE_FIELDS = ("record_id", "path", "entity_type", "title", "status", "created_at",
+                  "applied_at", "archived_at", "reverted_at", "artifacts", "relations")
+
+
+@change.command("list", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-@click.option("--status", default=None)
-def change_list(roots: tuple[str, ...], output: str, no_input: bool, status: str | None) -> None:
-    """Список изменений; --status фильтрует по состоянию жизненного цикла."""
-    ctx = _contexts(roots)[0]
-    items = list_changes(ctx.root, status)
-    _emit_ok({"dataset_id": ctx.dataset_id, "total": len(items),
-              "items": [{k: v for k, v in i.items() if k != "baseline"} for i in items]}, output, None)
+@click.option("--status", "statuses", multiple=True)
+@click.option("--view", default="flat")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--limit", type=click.IntRange(1, 1000), default=50, show_default=True)
+@click.option("--cursor")
+def change_list(roots: tuple[str, ...], output: str, no_input: bool, statuses: tuple[str, ...],
+                view: str, include: str | None, exclude: str | None, limit: int, cursor: str | None) -> None:
+    """List active and archived changes, with filters applied before pagination."""
+    ctx = _single_context(roots, "change")
+    wanted = split_values(statuses)
+    entries = list_change_entries(ctx.root)
+    items = [{key: value for key, value in item.items() if key != "baseline"}
+             for item in entries if not wanted or item.get("status") in wanted]
+    extra = {key for item in items for key in item.keys() - set(_CHANGE_FIELDS)}
+    fields = selected_fields(_CHANGE_FIELDS + tuple(sorted(extra)), include, exclude,
+                             structural=("record_id", "path"))
+    meta = _collection_meta("change list")
+    meta.update(scope={"dataset_id": ctx.dataset_id, "statuses": wanted}, requested_view=view)
+    _emit_flat_page(meta, items, [2, "change list", ctx.dataset_id, wanted, entries],
+                    fields, limit, cursor, output)
 
 
-@change.command("open")
+@change.command("open", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--title", required=True)
 @click.option("--blocked-by", multiple=True)
 @click.option("--artifact", multiple=True)
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def change_open(roots: tuple[str, ...], output: str, no_input: bool, title: str,
-                blocked_by: tuple[str, ...], artifact: tuple[str, ...]) -> None:
-    """Открывает изменение и снимает базовую линию: хеши артефактов и диагностики."""
-    ctx = _contexts(roots)[0]
-    _folders, _docs, _records, _relations, diagnostics = ctx.scan_and_validate()
-    baseline = {"artifacts": {a: file_hash(ctx.root / a) if (ctx.root / a).is_file() else ""
-                              for a in artifact},
+                blocked_by: tuple[str, ...], artifact: tuple[str, ...], preview: bool,
+                apply_: bool, if_plan_hash: str | None) -> None:
+    """Открывает изменение и снимает базовую линию."""
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "change")
+    change_id = change_id_for(title)
+    path = record_path(ctx.root, change_id)
+    if path.exists():
+        raise ConflictError(f"Изменение уже существует: {change_id}", "change.id_invalid")
+    artifacts = tuple(_contained_out(ctx.root, raw).relative_to(ctx.root).as_posix() for raw in artifact)
+    _folders, _docs, _records, _relations, diagnostics = ctx.scan_and_validate(write_cache=False)
+    baseline = {"artifacts": {item: file_hash(ctx.root / item) if (ctx.root / item).is_file() else ""
+                              for item in artifacts},
                 "diagnostics": sorted(f"{d['code']}:{d['path']}" for d in diagnostics)}
-    record = open_change(ctx.root, title, blocked_by=blocked_by, artifacts=artifact,
-                         baseline=baseline, history=ctx.history_recorder(change_id_for(title)))
-    _emit_ok({"dataset_id": ctx.dataset_id, "change_id": record["record_id"],
-              "path": str(record_path(ctx.root, record["record_id"]).relative_to(ctx.root)),
-              "status": record["status"], "artifacts": record["artifacts"],
-              "next": "положите дельты в changes/<id>/deltas/*.md"}, output, None)
+    plan_hash = selection_key([ctx.dataset_id, change_id, title, blocked_by, artifacts, baseline])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The change plan is stale.", "write.hash_mismatch")
+    if apply_:
+        open_change(ctx.root, title, blocked_by=blocked_by, artifacts=artifacts,
+                    baseline=baseline, history=ctx.history_recorder(change_id))
+    _emit_command_result(ctx, {"change_id": change_id, "path": path.relative_to(ctx.root).as_posix(),
+                               "status": "proposed", "artifacts": list(artifacts), "baseline": baseline,
+                               "plan_hash": plan_hash, "applied": apply_, "preview": not apply_}, output)
 
 
-@change.command("show")
+@change.command("show", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("change_id")
 def change_show(roots: tuple[str, ...], output: str, no_input: bool, change_id: str) -> None:
     """Запись изменения и её дельты."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "change")
     record = load_change(ctx.root, change_id)
     if record is None:
         raise TodocError(f"Изменение не найдено: {change_id}", EXIT_INCOMPLETE, "change.not_found")
     deltas = collect_deltas(ctx.root, change_id)
-    _emit_ok({"dataset_id": ctx.dataset_id, "record": record,
+    _emit_command_result(ctx, {"record": record,
               "deltas": [{"path": d["path"], "target": d["target"], "base_hash": d["base_hash"],
                           "order": d["order"],
                           "ops": [{"op": o["op"], "anchor": o["anchor"]} for o in d["ops"]]}
-                         for d in deltas]}, output, None)
+                         for d in deltas]}, output)
 
 
-@change.command("validate")
+@change.command("validate", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("change_id")
 def change_validate(roots: tuple[str, ...], output: str, no_input: bool, change_id: str) -> None:
     """Применимость дельт к живому состоянию: цель, якорь, base_hash, структура после."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "change")
     diagnostics = validate_change(ctx.root, change_id, ctx.dataset_id, _descriptor_lookup(ctx))
     errors = [d for d in diagnostics if d.severity == "error"]
-    _emit_ok({"dataset_id": ctx.dataset_id, "change_id": change_id,
+    _emit_command_result(ctx, {"change_id": change_id,
               "applicable": not errors, "errors": len(errors),
-              "warnings": len(diagnostics) - len(errors)}, output, None,
+              "warnings": len(diagnostics) - len(errors)}, output,
              diagnostics=[d.to_dict() for d in diagnostics])
+    if errors:
+        raise click.exceptions.Exit(EXIT_VALIDATION)
 
 
-@change.command("verify")
+@change.command("verify", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("change_id")
 def change_verify(roots: tuple[str, ...], output: str, no_input: bool, change_id: str) -> None:
     """Completeness / correctness / coherence — детерминированно, без модели."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "change")
     result = verify_change(ctx.root, change_id)
     if not result.get("found"):
         raise TodocError(f"Изменение не найдено: {change_id}", EXIT_INCOMPLETE, "change.not_found")
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+    _emit_command_result(ctx, result, output)
 
 
-@change.command("apply")
+@change.command("apply", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("change_id")
+@click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_", is_flag=True)
 @click.option("--if-hash", multiple=True, help="PATH=sha256:… — отказ, если файл ушёл.")
 def change_apply(roots: tuple[str, ...], output: str, no_input: bool, change_id: str,
-                 apply_: bool, if_hash: tuple[str, ...]) -> None:
+                 preview: bool, apply_: bool, if_hash: tuple[str, ...]) -> None:
     """Bundle-транзакция: без --apply показывает план, с --apply пишет всё или ничего."""
-    ctx = _contexts(roots)[0]
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "change")
     expected: dict[str, str] = {}
     for item in if_hash:
         key, _, value = item.partition("=")
@@ -1082,69 +1414,89 @@ def change_apply(roots: tuple[str, ...], output: str, no_input: bool, change_id:
     result = apply_change(ctx.root, change_id, apply=apply_,
                           history=ctx.history_recorder(change_id),
                           dataset_id=ctx.dataset_id, descriptor_lookup=_descriptor_lookup(ctx),
-                          expected_hashes=expected)
+                          expected_hashes=expected, parse_cache=ctx.parse_cache)
     if result.get("applied"):
         ctx.ensure_index()
     # Диагностики плана обязаны попасть в конверт: без них отказ «applied: false»
     # необъясним, и агент не узнает, что именно мешает применить изменение.
-    payload = {"dataset_id": ctx.dataset_id, **result}
     diagnostics = [d for d in (result.get("diagnostics") or []) if isinstance(d, dict)]
-    _emit_ok({k: v for k, v in payload.items() if k != "diagnostics"}, output, None,
-             diagnostics=diagnostics)
+    _emit_command_result(ctx, {k: v for k, v in result.items() if k != "diagnostics"}, output,
+                         diagnostics=diagnostics)
+    if any(item["severity"] == "error" for item in diagnostics):
+        raise click.exceptions.Exit(EXIT_VALIDATION)
 
 
-@change.command("archive")
+@change.command("archive", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("change_id")
 @click.option("--tag", default=None)
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def change_archive(roots: tuple[str, ...], output: str, no_input: bool, change_id: str,
-                   tag: str | None) -> None:
-    """Закрывает изменение; --tag ставит метку истории на последнее событие."""
-    ctx = _contexts(roots)[0]
-    result = archive_change(ctx.root, change_id, tag, ctx.root,
-                            history=ctx.history_recorder(change_id))
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+                   tag: str | None, preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
+    """Показывает план архивации и применяет его по --apply."""
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "change")
+    record = load_change(ctx.root, change_id)
+    if record is None:
+        raise IncompleteError(f"Изменение не найдено: {change_id}", "change.not_found")
+    scope = record_path(ctx.root, change_id).relative_to(ctx.root).as_posix()
+    plan_hash = selection_key([ctx.dataset_id, scope, record, tag])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The archive plan is stale.", "write.hash_mismatch")
+    result = {"change_id": change_id, "status": "archived", "tag": tag, "path": scope}
+    if apply_:
+        result = archive_change(ctx.root, change_id, tag, ctx.root,
+                                history=ctx.history_recorder(change_id), store=ctx.history_store)
+    _emit_command_result(ctx, {**result, "preview": not apply_, "applied": apply_, "plan_hash": plan_hash}, output)
 
 
-@change.command("revert")
+@change.command("revert", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("change_id")
+@click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_", is_flag=True)
 def change_revert(roots: tuple[str, ...], output: str, no_input: bool, change_id: str,
-                  apply_: bool) -> None:
+                  preview: bool, apply_: bool) -> None:
     """Откат применения к базовой линии изменения. Без --apply — только план."""
-    ctx = _contexts(roots)[0]
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "change")
     result = revert_change(ctx.root, change_id, apply=apply_,
-                           history=ctx.history_recorder(change_id))
+                           history=ctx.history_recorder(change_id), store=ctx.history_store,
+                           parse_cache=ctx.parse_cache)
     if result.get("applied"):
         ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+    _emit_command_result(ctx, result, output)
 
 
-@cli.command("context")
+@cli.command("context", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--change", "change_id", default=None)
 @click.option("--tag", default=None)
-@click.option("--budget", type=int, default=8000, show_default=True)
+@click.option("--budget", type=click.IntRange(min=1), default=8000, show_default=True)
 @click.option("--with-diff", is_flag=True)
 def context_cmd(roots: tuple[str, ...], output: str, no_input: bool, change_id: str | None,
                 tag: str | None, budget: int, with_diff: bool) -> None:
-    """Весь контекст задачи одним вызовом, в пределах бюджета байт."""
-    ctx = _contexts(roots)[0]
+    """Весь контекст задачи одним вызовом, в пределах бюджета в символах."""
+    ctx = _single_context(roots, "change")
     if not change_id and not tag:
         raise TodocError("Нужен --change или --tag", EXIT_USAGE, "usage.error")
     limits = ctx.dataset.get("limits") or {}
     max_diff_lines = limits.get("max_diff_lines")
     result = build_context(ctx.root, ctx.dataset_id, change_id=change_id, tag=tag,
-                           budget=budget, with_diff=with_diff,
+                           budget=budget, with_diff=with_diff, store=ctx.history_store,
+                           backend=ctx.history_recorder().backend,
                            max_diff_lines=max_diff_lines if isinstance(max_diff_lines, int) else None)
-    _emit_ok({"dataset_id": ctx.dataset_id, **result}, output, None)
+    if result.get("error"):
+        raise IncompleteError(f"Изменение не найдено: {change_id}", result["error"])
+    _emit_command_result(ctx, result, output)
 
 
 def _history_unavailable(status: str, path: str) -> TodocError:
@@ -1162,29 +1514,26 @@ def _history_unavailable(status: str, path: str) -> TodocError:
                       EXIT_INCOMPLETE, "history.revision_unknown")
 
 
-def _write_whole(root: Path, rel_path: str, text: str, expected_hash: str | None, *,
+def _write_whole(ctx: DatasetContext, rel_path: str, text: str, expected_hash: str, *,
                  history: Any, basis: str) -> str:
-    """Запись файла целиком с обязательной записью события: молчаливых правок не бывает."""
-    target = root / rel_path
-    if expected_hash is not None:
-        actual = file_hash(target) if target.is_file() else ""
-        if actual != expected_hash:
-            raise ConflictError(f"Hash mismatch for {rel_path}", "write.hash_mismatch")
-    before = target.read_bytes() if target.is_file() else None
-    atomic_write(target, text)
-    history.record(rel_path, before, text.encode("utf-8"), "doc.edit", basis)
-    return file_hash(target)
+    """Publish a reviewed full-file edit through the same storage path as line edits."""
+    digest = "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+    plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel_path, new_content=text,
+                     expected_hash=expected_hash or None, new_hash=digest, basis=basis)
+    return apply_write_plan(ctx.root, plan, history=history, parse_cache=ctx.parse_cache, event_kind="doc.edit")
 
 
-@cli.command("explain-path")
+@cli.command("explain-path", cls=UnifiedCommand)
 @click.argument("path")
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 def explain_path(path: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
     """Show resolved type/rule for a path — документы И папки (с .config.json-метой предка)."""
+    path = normalize_scope(path)
     for ctx in _contexts(roots):
-        folders, documents, _r, _rel, _d = ctx.scan_and_validate()
+        payload = ctx.read_index(include_mentions=False)
+        folders, documents = payload["folders"], payload["documents"]
         folder_configs, _cfg_diags = load_folder_configs(ctx.root)
 
         def _ancestor_fields(p: str) -> dict[str, Any]:
@@ -1199,16 +1548,16 @@ def explain_path(path: str, roots: tuple[str, ...], output: str, no_input: bool)
         folder_map = {f["path"]: f for f in folders}
         fm = folder_map.get(path)
         if fm is not None:
-            _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "folder": True,
+            _emit_command_result(ctx, {"path": path, "folder": True,
                       "dir_type": fm["dir_type"], "rule_source": fm["rule_source"],
-                      **_ancestor_fields(path)}, output, None)
+                      **_ancestor_fields(path)}, output)
             return
         for doc in documents:
             if doc["path"] == path:
-                _emit_ok({"dataset_id": ctx.dataset_id, "path": path, "doc_type": doc["doc_type"],
+                _emit_command_result(ctx, {"path": path, "doc_type": doc["doc_type"],
                           "format": doc["format"], "rule_source": doc["rule_source"], "document_id": doc["document_id"],
                           **_ancestor_fields(path)},
-                         output, None)
+                         output)
                 return
     raise ValidationError(f"Path not found in dataset: {path}", "explain.path_not_found")
 
@@ -1265,7 +1614,7 @@ def _resolve_document_template(ctx: DatasetContext, doc_type: str | None,
     return type_id, declared.read_text(encoding="utf-8"), _rel_todoc(ctx.root, declared)
 
 
-@docs.command("new")
+@docs.command("new", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -1274,88 +1623,394 @@ def _resolve_document_template(ctx: DatasetContext, doc_type: str | None,
 @click.option("--path", "path_", default=None, help="Явный относительный путь вместо --dir + slug.")
 @click.option("--type", "doc_type", default=None, help="Тип документа: шаблон и структура из папки типа.")
 @click.option("--template", default=None, help="Тип документа или путь к файлу шаблона.")
+@click.option("--attributes-file", help="JSON object with custom document metadata.")
+@click.option("--preview", is_flag=True, help="Show the write plan without creating the file.")
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, dir_: str, path_: str | None,
-             doc_type: str | None, template: str | None) -> None:
+             doc_type: str | None, template: str | None, attributes_file: str | None,
+             preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Create a document from its type's starter template (create-only, no-overwrite)."""
-    ctx = _contexts(roots)[0]
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "docs")
     slug = _slugify(title)
     rel = path_ or f"{dir_.strip('/')}/{slug}.md"
-    target = _contained_out(ctx.root, rel)  # neither --dir nor --path may escape DATA_ROOT
+    target = _contained_out(ctx.root, rel)
+    if (ctx.root / rel).is_symlink():
+        raise ConflictError(f"Target already exists: {rel}", "docs.target_exists")
+    rel = target.relative_to(ctx.root).as_posix()
     if target.exists():
         raise ConflictError(f"Target already exists: {rel}", "docs.target_exists")
+    is_json = target.suffix.casefold() == ".json"
+    if is_json and not title.strip():
+        raise ValidationError("Document title must not be empty", "docs.empty_title")
     type_id, template_text, source = _resolve_document_template(ctx, doc_type, template)
-    values = {"title": title, "slug": slug, "date": _utc_date(), "type_id": type_id or "",
-              "id": f"doc:{rel}", "format": "markdown"}
-    plan = create_document_plan(ctx.dataset, ctx.registry_types.doc_types, type_id, title, rel,
-                                template_text, values)
-    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    extra = _load_patch_file(attributes_file) if attributes_file is not None else {}
+    if set(extra) & {"id", "title", "doc_type", "created", "updated", "record_id", "entity_type"}:
+        raise ValidationError("--attributes-file cannot override generated identity or dates.", "metadata.protected")
+    today = _utc_date()
+    common = load_metadata_schema(ctx.root)
+    typed = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset, "doc_type", _doc_types_of)
+    schemas = [(common, SCHEMA_PATH)] if common is not None else []
+    if type_id in typed:
+        schemas.append(typed[type_id])
+    if is_json:
+        metadata = {"id": f"doc:{rel}", "title": title, "lang": "ru", "created": today, "updated": today}
+        if type_id is not None:
+            metadata["doc_type"] = type_id
+        metadata.update(extra)
+        body: Any = {}
+        if template is not None and template not in ctx.registry_types.doc_types:
+            body, errors = parse_json(template_text or "")
+            if errors:
+                raise ValidationError("The JSON document template must contain valid JSON.", "types.template_invalid")
+        content = json.dumps({"meta": metadata, "body": body}, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel, new_content=content,
+                         expected_hash=None, new_hash="sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                         basis="Create JSON document")
+    else:
+        values = {"title": title, "slug": slug, "date": today, "type_id": type_id or "",
+                  "id": f"doc:{rel}", "format": "markdown"}
+        plan = create_document_plan(ctx.dataset, ctx.registry_types.doc_types, type_id, title, rel,
+                                    template_text, values)
+        original = parse_markdown(plan.new_content).front_matter
+        metadata = normalize_markdown_attributes(original, schemas)
+        if extra:
+            metadata.update(extra)
+            content = rewrite_markdown_attributes(plan.new_content, original, metadata)
+            if normalize_markdown_attributes(parse_markdown(content).front_matter, schemas) != metadata:
+                raise ValidationError("Some attributes cannot be represented in Markdown.", "metadata.invalid_patch")
+            plan = replace(plan, new_content=content,
+                           new_hash="sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest())
+    descriptor = ctx.registry_types.doc_types.get(type_id, {})
+    statuses = descriptor.get("allowed_statuses") or []
+    if "status" in metadata and statuses and metadata["status"] not in statuses:
+        raise ValidationError(f"status must be one of {statuses}.", "docs.status_not_allowed")
+    findings = [f"{pointer}: {message}" for schema, _ in schemas
+                for pointer, message in metadata_errors(metadata, schema, "/meta" if is_json else "")]
+    if findings:
+        raise ValidationError("; ".join(findings), "document.schema_violation")
+    if extra and common is None:
+        issues = _check_meta_fields(ctx.dataset_id, rel, metadata)
+        if issues:
+            raise ValidationError(issues[0].message, issues[0].code)
+    plan_hash = selection_key([ctx.dataset_id, plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The document creation plan is stale.", "write.hash_mismatch")
+    if not apply_:
+        _emit_command_result(ctx, {"plan": plan.preview_dict(), "plan_hash": plan_hash,
+                                   "preview": True, "applied": False, "attributes": metadata}, output)
+        return
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "path": rel, "title": title, "doc_type": type_id,
-              "template": source, "hash": plan.new_hash}, output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", f"doc:{rel}"],
-                            "purpose": "Прочитать созданный документ"},
-                           {"argv": _root_argv(roots) + ["types", "prompt", type_id or "note", "--op", "edit"],
-                            "purpose": "Взять стартовый промпт правки для этого типа"}])
+    _emit_command_result(ctx, {"path": rel, "title": title, "doc_type": type_id, "template": source,
+                               "hash": plan.new_hash, "applied": True, "plan_hash": plan_hash}, output,
+                         next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", f"doc:{rel}"],
+                                        "purpose": "Прочитать созданный документ"},
+                                       {"argv": _root_argv(roots) + ["types", "prompt", type_id or "note", "--op", "edit"],
+                                        "purpose": "Взять стартовый промпт правки для этого типа"}])
 
 
-@docs.command("search")
+@docs.command("list", cls=AttributeFilterCommand)
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]))
+@click.option("--no-input", is_flag=True)
+@click.option("--type", "types", multiple=True, help="Effective document type; separate alternatives by |.")
+@click.option("--within", default=".")
+@click.option("--tag")
+@click.option("--tag-in", multiple=True, help="Match at least one tag, separated by |.")
+@click.option("--tag-all", multiple=True, help="Match every tag, separated by |.")
+@click.option("--file-format", type=click.Choice(["markdown", "json", "csv", "opaque"]))
+@click.option("--attribute", "attributes", type=(str, str), multiple=True, hidden=True)
+@click.option("--filter-file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--filter-fields", is_flag=True, help="List declared and observed metadata fields in this scope.")
+@click.option("--status", "statuses", multiple=True)
+@click.option("--status-missing", is_flag=True)
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--fields-help", is_flag=True)
+@click.option("--view", default="flat")
+@click.option("--limit", type=click.IntRange(1, 1000), default=50, show_default=True)
+@click.option("--cursor")
+def docs_list(roots: tuple[str, ...], output: str | None, no_input: bool,
+              types: tuple[str, ...], within: str, tag: str | None, tag_in: tuple[str, ...],
+              tag_all: tuple[str, ...], file_format: str | None,
+              attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
+              filter_fields: bool, statuses: tuple[str, ...], status_missing: bool,
+              include: str | None, exclude: str | None, fields_help: bool,
+              view: str, limit: int, cursor: str | None) -> None:
+    """List current document metadata. Filter with --attr-NAME 'value1|value2'."""
+    output = output or _group_output
+    meta = _collection_meta()
+    if fields_help:
+        emit(Envelope(
+            True, {"meta": {"command": "docs list", "scope": None}, "executed": False,
+                   "result": {"fields": DOCUMENT_LIST_FIELDS + ("attributes",),
+                              "structural": ["id", "path"]}},
+            schema_version=2, guidance={"profile": "ru", "mode": "compact", "items": []},
+        ), output)
+        return
+    meta["requested_view"] = view
+    try:
+        within = normalize_scope(within)
+        allowed = DOCUMENT_LIST_FIELDS + ("attributes",)
+        fields = selected_fields(allowed, include, exclude, structural=("id", "path"))
+        if include is None:
+            fields = tuple(field for field in fields if field != "attributes")
+        doc_types = split_values(types)
+        any_tags = split_values(part.casefold() for part in tag_in)
+        all_tags = split_values(part.casefold() for part in tag_all)
+        resolved = resolve_roots(_effective_roots(roots))
+        if len(resolved) != 1:
+            raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
+        ctx = DatasetContext(resolved[0])
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "within": within}
+        payload = ctx.read_index(include_mentions=False)
+        if failures := _document_read_failures(payload, within):
+            emit(Envelope.collection(meta, [], diagnostics=failures), output)
+            raise click.exceptions.Exit(EXIT_INCOMPLETE)
+        declared = _document_filter_fields(ctx, doc_types)
+        if filter_fields:
+            candidates = matching_documents(payload["documents"], within, doc_types, file_format)
+            observed = {key for doc in candidates for key in doc["attributes"] if isinstance(key, str)}
+            emit(Envelope(True, {"meta": meta, "executed": False,
+                                 "result": {"fields": sorted(observed | declared.keys()),
+                                            "operators": OPERATORS, "declared": declared}},
+                          schema_version=2, guidance=guidance_for([])), output)
+            return
+        items, total, next_cursor = list_documents(
+            payload, types=doc_types, within=within, tag=tag, any_tags=any_tags, all_tags=all_tags,
+            file_format=file_format, statuses=statuses, status_missing=status_missing,
+            attributes=attributes, filter_file=filter_file, declared=declared, limit=limit, cursor=cursor,
+        )
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    meta.update(complete=True, total=total, returned=len(items),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    diagnostics = []
+    if view != "flat":
+        diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
+                            "message": "The available view for docs list is flat."})
+    emit(Envelope.collection(meta, [project_fields(item, fields) for item in items],
+                             diagnostics=diagnostics), output)
+
+
+def _document_read_failures(payload: dict[str, Any], within: str) -> list[dict[str, Any]]:
+    codes = {"file.unsupported", "file.permission_denied", "file.unreadable",
+             "markdown.front_matter.yaml_unsafe"}
+    return [
+        {**item, "severity": "error"} for item in payload["diagnostics"]
+        if item["code"] in codes
+        and (within == "." or item["path"] == within or item["path"].startswith(within + "/"))
+    ]
+
+
+def _document_filter_fields(ctx: DatasetContext, types: tuple[str, ...]) -> dict[str, Any]:
+    fields = {key: {"type": "string"} for key in ("id", "title", "doc_type", "lang", "status")}
+    fields.update({key: {"type": "string", "format": "date"} for key in ("created", "updated")})
+    fields.update({key: {"type": "array", "items": {"type": "string"}} for key in ("tags", "related")})
+    schemas = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset, "doc_type", _doc_types_of)
+    for type_id in types or tuple(schemas):
+        if type_id in schemas:
+            fields.update(schemas[type_id][0].get("properties", {}))
+    common = load_metadata_schema(ctx.root)
+    if common is not None:
+        fields.update(common.get("properties", {}))
+    return fields
+
+
+def _collection_meta(command: str = "docs list", view: str = "flat") -> dict[str, Any]:
+    return {
+        "command": command, "scope": None, "requested_view": view, "actual_view": view,
+        "complete": False, "total": None, "returned": 0, "truncated": False, "next_cursor": None,
+    }
+
+
+def _emit_flat_page(meta: dict[str, Any], items: list[dict[str, Any]], selection: list[Any],
+                    fields: tuple[str, ...], limit: int, cursor: str | None, output: str) -> None:
+    if limit == 0:
+        if cursor is not None:
+            raise TodocError("A count-only request does not accept a cursor.", EXIT_USAGE, "cursor.invalid")
+        rows, next_cursor = [], None
+    else:
+        rows, next_cursor = page(items, selection, limit, cursor)
+    meta.update(complete=True, total=len(items), returned=len(rows),
+                truncated=next_cursor is not None or (limit == 0 and bool(items)), next_cursor=next_cursor)
+    emit(Envelope.collection(meta, [project_fields(row, fields) for row in rows],
+                            diagnostics=_view_diagnostics(meta)), output)
+
+
+def _view_diagnostics(meta: dict[str, Any]) -> list[dict[str, Any]]:
+    requested, actual = meta["requested_view"], meta["actual_view"]
+    if requested == actual:
+        return []
+    return [{"code": "view.fallback", "severity": "info", "path": "",
+             "message": f"View {requested!r} is unavailable. Returned {actual} output."}]
+
+
+def _emit_collection_error(meta: dict[str, Any], code: str, message: str, output: str) -> None:
+    envelope = Envelope.collection(meta, [], diagnostics=[
+        {"code": code, "severity": "error", "message": message, "path": ""}
+    ])
+    command = meta["command"]
+    envelope.next_actions = [{"argv": ["todoc", *command.split(), "--help"], "purpose": command}]
+    emit(envelope, output)
+
+
+_SEARCH_FIELDS = ("id", "path", "title", "heading_path", "rank", "relevance",
+                  "matched_terms", "snippet")
+
+
+@docs.command("search", cls=AttributeFilterCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-@click.option("--type", "doc_type", default=None)
-@click.option("--query", required=True)
-@click.option("--budget", type=int, default=None)
-@click.option("--limit", type=int, default=10)
-@click.option("--within", default=None)
-@click.option("--cursor", default=None)
-@click.option("--tag", default=None, help="Точный пост-фильтр по тегу front matter (план doc-tags).")
-def docs_search(roots: tuple[str, ...], output: str, no_input: bool, doc_type: str | None, query: str,
-                budget: int | None, limit: int, within: str | None, cursor: str | None,
-                tag: str | None) -> None:
-    """Bounded lexical search with provenance."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    offset = _parse_offset(cursor)
-    hits, total, truncated = search_documents(ctx.root, payload["documents"], query, doc_type, within, limit,
-                                             budget, offset, tag=tag)
-    next_cursor = str(offset + len(hits)) if truncated else None
-    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "returned": len(hits), "truncated": truncated,
-              "cursor": next_cursor, "items": [h.to_dict() for h in hits]}, output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", hits[0].id, "--output", "json"],
-                            "purpose": "Прочитать выбранный документ"}] if hits else [])
+@click.option("--type", "types", multiple=True, help="Effective document type; separate alternatives by |.")
+@click.option("--query")
+@click.option("--budget", type=click.IntRange(min=1),
+              help="Maximum number of Unicode characters across result snippets.")
+@click.option("--limit", type=click.IntRange(1, 1000), default=10)
+@click.option("--within", default=".")
+@click.option("--cursor")
+@click.option("--tag", help="Match one exact tag.")
+@click.option("--tag-in", multiple=True, help="Match at least one tag, separated by |.")
+@click.option("--tag-all", multiple=True, help="Match every tag, separated by |.")
+@click.option("--file-format", type=click.Choice(["markdown", "json", "csv", "opaque"]))
+@click.option("--attribute", "attributes", type=(str, str), multiple=True, hidden=True)
+@click.option("--filter-file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--view", default="flat")
+def docs_search(roots: tuple[str, ...], output: str, no_input: bool, types: tuple[str, ...], query: str | None,
+                budget: int | None, limit: int, within: str, cursor: str | None,
+                tag: str | None, tag_in: tuple[str, ...], tag_all: tuple[str, ...], file_format: str | None,
+                attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
+                include: str | None, exclude: str | None, view: str) -> None:
+    """Search document text or apply metadata filters with --attr-NAME 'value1|value2'."""
+    meta = _collection_meta("docs search", view)
+    meta["actual_view"] = "flat"
+    if query is None and not any((types, tag, tag_in, tag_all, file_format, attributes, filter_file, within != ".")):
+        emit(Envelope(True, {
+            "meta": meta, "executed": False,
+            "result": {"input": "Pass --query or a metadata filter.", "fields": _SEARCH_FIELDS},
+        }, schema_version=2, guidance=guidance_for([])), output)
+        return
+    try:
+        if query is not None and not query.strip():
+            raise TodocError("--query must not be empty.", EXIT_USAGE, "usage.error")
+        scope = normalize_scope(within)
+        fields = selected_fields(_SEARCH_FIELDS, include, exclude, structural=("id", "path"))
+        doc_types = split_values(types)
+        any_tags = split_values(part.casefold() for part in tag_in)
+        all_tags = split_values(part.casefold() for part in tag_all)
+        resolved = resolve_roots(_effective_roots(roots))
+        if len(resolved) != 1:
+            raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
+        ctx = DatasetContext(resolved[0])
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
+        payload = ctx.read_index(include_mentions=False)
+        if failures := _document_read_failures(payload, scope):
+            emit(Envelope.collection(meta, [], diagnostics=failures), output)
+            raise click.exceptions.Exit(EXIT_INCOMPLETE)
+        candidates = matching_documents(payload["documents"], scope, doc_types, file_format)
+        candidates, conditions = select_document_attributes(
+            candidates, _document_filter_fields(ctx, doc_types), attributes, filter_file, tag, any_tags, all_tags,
+        )
+        selection = [2, "docs search", ctx.dataset_id, payload["corpus_digest"], scope,
+                     doc_types, file_format, tag, any_tags, all_tags, conditions, query]
+        if query is None:
+            candidates.sort(key=lambda doc: (doc["path"], doc["document_id"]))
+            selected, next_cursor = page(candidates, selection, limit, cursor)
+            total = len(candidates)
+            items = [
+                {"id": doc["document_id"], "path": doc["path"], "title": doc["title"]} for doc in selected
+            ]
+        else:
+            key = selection_key(selection)
+            offset = cursor_offset(cursor, key)
+            searchable = [doc for doc in candidates if doc["format"] != "opaque"]
+            hits, total, _ = search_documents(ctx.root, searchable, query, limit=limit, budget=budget,
+                                             offset=offset, verify_sources=True)
+            if cursor is not None and offset >= total:
+                raise TodocError("Cursor is outside this selection.", EXIT_USAGE, "cursor.invalid")
+            items = [hit.to_dict() for hit in hits]
+            next_cursor = next_page_cursor(key, offset + len(items), total)
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    meta.update(complete=True, total=total, returned=len(items),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    diagnostics = []
+    if view != "flat":
+        diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
+                            "message": "The available view for docs search is flat."})
+    response = Envelope.collection(meta, [project_fields(item, fields) for item in items],
+                                   diagnostics=diagnostics)
+    if items:
+        first_id = items[0]["id"]
+        if sum(doc["document_id"] == first_id for doc in payload["documents"]) == 1:
+            response.next_actions = [
+                {"argv": _root_argv(roots) + ["docs", "read", "--id", first_id, "--output", "json"],
+                 "purpose": "Прочитать выбранный документ"}
+            ]
+    emit(response, output)
 
 
-@docs.command("read")
+@docs.command("read", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-@click.option("--id", "doc_id", required=True)
+@click.option("--id", "doc_id")
 @click.option("--section", default=None)
 @click.option("--anchor", default=None)
 @click.option("--line-range", default=None)
 @click.option("--pointer", default=None)
 @click.option("--columns", default=None)
-@click.option("--rows", type=int, default=None)
+@click.option("--rows", type=click.IntRange(min=1), default=None)
 @click.option("--where", default=None)
-@click.option("--budget", type=int, default=None)
-def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, section: str | None,
+@click.option("--budget", type=click.IntRange(min=1), default=None,
+              help="Maximum number of Unicode characters of text content.")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str | None, section: str | None,
               anchor: str | None, line_range: str | None, pointer: str | None, columns: str | None,
-              rows: int | None, where: str | None, budget: int | None) -> None:
+              rows: int | None, where: str | None, budget: int | None,
+              include: str | None, exclude: str | None) -> None:
     """Bounded projection read (section/pointer/columns)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    meta = {"command": "docs read", "scope": None}
+    if doc_id is None:
+        emit(Envelope(True, {"meta": meta, "executed": False, "result": {"input": "Pass --id."}},
+                      schema_version=2, guidance=guidance_for([])), output)
+        return
+    resolved = resolve_roots(_effective_roots(roots))
+    if len(resolved) != 1:
+        raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
+    ctx = DatasetContext(resolved[0])
+    payload = ctx.read_index(include_mentions=False)
     # план entity-catalog З3/T5: fragment в id — синоним --section; конфликт — usage.error
     id_base, hash_sep, id_fragment = doc_id.partition("#")
     if hash_sep and section:
         raise TodocError("Фрагмент в --id и --section одновременно.", EXIT_USAGE, "usage.error")
     if hash_sep:
         doc_id, section = id_base, id_fragment
-    doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
-    if doc is None:
+    matches = [item for item in payload["documents"] if item["document_id"] == doc_id]
+    if not matches:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
-    text = (ctx.root / doc["path"]).read_text(encoding="utf-8")
+    if len(matches) != 1:
+        raise ValidationError(f"Multiple documents share {doc_id!r}.", "docs.ambiguous_id")
+    doc = matches[0]
+    text = read_verified_text(ctx.root, doc["path"], doc["hash"])
     data: dict[str, Any] = {"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"],
                             "format": doc["format"], "doc_type": doc["doc_type"], "hash": doc["hash"]}
+    if budget is not None and doc["format"] in ("json", "csv"):
+        raise TodocError("--budget applies to text projections. Use --pointer or --rows for structured data.",
+                         EXIT_USAGE, "docs.budget_not_applicable")
+    markdown_selections = sum(value is not None for value in (section, anchor, line_range))
+    csv_selection = any(value is not None for value in (columns, rows, where))
+    if (markdown_selections > 1 or (markdown_selections and doc["format"] != "markdown")
+            or (pointer is not None and doc["format"] != "json") or (csv_selection and doc["format"] != "csv")):
+        raise TodocError("Use one selector supported by the file format.", EXIT_USAGE, "docs.invalid_selector")
     if doc["format"] == "markdown":
         md = parse_markdown(text)
         fm = md.front_matter
@@ -1380,37 +2035,41 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
                     end_line = h.line - 1
                     break
             section_lines = lines[selected.line - 1:end_line]
+            section_text = "\n".join(section_lines)
             if budget is not None:
-                # BUG-005: --budget ограничивает окно секции в байтах вместо молчаливого игнора
-                window: list[str] = []
-                used = 0
-                for ln in section_lines:
-                    cost = len(ln.encode("utf-8")) + 1
-                    if window and used + cost > budget:
-                        break
-                    window.append(ln)
-                    used += cost
+                excerpt = section_text[:budget]
+                window = excerpt.split("\n")
             else:
                 window = section_lines[:SECTION_MAX_LINES]
+                excerpt = "\n".join(window)
             data["section"] = selected.title
             data["heading_path"] = heading_path_for(md.headings, selected_index)
             data["line_start"] = selected.line
             data["line_end"] = selected.line + len(window) - 1
             data["lines"] = window
             data["section_total_lines"] = len(section_lines)
-            data["truncated"] = len(section_lines) > len(window)
-            data["text"] = "\n".join(window)
+            data["truncated"] = len(excerpt) < len(section_text)
+            data["text"] = excerpt
         elif line_range:
             start, end = _parse_line_range(line_range)
             lines = text.splitlines()
-            data["lines"] = lines[start - 1:end]
-            data["text"] = "\n".join(data["lines"])
+            selected_lines = lines[start - 1:end]
+            requested_text = "\n".join(selected_lines)
+            excerpt = requested_text[:budget]
+            data["lines"] = excerpt.split("\n") if selected_lines else []
+            data["text"] = excerpt
+            data["line_start"] = start
+            data["line_end"] = start + len(data["lines"]) - 1
+            data["truncated"] = len(excerpt) < len(requested_text)
         else:
             data["title"] = md.title
             data["headings"] = [{"title": h.title, "level": h.level, "line": h.line, "anchor": h.anchor} for h in md.headings]
             data["text"] = text[: budget or 4000]
+            data["truncated"] = len(data["text"]) < len(text)
     elif doc["format"] == "json":
-        value, _errors = parse_json(text)
+        value, errors = parse_json(text)
+        if errors:
+            raise ValidationError(f"Cannot project invalid JSON: {errors[0]}", "docs.invalid_json")
         if pointer:
             try:
                 data["value"] = resolve_pointer(value, pointer)
@@ -1420,12 +2079,18 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
             data["value"] = value
     elif doc["format"] == "csv":
         csv_doc = parse_csv(text)
+        if csv_doc.errors:
+            raise ValidationError(f"Cannot project invalid CSV: {csv_doc.errors[0]}", "docs.invalid_csv")
         cols = [c.strip() for c in columns.split(",")] if columns else csv_doc.headers
+        if set(cols) - set(csv_doc.headers):
+            raise TodocError("Unknown CSV column.", EXIT_USAGE, "docs.invalid_selector")
         # Сначала отбор, потом окно: --rows 3 --where k=v должен вернуть три
         # подходящие строки, а не три первые с последующей фильтрацией (P1-5).
         selected_rows = csv_doc.rows
         if where:
-            key, _, val = where.partition("=")
+            key, equals, val = where.partition("=")
+            if not equals or key.strip() not in csv_doc.headers:
+                raise TodocError("--where expects a valid COLUMN=VALUE.", EXIT_USAGE, "docs.invalid_selector")
             selected_rows = [r for r in selected_rows if str(r.get(key.strip(), "")) == val.strip()]
         matched = len(selected_rows)
         if rows is not None:
@@ -1437,96 +2102,181 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
         data["truncated"] = matched > len(selected_rows)
     else:
         data["text"] = text[: budget or 4000]
-    _emit_ok(data, output, None)
+        data["truncated"] = len(data["text"]) < len(text)
+    provenance = ("dataset_id", "id", "path", "format", "doc_type", "hash",
+                  "section", "heading_path", "line_start", "line_end", "section_total_lines", "truncated")
+    if include is not None and doc["format"] in ("markdown", "json"):
+        data["attributes"] = doc["attributes"]
+    fields = selected_fields(tuple(data), include, exclude, structural=provenance)
+    meta.update(scope={"dataset_id": ctx.dataset_id, "path": doc["path"]})
+    emit(Envelope.result(meta, project_fields(data, fields)), output)
 
 
-@docs.command("suggest")
+@docs.command("suggest", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--query", "q", required=True, help="Запрос: куда положить/где искать (кириллица работает).")
-@click.option("--limit", type=int, default=5, show_default=True)
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--query", "q", help="Search for a place to file or find documents.")
+@click.option("--limit", type=click.IntRange(1, 1000), default=5)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
 @click.option("--no-input", is_flag=True)
-def docs_suggest(roots: tuple[str, ...], q: str, limit: int, output: str, no_input: bool) -> None:
-    """Куда положить/где искать: скоринг папок по .config.json (Фаза A, детерминированно)."""
-    ctx = _contexts(roots)[0]
+@click.option("--within", default=".")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--cursor")
+def docs_suggest(roots: tuple[str, ...], q: str | None, limit: int, output: str, no_input: bool,
+                 within: str, include: str | None, exclude: str | None, cursor: str | None) -> None:
+    """Rank folders using their declared titles, tags and aliases."""
+    meta = _collection_meta("docs suggest")
+    if q is None:
+        emit(Envelope(True, {"meta": meta, "executed": False, "result": {"input": "Pass --query."}},
+                      schema_version=2, guidance=guidance_for([])), output)
+        return
     if not q.strip():
         raise TodocError("Пустой запрос: укажите --query.", EXIT_USAGE, "usage.error")
-    folder_configs, _cfg_diags = load_folder_configs(ctx.root)
-    candidates, discarded = score_folder_configs(folder_configs, q)
-    truncated = len(candidates) > limit
-    candidates = candidates[:limit]
-    _emit_ok({"query": q, "threshold": 0.25, "truncated": truncated,
-              "candidates": candidates, "discarded": discarded},
-             output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["docs", "new", "--dir", "<путь из кандидатов>"],
-                            "purpose": "Создать документ в выбранной папке"},
-                           {"argv": _root_argv(roots) + ["explain-path", "<путь из кандидатов>"],
-                            "purpose": "Объяснить выбранную папку (dir_type + мета)"}])
+    ctx = _single_context(roots, "docs")
+    scope = normalize_scope(within)
+    meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
+    folder_configs, findings = load_folder_configs(ctx.root)
+    related = {key: config for key, config in folder_configs.items()
+               if scope == "." or key == scope or key.startswith(scope + "/")}
+    if findings:
+        errors = [{**finding, "severity": "error"} for finding in findings]
+        emit(Envelope.collection(meta, [], diagnostics=errors), output)
+        raise click.exceptions.Exit(EXIT_INCOMPLETE)
+    candidates, discarded = score_folder_configs(related, q)
+    fields = selected_fields(("path", "title", "description", "score", "reason", "order"),
+                             include, exclude, structural=("path",))
+    selected, next_cursor = page(candidates, [2, "docs suggest", ctx.dataset_id, scope, q, candidates, discarded],
+                                 limit, cursor)
+    meta.update(complete=True, total=len(candidates), returned=len(selected), truncated=next_cursor is not None,
+                next_cursor=next_cursor, query=q, threshold=0.25, discarded_total=len(discarded))
+    response = Envelope.result(meta, {"items": [project_fields(row, fields) for row in selected],
+                                      "discarded": discarded[:50]})
+    if selected:
+        response.next_actions = [
+            {"argv": _root_argv(roots) + ["explain-path", selected[0]["path"]],
+             "purpose": "Объяснить выбранную папку"}
+        ]
+    emit(response, output)
 
 
-@docs.command("links")
+@docs.command("links", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
-@click.option("--limit", type=int, default=20, show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
+@click.option("--limit", type=click.IntRange(1, 1000), default=20)
 @click.option("--no-input", is_flag=True)
-def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int) -> None:
-    """Инвентаризация локальных ссылок: total/broken (BUG-007, тот же резолв, что в validate)."""
-    ctx = _contexts(roots)[0]
-    _folders, documents, _r, _rel, _diags = ctx.scan_and_validate()
-    paths = {d["path"] for d in documents}
-    by_basename, _basenames = _basename_index(paths)
-    total = broken = 0
-    items: list[dict[str, Any]] = []
-    for d in documents:
-        if d.get("format") != "markdown":
-            continue
-        fpath = ctx.root / d["path"]
-        try:
-            text = fpath.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        for link in parse_markdown(text).links:
-            if link.is_wikilink:
-                if not link.target:
-                    continue
-                kind = "wikilink"
-                ok = bool(_wikilink_candidates(link.target, by_basename))
-            else:
-                normalized = resolve_link_target(d["path"], link.target)
-                if normalized is None:
-                    continue  # внешние/якорные — не локальный граф
-                kind = "md"
-                ok = normalized in paths
-            total += 1
-            if not ok:
-                broken += 1
-                items.append({"path": d["path"], "target": link.target,
-                              "kind": kind, "line": link.line})
-    truncated = broken > limit
-    items = items[:limit]
-    _emit_ok({"total": total, "broken": broken, "items": items, "truncated": truncated},
-             output, None)
+@click.option("--within", default=".")
+@click.option("--cursor")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int, within: str,
+               cursor: str | None, include: str | None, exclude: str | None) -> None:
+    """Audit broken local Markdown links with source coordinates."""
+    meta = _collection_meta("docs links")
+    try:
+        ctx = _single_context(roots, "docs")
+        scope = normalize_scope(within)
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
+        fields = selected_fields(("source", "target", "kind", "line", "column"), include, exclude,
+                                 structural=("source", "line", "column"))
+        payload = ctx.read_index(include_mentions=False)
+        if failures := _document_read_failures(payload, scope):
+            emit(Envelope.collection(meta, [], diagnostics=failures), output)
+            raise click.exceptions.Exit(EXIT_INCOMPLETE)
+        documents = payload["documents"]
+        paths = {doc["path"] for doc in documents}
+        record_ids = {record["record_id"] for record in payload["records"]}
+        by_basename, _ = _basename_index(paths)
+        total_links = 0
+        broken = []
+        for doc in matching_documents(documents, scope, (), "markdown"):
+            source = doc["path"]
+            text = read_verified_text(ctx.root, source, doc["hash"])
+            for link in parse_markdown(text).links:
+                if link.is_wikilink:
+                    if not link.target:
+                        continue
+                    kind = "wikilink"
+                    exists = link.target in record_ids or bool(_wikilink_candidates(link.target, by_basename))
+                else:
+                    target = resolve_link_target(source, link.target)
+                    if target is None:
+                        continue
+                    kind = "md"
+                    exists = target in paths
+                total_links += 1
+                if not exists:
+                    broken.append({"source": source, "target": link.target, "kind": kind,
+                                   "line": link.line, "column": link.column})
+        selected, next_cursor = page(broken, [2, "docs links", ctx.dataset_id, payload["corpus_digest"], scope],
+                                     limit, cursor)
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    meta.update(complete=True, total=len(broken), total_links=total_links, returned=len(selected),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    emit(Envelope.collection(meta, [project_fields(item, fields) for item in selected]), output)
 
 
-@docs.command("tree")
+@docs.command("tree", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]))
 @click.option("--no-input", is_flag=True)
 @click.option("--within", default=None)
-@click.option("--max-depth", type=int, default=3)
+@click.option("--depth", "--max-depth", "max_depth", type=click.IntRange(min=0), default=3)
+@click.option("--limit", type=click.IntRange(1, 1000), default=50)
+@click.option("--cursor")
+@click.option("--view", default="tree")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
 @click.option("--match", "match_q", default=None,
               help="Фильтр папок Фазой A скоринга (.config.json): score ≥ 0.25, порядок score → order → путь.")
-def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str | None,
-              max_depth: int, match_q: str | None) -> None:
+def docs_tree(roots: tuple[str, ...], output: str | None, no_input: bool, within: str | None,
+              max_depth: int, limit: int, cursor: str | None, match_q: str | None,
+              view: str, include: str | None, exclude: str | None) -> None:
     """Compact derived outline (folders + documents)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    folders = [dict(f) for f in payload["folders"]]
-    documents = payload["documents"]
-    if within:
-        folders = [f for f in folders if f["path"] == within or f["path"].startswith(within.rstrip("/") + "/")]
-        documents = [d for d in documents if d["path"] == within or d["path"].startswith(within.rstrip("/") + "/")]
-    folder_configs, _cfg_diags = load_folder_configs(ctx.root)
+    output = output or _group_output
+    meta = _collection_meta("docs tree", view)
+    actual_view = view if view in ("tree", "flat") else "tree"
+    meta["actual_view"] = actual_view
+    try:
+        scope = normalize_scope(within or ".")
+        fields = selected_fields(
+            ("id", "path", "kind", "title", "description", "order", "dir_type", "doc_type",
+             "format", "status", "parse_status", "tags", "updated", "hash"),
+            include, exclude, structural=("id", "path", "kind"),
+        )
+        resolved = resolve_roots(_effective_roots(roots))
+        if len(resolved) != 1:
+            raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
+        ctx = DatasetContext(resolved[0])
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
+        items, cfg_diags, digest = _tree_items(ctx, scope, max_depth, match_q)
+        if any(diagnostic["severity"] == "error" for diagnostic in cfg_diags):
+            emit(Envelope.collection(meta, [], diagnostics=cfg_diags), output)
+            raise click.exceptions.Exit(EXIT_INCOMPLETE)
+        rows, next_cursor = page(
+            items, [2, "docs tree", ctx.dataset_id, digest, scope, max_depth, match_q, items, cfg_diags],
+            limit, cursor,
+        )
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    meta.update(complete=True, total=len(items), returned=len(rows), truncated=next_cursor is not None,
+                next_cursor=next_cursor, max_depth=max_depth)
+    if actual_view != view:
+        cfg_diags.append({"code": "view.fallback", "severity": "info", "path": "",
+                          "message": "The available views for docs tree are tree and flat."})
+    projected = [project_fields(row, fields) for row in rows]
+    result = {"items": projected} if actual_view == "flat" else {"root": folder_tree(scope, projected)}
+    emit(Envelope.result(meta, result, diagnostics=cfg_diags), output)
+
+
+def _tree_items(ctx: DatasetContext, scope: str, depth: int, match_q: str | None
+                ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
+    payload = ctx.read_index(include_mentions=False)
+    folders = [dict(f) for f in payload["folders"] if within_depth(f["path"], scope, depth)]
+    documents = [d for d in payload["documents"] if within_depth(d["path"], scope, depth)]
+    folder_configs, cfg_diags = load_folder_configs(ctx.root)
     for f in folders:  # плоские поля из .config.json ближайшего СВОЕГО конфига (null без него)
         fc = folder_configs.get(f["path"])
         f["title"] = fc.title if fc else None
@@ -1537,8 +2287,12 @@ def docs_tree(roots: tuple[str, ...], output: str, no_input: bool, within: str |
         rank = {c["path"]: i for i, c in enumerate(candidates)}
         folders = [f for f in folders if f["path"] in rank]
         folders.sort(key=lambda f: rank[f["path"]])
-    _emit_ok({"dataset_id": ctx.dataset_id, "folders": folders[:50], "documents": documents[:50],
-              "total_folders": len(folders), "total_documents": len(documents), "max_depth": max_depth}, output, None)
+    items = [{"id": f["folder_id"], "kind": "folder", **f} for f in folders]
+    items.extend({
+        **d, "id": d["document_id"], "kind": "document", "parse_status": d["status"],
+        "status": d.get("lifecycle_status"),
+    } for d in documents)
+    return items, cfg_diags + _document_read_failures(payload, scope), payload["corpus_digest"]
 
 
 _FLOW_SECTIONS = ("state", "table", "mermaid", "lineage", "terms")
@@ -1566,7 +2320,7 @@ def docs_flow() -> None:
     """Витрина и навигатор дерева решений флоу (entity-catalog T1/T2)."""
 
 
-@docs_flow.command("render")
+@docs_flow.command("render", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -1574,23 +2328,32 @@ def docs_flow() -> None:
 @click.option("--section", type=click.Choice(_FLOW_SECTIONS), default=None,
               help="Одна секция витрины вместо полного markdown.")
 @click.option("--write", "write_path", default=None, help="Материализовать витрину в файл (fm derived_from).")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def docs_flow_render(roots: tuple[str, ...], output: str, no_input: bool, flow_id: str,
-                     section: str | None, write_path: str | None) -> None:
+                     section: str | None, write_path: str | None, preview: bool, apply_: bool,
+                     if_plan_hash: str | None) -> None:
     """Витрина флоу из записи: state machine, таблица решений (Режим), mermaid, lineage, термины."""
     del no_input
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    _check_action_flags(preview, apply_)
+    if apply_ and not write_path:
+        raise TodocError("--apply requires --write.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "docs")
+    payload = ctx.read_index(include_mentions=False)
     rec = _flow_record(payload, ctx, flow_id)
     view = build_flow_view(rec["data"], rules=_typed_records(payload, "rule"),
                            terms=_typed_records(payload, "term"))
     if section:
+        if write_path:
+            raise TodocError("--section cannot be combined with --write.", EXIT_USAGE, "usage.error")
         if not view["sections"][section].strip():
             raise ValidationError(f"Section is empty for this flow: {section}", "docs.section_not_found")
-        _emit_ok({"dataset_id": ctx.dataset_id, "id": flow_id, "section": section,
-                  "text": view["sections"][section]}, output, None)
+        _emit_command_result(ctx, {"id": flow_id, "section": section,
+                  "text": view["sections"][section]}, output)
         return
     if write_path:
-        rel = write_path.strip("/")
+        rel = normalize_scope(write_path)
         _contained_out(ctx.root, rel)  # --write не выходит за DATA_ROOT
         target = ctx.root / rel
         expected_hash: str | None = None
@@ -1617,20 +2380,27 @@ def docs_flow_render(roots: tuple[str, ...], output: str, no_input: bool, flow_i
         plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel, new_content=content,
                          expected_hash=expected_hash, new_hash=new_hash,
                          basis=f"flow render --write {flow_id}")
-        apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+        plan_hash = selection_key([ctx.dataset_id, plan.to_dict()])
+        if if_plan_hash is not None and if_plan_hash != plan_hash:
+            raise ConflictError("The generated artifact plan is stale.", "write.hash_mismatch")
+        if not apply_:
+            _emit_command_result(ctx, {"path": rel, "plan": plan.preview_dict(), "plan_hash": plan_hash,
+                                       "preview": True, "applied": False}, output)
+            return
+        apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
         ctx.ensure_index()
-        _emit_ok({"dataset_id": ctx.dataset_id, "id": flow_id, "written": rel, "hash": new_hash,
-                  "derived_from": len(anchors)}, output, None,
-                 next_actions=[{"argv": _root_argv(roots) + ["stale", "--root", str(ctx.root)],
+        _emit_command_result(ctx, {"id": flow_id, "written": rel, "hash": new_hash, "plan_hash": plan_hash, "applied": True,
+                  "derived_from": len(anchors)}, output,
+                 next_actions=[{"argv": _root_argv(roots) + ["stale"],
                                 "purpose": "Проверить дрейф витрины"}])
         return
-    _emit_ok({"dataset_id": ctx.dataset_id, "id": flow_id, "title": view["title"], "actor": view["actor"],
-              "sections": view["sections"], "markdown": view["markdown"]}, output, None,
+    _emit_command_result(ctx, {"id": flow_id, "title": view["title"], "actor": view["actor"],
+              "sections": view["sections"], "markdown": view["markdown"]}, output,
              next_actions=[{"argv": _root_argv(roots) + ["docs", "flow", "walk", "--id", flow_id],
                             "purpose": "Пройти дерево решений"}])
 
 
-@docs_flow.command("walk")
+@docs_flow.command("walk", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -1641,8 +2411,8 @@ def docs_flow_walk(roots: tuple[str, ...], output: str, no_input: bool, flow_id:
                    at: str | None, all_paths: bool) -> None:
     """Пройти дерево решений флоу: ветви по приоритету, props развилок, пути до терминалов."""
     del no_input
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    ctx = _single_context(roots, "docs")
+    payload = ctx.read_index()
     rec = _flow_record(payload, ctx, flow_id)
     view = build_flow_view(rec["data"], at=at)
     data: dict[str, Any] = {"dataset_id": ctx.dataset_id, "id": flow_id, "at": at}
@@ -1650,19 +2420,22 @@ def docs_flow_walk(roots: tuple[str, ...], output: str, no_input: bool, flow_id:
         data["paths"] = view["walk_all"]["paths"]
     else:
         data["steps"] = view["walk"]["steps"]
-    _emit_ok(data, output, None,
+    _emit_command_result(ctx, data, output,
              next_actions=[{"argv": _root_argv(roots) + ["docs", "flow", "render", "--id", flow_id],
                             "purpose": "Показать витрину флоу целиком"}])
 
 
-@docs.command("status")
+@docs.command("status", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--id", "doc_id", required=True)
 @click.option("--set", "set_value", default=None, help="Новое значение статуса (без --set — чтение).")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def docs_status(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str,
-                set_value: str | None) -> None:
+                set_value: str | None, preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Чтение/смена статуса md-документа: fm `status`, набор — allowed_statuses его doc_type.
 
     План «скилы-взаимодействия» З2: точечная замена строки статуса без перестройки
@@ -1670,16 +2443,19 @@ def docs_status(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str
     Документ без поля status не получает его молча — set отказ (docs.no_status_field).
     """
     del no_input
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "docs")
+    payload = ctx.read_index()
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
     text = (ctx.root / doc["path"]).read_text(encoding="utf-8")
     is_md = doc["format"] == "markdown"
     if set_value is None:
+        if apply_:
+            raise TodocError("--apply requires --set.", EXIT_USAGE, "usage.error")
         current = parse_markdown(text).front_matter.get("status") if is_md else None
-        _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "status": current}, output, None)
+        _emit_command_result(ctx, {"id": doc_id, "status": current}, output)
         return
     value = set_value.strip()
     if not value or value != set_value or "\n" in set_value:
@@ -1711,15 +2487,65 @@ def docs_status(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str
     plan = WritePlan(dataset_id=ctx.dataset_id, target_path=doc["path"], new_content=content,
                      expected_hash=file_hash(ctx.root / doc["path"]), new_hash=new_hash,
                      basis=f"docs status --set {doc_id} -> {value}")
-    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    plan_hash = selection_key([ctx.dataset_id, plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The status plan is stale.", "write.hash_mismatch")
+    if not apply_:
+        _emit_command_result(ctx, {"id": doc_id, "status": value, "plan_hash": plan_hash,
+                                   "expected_hash": plan.expected_hash, "new_hash": new_hash,
+                                   "applied": False}, output)
+        return
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "status": value, "new_hash": new_hash},
-             output, None,
+    _emit_command_result(ctx, {"id": doc_id, "status": value, "new_hash": new_hash, "applied": True},
+             output,
              next_actions=[{"argv": _root_argv(roots) + ["validate", "--root", str(ctx.root), "--all"],
                             "purpose": "Проверить набор после смены статуса"}])
 
 
-@docs.command("edit")
+def _load_patch_file(path: str) -> dict[str, Any]:
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise TodocError(f"Не удалось прочитать --patch-file {path}: {exc}", EXIT_USAGE, "usage.error") from exc
+    value, errors = parse_json(text)
+    if errors or not isinstance(value, dict):
+        raise ValidationError("Patch file must contain a valid JSON object.", "edit.invalid_patch")
+    return value
+
+
+def _execute_metadata_patch(
+    ctx: DatasetContext, entry: dict[str, Any], file_format: str, operations: Any,
+    schemas: list[tuple[dict[str, Any], str]], output: str, if_hash: str | None, apply_: bool,
+    *, record: bool = False, allowed_statuses: list[str] | None = None,
+) -> None:
+    plan, previous, attributes = plan_metadata_patch(
+        ctx.root, ctx.dataset_id, entry, file_format, operations, schemas, record=record,
+        allowed_statuses=allowed_statuses,
+    )
+    if not record and not any(source == SCHEMA_PATH for _schema, source in schemas):
+        findings = _check_meta_fields(ctx.dataset_id, entry["path"], attributes)
+        if findings:
+            raise ValidationError(findings[0].message, findings[0].code)
+    if if_hash is not None and if_hash != plan.expected_hash:
+        raise ConflictError("The metadata preview is stale.", "write.hash_mismatch")
+    if apply_ and if_hash is None:
+        raise TodocError("Pass the preview hash with --if-hash.", EXIT_USAGE, "usage.error")
+    if apply_ and plan.expected_hash != plan.new_hash:
+        apply_write_plan(ctx.root, plan, expected_hash=if_hash, history=ctx.history_recorder(),
+                         parse_cache=ctx.parse_cache)
+        ctx.ensure_index()
+    before = json.dumps(previous, ensure_ascii=False, indent=2).splitlines()
+    after = json.dumps(attributes, ensure_ascii=False, indent=2).splitlines()
+    meta = {"command": "records edit" if record else "docs edit",
+            "scope": {"dataset_id": ctx.dataset_id, "path": entry["path"]}}
+    result = {"preview": not apply_, "applied": apply_, "attributes": attributes,
+              "expected_hash": plan.expected_hash, "new_hash": plan.new_hash,
+              "diff": "\n".join(difflib.unified_diff(before, after, "before", "after", lineterm=""))}
+    emit(Envelope.result(meta, result), output)
+
+
+@docs.command("edit", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -1732,35 +2558,42 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
               if_hash: str | None, preview: bool, apply_: bool) -> None:
     """Review-first patch edit (preview default, --apply to write)."""
     ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    payload = ctx.read_index()
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
-    try:
-        patch_text = Path(patch_file).read_text(encoding="utf-8")
-    except OSError as exc:
-        # P11: отсутствующий --patch-file — ошибка контракта, а не трейсбек интерпретатора.
-        raise TodocError(f"Не удалось прочитать --patch-file {patch_file}: {exc}",
-                         EXIT_USAGE, "usage.error") from exc
-    try:
-        patch = json.loads(patch_text)
-    except json.JSONDecodeError as exc:
-        raise ValidationError(f"Invalid patch file: {exc}", "edit.invalid_patch") from exc
-    if not isinstance(patch, dict):
-        raise ValidationError('Patch file must be a JSON object: {"ops": [{"line": N, "text": "..."}]}',
-                              "edit.invalid_patch")
-    ops = patch.get("ops") or []
-    if not isinstance(ops, list) or any(not isinstance(op, dict) for op in ops):
-        raise ValidationError('Patch "ops" must be a list of {"line": N, "text": "..."} objects',
-                              "edit.invalid_patch")
-    if not apply_:
-        _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "preview": True, "ops": ops}, output, None)
+    patch = _load_patch_file(patch_file)
+    if "metadata" in patch:
+        matches = [item for item in payload["documents"] if item["document_id"] == doc_id]
+        if len(matches) != 1:
+            raise ValidationError(f"Multiple documents share {doc_id!r}.", "docs.ambiguous_id")
+        if set(patch) != {"metadata"} or (preview and apply_):
+            raise ValidationError("Use a metadata patch or a line patch.", "edit.invalid_patch")
+        common = load_metadata_schema(ctx.root)
+        schemas = [(common, SCHEMA_PATH)] if common is not None and doc["managed_metadata"] else []
+        typed = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset, "doc_type", _doc_types_of)
+        if doc["doc_type"] in typed:
+            schemas.append(typed[doc["doc_type"]])
+        descriptor = ctx.registry_types.doc_types.get(doc["doc_type"], {})
+        _execute_metadata_patch(ctx, doc, doc["format"], patch["metadata"], schemas, output,
+                                if_hash, apply_, allowed_statuses=descriptor.get("allowed_statuses"))
         return
-    new_hash, updated_bumped = apply_edit_ops(ctx.root, doc["path"], ops, expected_hash=if_hash,
-                                             history=ctx.history_recorder(), bump_updated=True)
-    ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"], "applied": True,
-              "new_hash": new_hash, "updated_bumped": updated_bumped}, output, None)
+    ops = patch.get("ops") or []
+    if not isinstance(ops, list) or any(not isinstance(op, dict) for op in ops) or (preview and apply_):
+        raise ValidationError('Expected one mode and a list of line operations in "ops".', "edit.invalid_patch")
+    plan, original, updated_bumped = plan_edit_ops(ctx.root, doc["path"], ops, if_hash,
+                                                    bump_updated=True, dataset_id=ctx.dataset_id)
+    if apply_:
+        apply_write_plan(ctx.root, plan, expected_hash=if_hash, history=ctx.history_recorder(),
+                         parse_cache=ctx.parse_cache)
+        ctx.ensure_index()
+    scope = {"dataset_id": ctx.dataset_id, "path": doc["path"]}
+    diff = "\n".join(difflib.unified_diff(original.splitlines(), plan.new_content.splitlines(),
+                                         doc["path"], doc["path"], lineterm=""))
+    result = {"id": doc_id, "path": doc["path"], "preview": not apply_, "applied": apply_,
+              "ops": ops, "diff": diff, "expected_hash": plan.expected_hash,
+              "new_hash": plan.new_hash, "updated_bumped": updated_bumped}
+    emit(Envelope.result({"command": "docs edit", "scope": scope}, result), output)
 
 
 @cli.group()
@@ -1769,7 +2602,35 @@ def records(ctx: click.Context) -> None:
     """Typed records operations."""
 
 
-@records.command("create")
+@records.command("edit", cls=UnifiedCommand)
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
+@click.option("--id", "record_id", required=True)
+@click.option("--patch-file", required=True)
+@click.option("--if-hash")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+def records_edit(roots: tuple[str, ...], output: str, record_id: str, patch_file: str,
+                 if_hash: str | None, preview: bool, apply_: bool) -> None:
+    """Preview or apply a structured patch to a typed record."""
+    ctx = _contexts(roots)[0]
+    patch = _load_patch_file(patch_file)
+    if set(patch) != {"metadata"} or (preview and apply_):
+        raise ValidationError("Expected one metadata patch and one mode.", "edit.invalid_patch")
+    matches = [item for item in ctx.read_index()["records"] if item["record_id"] == record_id]
+    if len(matches) != 1:
+        raise ValidationError(f"Expected exactly one match for {record_id!r}.", "records.not_found")
+    record = matches[0]
+    schema = _record_schema(ctx, record["entity_type"])
+    descriptor = ctx.registry_types.entity_types.get(record["entity_type"], {})
+    required = descriptor.get("required_fields") or []
+    schemas: list[tuple[dict[str, Any], str]] = [({"required": required}, "record descriptor")]
+    if schema is not None:
+        schemas.append((schema, "record schema"))
+    _execute_metadata_patch(ctx, record, "json", patch["metadata"], schemas, output, if_hash, apply_, record=True)
+
+
+@records.command("create", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -1777,11 +2638,14 @@ def records(ctx: click.Context) -> None:
 @click.option("--input-file", required=True)
 @click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_type: str, input_file: str,
-                   preview: bool, apply_: bool) -> None:
+                   preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Create-only new JSON record (preview default)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    if preview and apply_:
+        raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index(include_mentions=False)
     record = load_input_record(Path(input_file))
     if record.get("entity_type") != entity_type:
         record["entity_type"] = entity_type
@@ -1790,47 +2654,56 @@ def records_create(roots: tuple[str, ...], output: str, no_input: bool, entity_t
     schema = _record_schema(ctx, entity_type)
     plan = create_record_plan(ctx.dataset, ctx.registry_types.entity_types, record, existing_ids, existing_paths,
                               schema)
-    # Флага --if-hash-new больше нет (P1-4): он обещал проверку, которую команда и так
-    # выполняет безусловно — create_record_plan отказывает занятому пути, а
-    # apply_write_plan повторно проверяет цель в момент записи. Флаг, намекающий, что
-    # гарантия включается по желанию, был дефектом, а не возможностью.
+    plan_hash = selection_key([ctx.dataset_id, payload["corpus_digest"], plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The record creation plan is stale.", "write.hash_mismatch")
     if not apply_:
-        _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan.to_dict()}, output, None)
+        _emit_command_result(ctx, {"preview": True, "plan": plan.preview_dict(), "plan_hash": plan_hash}, output)
         return
-    new_hash = apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    new_hash = apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "created": plan.target_path, "new_hash": new_hash}, output, None)
+    _emit_command_result(ctx, {"created": plan.target_path, "new_hash": new_hash, "plan_hash": plan_hash}, output)
 
 
-@records.command("undo-relation")
+@records.command("undo-relation", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--id", "record_id", required=True)
 @click.option("--pointer", required=True, help="Путь ребра: /relations/N")
+@click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 @click.option("--expected-hash", default=None)
 def records_undo_relation(roots: tuple[str, ...], output: str, no_input: bool, record_id: str,
-                          pointer: str, apply_: bool, expected_hash: str | None) -> None:
+                          pointer: str, preview: bool, apply_: bool, expected_hash: str | None,
+                          if_plan_hash: str | None) -> None:
     """Точечный откат ребра из ревизий журнала (preview по умолчанию)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index(include_mentions=False)
     record = next((r for r in payload["records"] if r["record_id"] == record_id), None)
     if record is None:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
-    plan = plan_undo_relation(ctx.root, record["path"], pointer)
+    plan = plan_undo_relation(ctx.root, record["path"], pointer, store=ctx.history_store)
+    current_hash = record["hash"]
+    plan_hash = selection_key([ctx.dataset_id, current_hash, plan])
+    if ((if_plan_hash is not None and if_plan_hash != plan_hash)
+            or (expected_hash is not None and expected_hash != current_hash)):
+        raise ConflictError("The relation undo plan is stale.", "write.hash_mismatch")
     if not apply_:
-        _emit_ok({"dataset_id": ctx.dataset_id, "preview": True, "plan": plan}, output, None)
+        _emit_command_result(ctx, {"preview": True, "plan": plan, "plan_hash": plan_hash,
+                                   "expected_hash": current_hash}, output)
         return
     new_hash = apply_undo_relation(ctx.root, record["path"], pointer, plan["previous"],
-                                   expected_hash=expected_hash, history=ctx.history_recorder())
+                                   expected_hash=current_hash, history=ctx.history_recorder())
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "applied": True, "path": record["path"],
+    _emit_command_result(ctx, {"applied": True, "path": record["path"],
               "pointer": pointer, "mode": plan["mode"], "new_hash": new_hash,
-              "undone_rev": plan.get("rev")}, output, None)
+              "undone_rev": plan.get("rev"), "plan_hash": plan_hash}, output)
 
 
-@records.command("list")
+@records.command("list", cls=AttributeFilterCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -1838,37 +2711,56 @@ def records_undo_relation(roots: tuple[str, ...], output: str, no_input: bool, r
 @click.option("--since", default=None)
 @click.option("--until", default=None)
 @click.option("--relation", default=None)
-@click.option("--limit", type=int, default=200)
+@click.option("--limit", type=click.IntRange(1, 1000), default=200)
+@click.option("--attribute", "attributes", type=(str, str), multiple=True, hidden=True)
+@click.option("--filter-file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--tag-in", multiple=True, help="Match at least one tag, separated by |.")
+@click.option("--tag-all", multiple=True, help="Match every tag, separated by |.")
+@click.option("--view", default="flat")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--cursor")
 def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_type: str | None, since: str | None,
-                 until: str | None, relation: str | None, limit: int) -> None:
+                 until: str | None, relation: str | None, limit: int,
+                 attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
+                 tag_in: tuple[str, ...], tag_all: tuple[str, ...], view: str,
+                 include: str | None, exclude: str | None, cursor: str | None) -> None:
     """List records with optional filters."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index(include_mentions=False)
     filters: dict[str, Any] = {}
     if since:
         filters["date"] = {"$gte": since}
-    items, total, truncated = query_records(payload["records"], entity_type, filters, limit)
     if until:
-        items = [r for r in items if str((r.get("data") or {}).get("date", "")) <= until]
+        filters.setdefault("date", {})["$lte"] = until
+    candidates, predicate = _select_records(ctx, payload["records"], entity_type,
+                                             attributes, filter_file, tag_in, tag_all)
     if relation:
-        rel_type, _, target = relation.partition("=")
-        items = [r for r in items if any(rel.get("type_id") == rel_type and (rel.get("target") or {}).get("id") == target
-                                         for rel in ((r.get("data") or {}).get("relations") or []))]
-    if until or relation:
-        total = len(items)
-        truncated = False
-    _emit_ok({"dataset_id": ctx.dataset_id, "total": total, "returned": len(items), "truncated": truncated,
-              "items": items}, output, None)
+        rel_type, equals, target = relation.partition("=")
+        if not equals or not rel_type or not target:
+            raise TodocError("--relation needs TYPE=ID.", EXIT_USAGE, "filter.invalid")
+        allowed_ids = {edge["source_id"] for edge in payload["relations"]
+                       if edge["type_id"] == rel_type and edge["target_id"] == target}
+        candidates = [record for record in candidates if record["record_id"] in allowed_ids]
+    try:
+        items, _total, _truncated = query_records(candidates, entity_type, filters, len(candidates))
+    except TypeError as exc:
+        raise ValidationError(f"Cannot compare record dates: {exc}", "filter.invalid") from exc
+    _emit_records_page(ctx, payload, items, "records list", output, limit, cursor, view,
+                       include, exclude, [entity_type, since, until, relation, predicate])
 
 
-@records.command("status")
+@records.command("status", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--id", "record_id", required=True)
 @click.option("--set", "set_value", default=None, help="Новое значение статуса (без --set — чтение).")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def records_status(roots: tuple[str, ...], output: str, no_input: bool, record_id: str,
-                   set_value: str | None) -> None:
+                   set_value: str | None, preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Чтение/смена статуса JSON-записи: меняется ТОЛЬКО поле `status`.
 
     План «скилы-взаимодействия» З2: записи иначе create-only; набор — enum статуса
@@ -1876,15 +2768,18 @@ def records_status(roots: tuple[str, ...], output: str, no_input: bool, record_i
     атомарная запись поверх CAS-хэша, history-ревизия.
     """
     del no_input
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index()
     rec = next((r for r in payload["records"] if r.get("record_id") == record_id), None)
     if rec is None:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
     data = rec.get("data") or {}
     if set_value is None:
-        _emit_ok({"dataset_id": ctx.dataset_id, "id": record_id, "status": data.get("status")},
-                 output, None)
+        if apply_:
+            raise TodocError("--apply requires --set.", EXIT_USAGE, "usage.error")
+        _emit_command_result(ctx, {"id": record_id, "status": data.get("status")},
+                 output)
         return
     value = set_value.strip()
     if not value or value != set_value or "\n" in set_value:
@@ -1907,87 +2802,217 @@ def records_status(roots: tuple[str, ...], output: str, no_input: bool, record_i
     plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rec["path"], new_content=content,
                      expected_hash=file_hash(target), new_hash=new_hash,
                      basis=f"records status --set {record_id} -> {value}")
-    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    plan_hash = selection_key([ctx.dataset_id, plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The status plan is stale.", "write.hash_mismatch")
+    if not apply_:
+        _emit_command_result(ctx, {"id": record_id, "status": value, "plan_hash": plan_hash,
+                                   "expected_hash": plan.expected_hash, "new_hash": new_hash,
+                                   "applied": False}, output)
+        return
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "id": record_id, "status": value, "new_hash": new_hash},
-             output, None,
+    _emit_command_result(ctx, {"id": record_id, "status": value, "new_hash": new_hash, "applied": True},
+             output,
              next_actions=[{"argv": _root_argv(roots) + ["validate", "--root", str(ctx.root), "--all"],
                             "purpose": "Проверить набор после смены статуса"}])
 
 
-@records.command("query")
+@records.command("query", cls=AttributeFilterCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-@click.option("--query-file", required=True)
+@click.option("--query-file")
 @click.option("--as-of", "as_of", default=None, help="Только записи, бывшие правдой на этот момент.")
-def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_file: str,
-                  as_of: str | None) -> None:
-    """Run a saved declarative QuerySpec."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+@click.option("--attribute", "attributes", type=(str, str), multiple=True, hidden=True)
+@click.option("--filter-file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--tag-in", multiple=True, help="Match at least one tag, separated by |.")
+@click.option("--tag-all", multiple=True, help="Match every tag, separated by |.")
+@click.option("--view", default="flat")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--cursor")
+def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_file: str | None,
+                  as_of: str | None, attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
+                  tag_in: tuple[str, ...], tag_all: tuple[str, ...], view: str,
+                  include: str | None, exclude: str | None, cursor: str | None) -> None:
+    """Run a saved QuerySpec and optional metadata conditions."""
+    if query_file is None and not any((attributes, filter_file, tag_in, tag_all)):
+        raise TodocError("Pass --query-file or a metadata filter.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index(include_mentions=False)
+    spec = _query_spec(query_file) if query_file is not None else {}
+    candidates, predicate = _select_records(ctx, payload["records"], spec.get("entity_type"),
+                                             attributes, filter_file, tag_in, tag_all)
     try:
-        spec = json.loads(Path(query_file).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValidationError(f"Invalid query file: {exc}", "query.invalid_file") from exc
-    try:
-        items, total, truncated = query_records(payload["records"], spec.get("entity_type"),
-                                                spec.get("filters"), int(spec.get("limit", 200)),
-                                                as_of=as_of)
+        items, _total, _truncated = query_records(candidates, spec.get("entity_type"),
+                                                  spec.get("filters"), len(candidates), as_of=as_of)
     except InvalidInstant as exc:
         raise ValidationError(str(exc), "temporal.invalid_instant") from exc
-    _emit_ok({"dataset_id": ctx.dataset_id, "as_of": as_of, "total": total, "truncated": truncated,
-              "items": items}, output, None)
+    except TypeError as exc:
+        raise ValidationError(f"Cannot compare QuerySpec operands: {exc}", "query.invalid_file") from exc
+    _emit_records_page(ctx, payload, items, "records query", output, spec.get("limit", 200), cursor, view,
+                       include, exclude, [spec.get("entity_type"), spec.get("filters"), as_of, predicate], as_of=as_of)
 
 
-@records.command("aggregate")
+def _single_context(roots: tuple[str, ...], namespace: str) -> DatasetContext:
+    resolved = resolve_roots(_effective_roots(roots))
+    if len(resolved) != 1:
+        raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, f"{namespace}.multiple_roots")
+    return DatasetContext(resolved[0])
+
+
+def _emit_records_page(ctx: DatasetContext, payload: dict[str, Any], items: list[dict[str, Any]],
+                       command: str, output: str, limit: int, cursor: str | None, view: str,
+                       include: str | None, exclude: str | None, selection: list[Any], *,
+                       as_of: str | None = None) -> None:
+    meta = _collection_meta(command, view)
+    meta["actual_view"] = "flat"
+    meta["scope"] = {"dataset_id": ctx.dataset_id}
+    if command == "records query":
+        meta["as_of"] = as_of
+    if failures := _document_read_failures(payload, "."):
+        emit(Envelope.collection(meta, [], diagnostics=failures), output)
+        raise click.exceptions.Exit(EXIT_INCOMPLETE)
+    fields = selected_fields(("record_id", "entity_type", "dataset_id", "path", "hash", "data"),
+                             include, exclude, structural=("record_id", "path"))
+    identities = [(item["path"], item["record_id"]) for item in items]
+    rows, next_cursor = page(
+        items, [2, command, ctx.dataset_id, payload["corpus_digest"], selection, identities], limit, cursor,
+    )
+    meta.update(complete=True, total=len(items), returned=len(rows),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    diagnostics = []
+    if view != "flat":
+        diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
+                            "message": "The available view is flat."})
+    emit(Envelope.collection(meta, [project_fields(row, fields) for row in rows],
+                             diagnostics=diagnostics), output)
+
+
+def _query_spec(path: str) -> dict[str, Any]:
+    try:
+        value, errors = parse_json(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError) as exc:
+        raise ValidationError(f"Invalid query file: {exc}", "query.invalid_file") from exc
+    if (errors or not isinstance(value, dict)
+            or not isinstance(value.get("filters", {}), dict)
+            or (value.get("entity_type") is not None and not isinstance(value["entity_type"], str))
+            or type(value.get("limit", 200)) is not int or value.get("limit", 200) < 1):
+        raise ValidationError("Expected an object with valid QuerySpec filters, type and limit.", "query.invalid_file")
+    return value
+
+
+def _select_records(
+    ctx: DatasetContext, records: list[dict[str, Any]], entity_type: str | None,
+    attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
+    tag_in: tuple[str, ...], tag_all: tuple[str, ...],
+) -> tuple[list[dict[str, Any]], list[Any]]:
+    if not any((attributes, filter_file, tag_in, tag_all)):
+        return records, []
+    candidates = [item for item in records if entity_type is None or item["entity_type"] == entity_type]
+    loaded = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset, "entity_type", _entity_types_of)
+    schemas = {name: schema for name, (schema, _source) in loaded.items()
+               if entity_type is None or name == entity_type}
+    declared = {key: value for schema in schemas.values() for key, value in schema.get("properties", {}).items()}
+    conditions = compile_conditions([item["data"] for item in candidates], declared, attributes, filter_file)
+    any_tags = split_values(part.casefold() for part in tag_in)
+    all_tags = split_values(part.casefold() for part in tag_all)
+    tag_fields = {key: schema.get("x-todoc-tag-field", "tags") for key, schema in schemas.items()}
+
+    def tags(item: dict[str, Any]) -> list[str]:
+        field = tag_fields.get(item["entity_type"], "tags")
+        values = item["data"].get(field) if isinstance(field, str) else None
+        return [tag for tag in values if isinstance(tag, str)] if isinstance(values, list) else []
+
+    selected = [item for item in candidates if matches_conditions(item["data"], conditions)
+                and tag_matches(tags(item), any_tags, all_tags)]
+    return selected, [conditions, any_tags, all_tags]
+
+
+@records.command("aggregate", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--metric", required=True)
 @click.option("--group-by", default=None)
-@click.option("--type", "entity_type", default=None)
+@click.option("--type", "entity_type", required=True)
+@click.option("--view", default="flat")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--limit", type=click.IntRange(1, 1000), default=50, show_default=True)
+@click.option("--cursor")
 def records_aggregate(roots: tuple[str, ...], output: str, no_input: bool, metric: str,
-                      group_by: str | None, entity_type: str | None) -> None:
-    """Aggregate with units/formula/provenance."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    resolved_type = entity_type or "workout"
-    # metric_fields.<f> несёт промпт и единицу; вычисляемой формулы в типе нет (P1-11),
-    # поэтому объявленный промпт просто доходит до ответа вместе с тем, что ядро посчитало.
-    descriptor = _entity_types_of(ctx.registry_types).get(resolved_type) or {}
+                      group_by: str | None, entity_type: str, view: str, include: str | None,
+                      exclude: str | None, limit: int, cursor: str | None) -> None:
+    """Sum a numeric field with units and source records for each group."""
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index(include_mentions=False)
+    descriptor = _entity_types_of(ctx.registry_types).get(entity_type) or {}
     metric_fields = descriptor.get("metric_fields")
     spec = metric_fields.get(metric) if isinstance(metric_fields, dict) else None
-    result = aggregate_records(payload["records"], resolved_type, metric, group_by,
+    result = aggregate_records(payload["records"], entity_type, metric, group_by,
                                metric_spec=spec if isinstance(spec, dict) else None)
-    result["dataset_id"] = ctx.dataset_id
-    _emit_ok(result, output, None)
+    rows = [{"group": key, "value": result["groups"][key], "unit": result["group_units"][key],
+             "incoming_ids": result["group_incoming_ids"][key]} for key in sorted(result["groups"])]
+    fields = selected_fields(("group", "value", "unit", "incoming_ids"), include, exclude,
+                             structural=("group",))
+    meta = _collection_meta("records aggregate")
+    meta.update(scope={"dataset_id": ctx.dataset_id, "type": entity_type, "metric": metric, "group_by": group_by},
+                requested_view=view)
+    items, next_cursor = page(rows, [2, "records aggregate", meta["scope"], payload["corpus_digest"], spec],
+                              limit, cursor)
+    meta.update(complete=True, total=len(rows), returned=len(items),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    diagnostics = []
+    if view != "flat":
+        diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
+                            "message": f"Aggregate view {view!r} is unavailable. Returned flat output."})
+    report = {key: result[key] for key in ("entity_type", "metric", "units", "formula", "prompt", "completeness")}
+    report["items"] = [project_fields(row, fields) for row in items]
+    emit(Envelope.result(meta, report, diagnostics=diagnostics), output)
 
 
-@records.command("read")
+@records.command("read", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--id", "record_id", required=True)
 @click.option("--view", default=None)
-def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id: str, view: str | None) -> None:
-    """Read one record (optional view projection)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    record = next((r for r in payload["records"] if r["record_id"] == record_id), None)
-    if record is None:
+@click.option("--record-view", default=None)
+def records_read(roots: tuple[str, ...], output: str, no_input: bool, record_id: str,
+                 view: str | None, record_view: str | None) -> None:
+    """Read one record and its source references."""
+    ctx = _single_context(roots, "records")
+    payload = ctx.read_index()
+    matches = [record for record in payload["records"] if record["record_id"] == record_id]
+    if not matches:
         raise ValidationError(f"Record not found: {record_id}", "records.not_found")
+    if len(matches) > 1:
+        raise ValidationError(f"Multiple records share {record_id!r}.", "records.ambiguous_id")
+    if record_view is not None and view is not None:
+        raise TodocError("Use either --record-view or --view.", EXIT_USAGE, "view.conflict")
+    record = matches[0]
+    descriptor = ctx.registry_types.entity_types.get(record["entity_type"], {})
+    requested = record_view if record_view is not None else view or "full"
+    actual = "full"
     data = dict(record["data"])
-    if view:
-        descriptor = ctx.registry_types.entity_types.get(record["entity_type"], {})
-        fields = (descriptor.get("views") or {}).get(view)
-        if fields:
-            data = {k: data[k] for k in fields if k in data}
-    mentioned_in = [{"file": m.get("source_file"), "line": m.get("source_line"),
-                     "fragment": m.get("source_fragment", "")}
-                    for m in payload.get("mentions") or [] if m.get("target") == record_id]
-    _emit_ok({"dataset_id": ctx.dataset_id, "record_id": record_id, "path": record["path"], "data": data,
-              "mentioned_in": mentioned_in}, output, None)
+    fields = (descriptor.get("views") or {}).get(requested)
+    diagnostics: list[dict[str, Any]] = []
+    if requested != "full":
+        if fields and (record_view is not None or view not in ("tree", "graph", "flat")):
+            actual = requested
+            data = {key: data[key] for key in fields if key in data}
+        else:
+            diagnostics.append({"code": "view.fallback", "severity": "info", "path": record["path"],
+                                "message": f"Record view {requested!r} is unavailable. Returned the full record."})
+    mentioned_in = [{"file": item.get("source_file"), "line": item.get("source_line"),
+                     "fragment": item.get("source_fragment", "")}
+                    for item in payload.get("mentions") or [] if item.get("target") == record_id]
+    meta = {"command": "records read", "scope": {"dataset_id": ctx.dataset_id, "path": record["path"]},
+            "requested_view": requested, "actual_view": actual}
+    emit(Envelope.result(meta, {"record_id": record_id, "path": record["path"], "data": data,
+                                "mentioned_in": mentioned_in}, diagnostics=diagnostics), output)
 
 
 # --- план «Интероп-экспорты» З2: записи → внешние форматы (derived-артефакты) --
@@ -1998,7 +3023,7 @@ def interop() -> None:
     """Экспорт витрин во внешние форматы (DMN 1.3 / ASL / Rasa NLU YML)."""
 
 
-@interop.command("export")
+@interop.command("export", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -2007,8 +3032,12 @@ def interop() -> None:
               help="record_id источника (для rasa можно опустить — весь глоссарий).")
 @click.option("--write", "write_path", default=None, metavar="PATH",
               help="Путь экспорта относительно корня (только exports/…); без него артефакт печатается в stdout.")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
 def interop_export(roots: tuple[str, ...], output: str, no_input: bool, kind: str,
-                   record_id: str | None, write_path: str | None) -> None:
+                   record_id: str | None, write_path: str | None, preview: bool, apply_: bool,
+                     if_plan_hash: str | None) -> None:
     """Запись-источник → артефакт внешнего формата (derived-артефакт, review-first).
 
     Без --write артефакт печатается в stdout; с --write — markdown-документ в
@@ -2016,15 +3045,18 @@ def interop_export(roots: tuple[str, ...], output: str, no_input: bool, kind: st
     Перезапись поверх CAS разрешена только для derived-целей; записи не трогаются.
     """
     del no_input
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
+    _check_action_flags(preview, apply_)
+    if apply_ and not write_path:
+        raise TodocError("--apply requires --write.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "interop")
+    payload = ctx.read_index(include_mentions=False)
     doc_id, title, artifact, lang, anchors = _interop_artifact(ctx, payload, kind, record_id)
     if write_path is None:
-        _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "record_id": record_id,
-                  "id": doc_id, "artifact": artifact, "anchors": anchors}, output, None)
+        _emit_command_result(ctx, {"kind": kind, "record_id": record_id,
+                  "id": doc_id, "artifact": artifact, "anchors": anchors}, output)
         return
-    rel = write_path.strip("/")
-    _contained_out(ctx.root, rel)
+    target = _contained_out(ctx.root, write_path)
+    rel = target.relative_to(ctx.root).as_posix()
     if not rel.startswith("exports/") or len(rel) <= len("exports/"):
         raise TodocError(f"--write принимает путь только внутри exports/: {rel!r}",
                          EXIT_USAGE, "interop.write_outside_exports")
@@ -2044,11 +3076,18 @@ def interop_export(roots: tuple[str, ...], output: str, no_input: bool, kind: st
     plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel, new_content=content,
                      expected_hash=expected_hash, new_hash=new_hash,
                      basis=f"interop export {kind} {record_id or '(glossary)'}")
-    apply_write_plan(ctx.root, plan, history=ctx.history_recorder())
+    plan_hash = selection_key([ctx.dataset_id, plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The generated artifact plan is stale.", "write.hash_mismatch")
+    if not apply_:
+        _emit_command_result(ctx, {"path": rel, "plan": plan.preview_dict(), "plan_hash": plan_hash,
+                                   "preview": True, "applied": False}, output)
+        return
+    apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
     ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "id": doc_id,
-              "written": rel, "hash": new_hash, "derived_from": len(anchors)}, output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["stale", "--root", str(ctx.root)],
+    _emit_command_result(ctx, {"kind": kind, "id": doc_id,
+              "written": rel, "hash": new_hash, "plan_hash": plan_hash, "applied": True, "derived_from": len(anchors)}, output,
+             next_actions=[{"argv": _root_argv(roots) + ["stale"],
                             "purpose": "Проверить дрейф экспортов"}])
 
 
@@ -2107,22 +3146,55 @@ def relations(ctx: click.Context) -> None:
     """Typed relations."""
 
 
-@relations.command("graph")
+@relations.command("graph", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--from", "from_id", required=True)
 @click.option("--type", "type_id", default=None)
-@click.option("--depth", type=int, default=1)
-@click.option("--limit", type=int, default=100)
+@click.option("--depth", type=click.IntRange(0, 100), default=1)
+@click.option("--limit", type=click.IntRange(1, 1000), default=100)
+@click.option("--cursor")
+@click.option("--view", default="graph")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
 def relations_graph(roots: tuple[str, ...], output: str, no_input: bool, from_id: str,
-                    type_id: str | None, depth: int, limit: int) -> None:
-    """Typed edges + brief neighbours (BFS, bounded)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    edges = graph_neighbors(payload["relations"], from_id, type_id, depth, limit,
-                            mentions=payload.get("mentions"))
-    _emit_ok({"dataset_id": ctx.dataset_id, "from": from_id, "edges": edges, "total": len(edges)}, output, None)
+                    type_id: str | None, depth: int, limit: int, cursor: str | None,
+                    view: str, include: str | None, exclude: str | None) -> None:
+    """Browse directed typed relations and source mentions."""
+    meta = _collection_meta("relations graph", view)
+    meta["actual_view"] = view if view in ("graph", "flat") else "graph"
+    try:
+        resolved = resolve_roots(_effective_roots(roots))
+        if len(resolved) != 1:
+            raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "relations.multiple_roots")
+        ctx = DatasetContext(resolved[0])
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "from": from_id, "depth": depth}
+        fields = selected_fields(("type_id", "from", "to", "via", "fragment", "provenance"),
+                                 include, exclude, structural=("type_id", "from", "to"))
+        payload = ctx.read_index()
+        edges = graph_neighbors(payload["relations"], from_id, type_id, depth, None,
+                                mentions=payload.get("mentions"))
+        selection = [2, "relations graph", ctx.dataset_id, payload["corpus_digest"], from_id, type_id, depth]
+        selected, next_cursor = page(edges, selection, limit, cursor)
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    meta.update(complete=True, total=len(edges), returned=len(selected),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    projected = [project_fields(edge, fields) for edge in selected]
+    result = {"items": projected}
+    if meta["actual_view"] == "graph":
+        ends = {edge[side] for edge in projected for side in ("from", "to")}
+        nodes = [from_id, *sorted(ends - {from_id})]
+        result = {"nodes": nodes, "edges": projected}
+        if output == "markdown":
+            result["mermaid"] = mermaid_graph(nodes, projected)
+    diagnostics = []
+    if meta["actual_view"] != view:
+        diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
+                            "message": "The available views for relations graph are graph and flat."})
+    emit(Envelope.result(meta, result, diagnostics=diagnostics), output)
 
 
 def _relations_tree_text(tree: dict[str, Any]) -> str:
@@ -2148,25 +3220,43 @@ def _relations_tree_text(tree: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-@relations.command("tree")
+@relations.command("tree", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--from", "from_id", required=True)
 @click.option("--type", "type_id", default=None)
-@click.option("--depth", default=1, show_default=True)
-@click.option("--limit", default=100, show_default=True)
+@click.option("--depth", type=click.IntRange(0, 100), default=1, show_default=True)
+@click.option("--limit", type=click.IntRange(1, 1000), default=100, show_default=True)
+@click.option("--cursor")
 def relations_tree(roots: tuple[str, ...], output: str, no_input: bool, from_id: str,
-                   type_id: str | None, depth: int, limit: int) -> None:
-    """Вложенное дерево связей (группировка по type_id, mention помечен)."""
-    ctx = _contexts(roots)[0]
-    payload = ctx.ensure_index()
-    tree = build_tree(payload["relations"], from_id, type_id, depth, limit,
-                      mentions=payload.get("mentions"))
-    if output == "json":
-        _emit_ok({"dataset_id": ctx.dataset_id, **tree}, output, None)
-    else:  # table и markdown — компактный текст-рендер
-        click.echo(_relations_tree_text(tree))
+                   type_id: str | None, depth: int, limit: int, cursor: str | None) -> None:
+    """Return a page of relation traversal with ancestor context."""
+    meta = _collection_meta("relations tree", "tree")
+    try:
+        resolved = resolve_roots(_effective_roots(roots))
+        if len(resolved) != 1:
+            raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "relations.multiple_roots")
+        ctx = DatasetContext(resolved[0])
+        payload = ctx.read_index()
+        meta["scope"] = {"dataset_id": ctx.dataset_id, "from": from_id, "depth": depth}
+        key = selection_key([2, "relations tree", ctx.dataset_id, payload["corpus_digest"], from_id, type_id, depth])
+        start = cursor_offset(cursor, key)
+        full = build_tree(payload["relations"], from_id, type_id, depth, None,
+                          mentions=payload.get("mentions"))
+        tree, total = slice_relation_tree(full, start, start + limit)
+        if cursor is not None and start >= total:
+            raise TodocError("Cursor is outside this selection.", EXIT_USAGE, "cursor.invalid")
+    except TodocError as exc:
+        _emit_collection_error(meta, exc.code, exc.message, output)
+        raise click.exceptions.Exit(exc.exit_code) from exc
+    next_cursor = next_page_cursor(key, start + limit, total)
+    meta.update(complete=True, total=total, returned=min(limit, total - start),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    result = {"tree": tree}
+    if output != "json":
+        result["outline"] = _relations_tree_text(tree)
+    emit(Envelope.result(meta, result), output)
 
 
 @cli.group()
@@ -2175,17 +3265,36 @@ def types(ctx: click.Context) -> None:
     """Type catalog."""
 
 
-@types.command("list")
+@types.command("list", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
 @click.option("--no-input", is_flag=True)
-def types_list(roots: tuple[str, ...], output: str, no_input: bool) -> None:
-    ctx = _contexts(roots)[0]
-    _emit_ok({"dataset_id": ctx.dataset_id,
-              "dir_types": sorted(ctx.registry_types.dir_types),
-              "doc_types": sorted(ctx.registry_types.doc_types),
-              "entity_types": sorted(ctx.registry_types.entity_types),
-              "relation_types": sorted(ctx.registry_types.relation_types)}, output, None)
+@click.option("--kind", type=click.Choice(["dir_type", "doc_type", "entity_type", "relation_type"]))
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--limit", type=click.IntRange(1, 1000), default=100)
+@click.option("--cursor")
+@click.option("--view", default="flat")
+def types_list(roots: tuple[str, ...], output: str, no_input: bool, kind: str | None,
+               include: str | None, exclude: str | None, limit: int, cursor: str | None, view: str) -> None:
+    """List registered types with their kind and descriptor summary."""
+    ctx = _single_context(roots, "types")
+    registry = ctx.registry_types
+    stores = {"dir_type": registry.dir_types, "doc_type": registry.doc_types,
+              "entity_type": registry.entity_types, "relation_type": registry.relation_types}
+    rows = []
+    for name, store in stores.items():
+        if kind is None or kind == name:
+            for type_id, descriptor in sorted(store.items()):
+                rows.append({"kind": name, "type_id": type_id, "version": descriptor.get("version"),
+                             "format": descriptor.get("format"), "description": descriptor.get("description")})
+    meta = _collection_meta("types list")
+    meta["requested_view"] = view
+    meta["scope"] = {"dataset_id": ctx.dataset_id, "kind": kind}
+    meta["counts"] = {name: len(store) for name, store in stores.items()}
+    fields = selected_fields(("kind", "type_id", "version", "format", "description"), include, exclude,
+                             structural=("kind", "type_id"))
+    _emit_flat_page(meta, rows, [2, "types list", ctx.dataset_id, kind, stores], fields, limit, cursor, output)
 
 
 def _type_bundle(ctx: DatasetContext, kind: str, descriptor: dict[str, Any]) -> dict[str, Any]:
@@ -2225,39 +3334,89 @@ def _type_base(ctx: DatasetContext, kind: str, type_id: str) -> Path:
     return ctx.root / ".todoc" / type_kind_dir(ctx.dataset, kind) / type_id
 
 
-@types.command("show")
+@types.command("metadata", cls=UnifiedCommand)
+@click.option("--root", "roots", multiple=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
+@click.option("--limit", type=click.IntRange(1, 1000), default=50)
+@click.option("--cursor")
+def types_metadata(roots: tuple[str, ...], output: str, limit: int, cursor: str | None) -> None:
+    """Preview adoption of the common document metadata schema."""
+    ctx = _contexts(roots)[0]
+    configured = load_metadata_schema(ctx.root)
+    schema = configured if configured is not None else default_metadata_schema()
+    payload = ctx.read_index(include_mentions=False)
+    meta = _collection_meta("types metadata")
+    meta["scope"] = {"dataset_id": ctx.dataset_id}
+    if failures := _document_read_failures(payload, "."):
+        emit(Envelope.collection(meta, [], diagnostics=failures), output)
+        raise click.exceptions.Exit(EXIT_INCOMPLETE)
+    all_findings = []
+    inspected = 0
+    for doc in payload["documents"]:
+        if not doc["managed_metadata"]:
+            continue
+        inspected += 1
+        findings = metadata_errors(doc["attributes"], schema, doc["metadata_pointer"])
+        if findings:
+            all_findings.append({
+                "path": doc["path"], "id": doc["document_id"],
+                "violations": [{"pointer": pointer, "message": message} for pointer, message in findings],
+            })
+    rows, next_cursor = page(all_findings, [2, "types metadata", ctx.dataset_id,
+                                            payload["corpus_digest"], schema], limit, cursor)
+    meta.update(complete=True, total=len(all_findings), returned=len(rows),
+                truncated=next_cursor is not None, next_cursor=next_cursor)
+    emit(Envelope.result(meta, {"items": rows, "inspected": inspected,
+                                "installed": configured is not None, "path": SCHEMA_PATH, "schema": schema}), output)
+
+
+@types.command("show", cls=UnifiedCommand)
 @click.argument("type_id")
+@click.option("--kind", "requested_kind", type=click.Choice(
+    ["dir_type", "doc_type", "entity_type", "relation_type"]))
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def types_show(type_id: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
-    ctx = _contexts(roots)[0]
+def types_show(type_id: str, roots: tuple[str, ...], output: str, no_input: bool,
+               requested_kind: str | None) -> None:
+    ctx = _single_context(roots, "types")
     for kind, store in (("dir_type", ctx.registry_types.dir_types), ("doc_type", ctx.registry_types.doc_types),
                         ("entity_type", ctx.registry_types.entity_types),
                         ("relation_type", ctx.registry_types.relation_types)):
-        if type_id in store:
+        if type_id in store and requested_kind in (None, kind):
             bundle = _type_bundle(ctx, kind, store[type_id])
-            _emit_ok({"dataset_id": ctx.dataset_id, "kind": kind, "type": store[type_id],
-                      "template": bundle["template"], "prompts": bundle["prompts"],
-                      "schema": bundle["schema"]}, output, None,
-                     next_actions=[{"argv": _root_argv(roots) + ["types", "prompt", type_id, "--op", "create"],
+            data = {"dataset_id": ctx.dataset_id, "kind": kind, "type": store[type_id],
+                    "template": bundle["template"], "prompts": bundle["prompts"], "schema": bundle["schema"]}
+            if kind == "doc_type":
+                common = load_metadata_schema(ctx.root)
+                typed = _load_schemas(ctx.root, ctx.registry_types, ctx.dataset, "doc_type", _doc_types_of)
+                type_schema = typed.get(type_id, ({}, ""))[0]
+                data["document_metadata"] = {
+                    "schema_path": SCHEMA_PATH, "enabled": common is not None,
+                    "required": sorted(set((common or {}).get("required", [])) | set(type_schema.get("required", []))),
+                    "fields": _document_filter_fields(ctx, (type_id,)),
+                }
+            _emit_command_result(ctx, data, output,
+                     next_actions=[{"argv": _root_argv(roots) + ["types", "prompt", type_id, "--op", "create", "--kind", kind],
                                     "purpose": "Взять стартовый промпт создания документа этого типа"}]
                      if bundle["prompts"] else [])
             return
     raise ValidationError(f"Unknown type: {type_id}", "types.unknown")
 
 
-@types.command("prompt")
+@types.command("prompt", cls=UnifiedCommand)
 @click.argument("type_id")
+@click.option("--kind", "requested_kind", type=click.Choice(["doc_type", "entity_type"]))
 @click.option("--op", "operation", type=click.Choice(list(PROMPT_OPERATIONS)), default="create", show_default=True)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-def types_prompt(type_id: str, operation: str, roots: tuple[str, ...], output: str, no_input: bool) -> None:
+def types_prompt(type_id: str, operation: str, roots: tuple[str, ...], output: str, no_input: bool,
+                 requested_kind: str | None) -> None:
     """Starter prompt of a type for one CRUD operation (read/create/edit/delete)."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "types")
     for kind, store in (("doc_type", ctx.registry_types.doc_types), ("entity_type", ctx.registry_types.entity_types)):
-        if type_id in store:
+        if type_id in store and requested_kind in (None, kind):
             paths = prompt_files(ctx.root, ctx.dataset, kind, store[type_id])
             path = paths.get(operation)
             if path is None or not path.is_file():
@@ -2266,22 +3425,29 @@ def types_prompt(type_id: str, operation: str, roots: tuple[str, ...], output: s
                     f"(expected {path.name if path is not None else 'prompts/'}",
                     "types.prompt_missing")
             text = path.read_text(encoding="utf-8")
-            _emit_ok({"dataset_id": ctx.dataset_id, "type_id": type_id, "kind": kind, "operation": operation,
+            _emit_command_result(ctx, {"type_id": type_id, "kind": kind, "operation": operation,
                       "path": f".todoc/{type_kind_dir(ctx.dataset, kind)}/{type_id}/prompts/{operation}.md",
-                      "prompt": text, "chars": len(text)}, output, None)
+                      "prompt": text, "chars": len(text)}, output)
             return
     raise ValidationError(f"Unknown type: {type_id}", "types.unknown")
 
 
-@types.command("guide")
+@types.command("guide", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--format", "fmt", type=click.Choice(["markdown", "json"]), default="markdown")
 @click.option("--out", default=None)
-def types_guide(roots: tuple[str, ...], output: str, no_input: bool, fmt: str, out: str | None) -> None:
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def types_guide(roots: tuple[str, ...], output: str, no_input: bool, fmt: str, out: str | None,
+                preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
     """Generated type reference (stdout or --out)."""
-    ctx = _contexts(roots)[0]
+    _check_action_flags(preview, apply_)
+    if apply_ and out is None:
+        raise TodocError("--apply requires --out.", EXIT_USAGE, "usage.error")
+    ctx = _single_context(roots, "types")
     if fmt == "json":
         text = json.dumps({"dataset_id": ctx.dataset_id,
                            "dir_types": ctx.registry_types.dir_types,
@@ -2297,17 +3463,26 @@ def types_guide(roots: tuple[str, ...], output: str, no_input: bool, fmt: str, o
                 lines.append(f"- `{type_id}`: {store[type_id].get('description', '')}")
             lines.append("")
         text = "\n".join(lines)
-    if out:
-        out_path = _contained_out(ctx.root, out)
-        atomic_write(out_path, text + "\n")
-        _emit_ok({"dataset_id": ctx.dataset_id, "written": str(out_path)}, output, None)
-    elif output == "json" and fmt == "markdown":
-        _emit_ok({"dataset_id": ctx.dataset_id, "guide": text}, output, None)
-    else:
-        sys.stdout.write(text + "\n")
+    if out is None:
+        _emit_command_result(ctx, {"guide": text, "format": fmt}, output)
+        return
+    target = _contained_out(ctx.root, out)
+    rel = target.relative_to(ctx.root).as_posix()
+    expected = file_hash(target) if target.is_file() else None
+    content = text + "\n"
+    digest = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+    plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel, new_content=content,
+                     expected_hash=expected, new_hash=digest, basis="types guide")
+    plan_hash = selection_key([ctx.dataset_id, plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The guide plan is stale.", "write.hash_mismatch")
+    if apply_:
+        apply_write_plan(ctx.root, plan, parse_cache=ctx.parse_cache)
+    _emit_command_result(ctx, {"guide": text, "format": fmt, "path": rel, "plan_hash": plan_hash,
+                               "applied": apply_, "hash": digest}, output)
 
 
-@cli.command("fix")
+@cli.command("fix", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -2315,11 +3490,13 @@ def types_guide(roots: tuple[str, ...], output: str, no_input: bool, fmt: str, o
 @click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_", is_flag=True)
 @click.option("--if-hash", default=None)
+@click.option("--if-plan-hash")
 def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, preview: bool,
-        apply_: bool, if_hash: str | None) -> None:
+        apply_: bool, if_hash: str | None, if_plan_hash: str | None) -> None:
     """Preview/apply a supported fix (review-first)."""
-    ctx = _contexts(roots)[0]
-    _f, _d, _r, _rel, diagnostics = ctx.scan_and_validate()
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "fix")
+    _f, _d, _r, _rel, diagnostics = ctx.scan_and_validate(write_cache=False)
     target = next((d for d in diagnostics if d.get("id") == diagnostic), None)
     if target is None:
         raise ValidationError(f"Diagnostic not found: {diagnostic}", "fix.diagnostic_not_found")
@@ -2327,9 +3504,6 @@ def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, pr
     if not fixes:
         raise ValidationError(f"Diagnostic {diagnostic} has no suggested fixes", "fix.no_fixes")
     fix0 = fixes[0]
-    if not apply_:
-        _emit_ok({"dataset_id": ctx.dataset_id, "diagnostic": diagnostic, "preview": True, "fix": fix0}, output, None)
-        return
     rel_path = str(target.get("path", ""))
     evidence = str(target.get("evidence", ""))
     # Evidence is rendered by the validator as either ``[text](target)`` for an
@@ -2342,49 +3516,93 @@ def fix(roots: tuple[str, ...], output: str, no_input: bool, diagnostic: str, pr
     new_target = str(fix0.get("replacement", ""))
     if not old_target or not new_target:
         raise ValidationError("Cannot derive link targets from diagnostic", "fix.cannot_apply")
-    new_hash = apply_fix(ctx.root, rel_path, old_target, new_target, expected_hash=if_hash,
-                         history=ctx.history_recorder())
-    ctx.ensure_index()
-    _emit_ok({"dataset_id": ctx.dataset_id, "diagnostic": diagnostic, "applied": True, "new_hash": new_hash}, output, None)
+    source = _contained_out(ctx.root, rel_path)
+    old_bytes = source.read_bytes()
+    source_hash = "sha256:" + hashlib.sha256(old_bytes).hexdigest()
+    if if_hash is not None and if_hash != source_hash:
+        raise ConflictError("The source changed before the fix.", "write.hash_mismatch")
+    lines = old_bytes.decode("utf-8").splitlines(keepends=True)
+    line = target.get("location", {}).get("line")
+    if not isinstance(line, int) or line < 1 or line > len(lines) or lines[line - 1].count(evidence) != 1:
+        raise ValidationError("Link evidence is missing or ambiguous on the source line.", "fix.cannot_apply")
+    replacement = (f"[[{new_target}]]" if evidence.startswith("[[")
+                   else evidence.removesuffix(f"{old_target})") + new_target + ")")
+    lines[line - 1] = lines[line - 1].replace(evidence, replacement, 1)
+    content = "".join(lines)
+    new_hash = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+    plan = WritePlan(dataset_id=ctx.dataset_id, target_path=rel_path, new_content=content,
+                     expected_hash=source_hash, new_hash=new_hash, basis=f"fix {diagnostic}")
+    plan_hash = selection_key([ctx.dataset_id, diagnostic, plan.to_dict()])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The fix plan is stale.", "write.hash_mismatch")
+    if apply_:
+        apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache,
+                         event_kind="doc.fix")
+        ctx.ensure_index()
+    _emit_command_result(ctx, {"diagnostic": diagnostic, "fix": fix0, "plan": plan.preview_dict() if not apply_ else plan.to_dict(),
+                               "plan_hash": plan_hash, "preview": not apply_, "applied": apply_,
+                               "new_hash": new_hash}, output)
 
 
-@cli.command("doctor")
+@cli.command("doctor", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.option("--check", default=None, help="Comma-separated check ids.")
 @click.option("--scope", default=None, help="Группа проверок: dataset | environment | all.")
-@click.option("--fix", "fix_", is_flag=True, help="Separate repair mode (dry-run by default).")
-def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | None, scope: str | None, fix_: bool) -> None:
-    """Read-only environment diagnostics (stable IDs, never auto-repairs)."""
-    wanted = {c.strip() for c in check.split(",")} if check else None
-    # --scope раньше принимался и игнорировался (P1-4): `--scope nonsense` выполнял
-    # все проверки. Теперь он отбирает группу, а неизвестное значение — ошибка вызова,
-    # а не молчаливый полный прогон.
+@click.option("--fix", "fix_", is_flag=True, help="Preview rebuilding a missing, stale, or corrupt index.")
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | None, scope: str | None,
+           fix_: bool, preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
+    """Report checks and optionally repair the derived index."""
+    _check_action_flags(preview, apply_)
+    if (apply_ or if_plan_hash is not None) and not fix_:
+        raise TodocError("Repair options require --fix.", EXIT_USAGE, "usage.error")
     if scope is not None and scope not in DOCTOR_SCOPES:
-        raise TodocError(f"--scope ожидает одно из {', '.join(sorted(DOCTOR_SCOPES))}, получено {scope!r}",
-                         EXIT_USAGE, "usage.error")
+        raise TodocError(f"Unknown check scope: {scope!r}.", EXIT_USAGE, "usage.error")
+    wanted = {part.strip() for part in check.split(",")} if check else set(DOCTOR_SCOPES["all"])
+    if not wanted.issubset(DOCTOR_SCOPES["all"]):
+        raise TodocError("--check expects config, index or python.", EXIT_USAGE, "usage.error")
+    selected = wanted.intersection(DOCTOR_SCOPES[scope or "all"])
+    contexts = [_single_context(roots, "doctor")] if apply_ or if_plan_hash is not None else _contexts(roots)
     reports = []
-    for ctx in _contexts(roots):
-        checks = [
-            ("config", True, "Dataset config loads."),
-            ("index", ctx.store.current_generation_id() is not None, "Index generation is current."),
-            ("python", True, f"Python {sys.version.split()[0]}."),
-        ]
-        if scope is not None and scope != "all":
-            allowed = DOCTOR_SCOPES[scope]
-            checks = [c for c in checks if c[0] in allowed]
-        if wanted:
-            checks = [c for c in checks if c[0] in wanted]
-        passed = sum(1 for _id, ok, _msg in checks if ok)
-        reports.append({"dataset_id": ctx.dataset_id, "scope": scope or "all",
-                        "checks_total": len(checks), "passed": passed,
-                        "checks": [{"id": cid, "status": "pass" if ok else "fail", "message": msg} for cid, ok, msg in checks],
-                        "fix_mode": bool(fix_)})
-    _emit_ok({"datasets": reports}, output, None)
+    for ctx in contexts:
+        checks = []
+        if "config" in selected:
+            checks.append(("config", True, "Dataset config loads."))
+        if "python" in selected:
+            checks.append(("python", True, f"Python {sys.version.split()[0]}."))
+        repair = None
+        if "index" in selected:
+            status = ctx.index_status()
+            snapshot = ctx.read_index(include_mentions=False) if fix_ or status.state == "valid" else None
+            state = status.state
+            if state == "valid" and snapshot["corpus_digest"] != status.meta["corpus_digest"]:
+                state = "stale"
+            if fix_:
+                plan_hash = selection_key(["doctor", str(ctx.root), ctx.dataset_id, state, snapshot["corpus_digest"]])
+                if if_plan_hash is not None and if_plan_hash != plan_hash:
+                    raise ConflictError("The repair plan is stale.", "write.hash_mismatch")
+                repair = {"operation": "index rebuild" if state != "valid" else None,
+                          "index_before": state, "plan_hash": plan_hash, "applied": False}
+                if apply_ and state != "valid":
+                    ctx.rebuild_index(force=True, observe=False)
+                    state = "valid"
+                    repair["applied"] = True
+            checks.append(("index", state == "valid", f"Published index state: {state}."))
+        elif apply_ or if_plan_hash is not None:
+            raise TodocError("Repair requires selecting the index check.", EXIT_USAGE, "usage.error")
+        checks.sort(key=lambda item: DOCTOR_SCOPES["all"].index(item[0]))
+        reports.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "scope": scope or "all",
+                        "checks_total": len(checks), "passed": sum(ok for _, ok, _ in checks),
+                        "checks": [{"id": cid, "status": "pass" if ok else "fail", "message": message}
+                                   for cid, ok, message in checks], "fix_mode": fix_, "repair": repair})
+    _emit_result({"datasets": reports}, output, [], False)
 
 
-@cli.command("status")
+@cli.command("status", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
@@ -2392,21 +3610,20 @@ def status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     """Quick state snapshot (distinct from doctor)."""
     reports = []
     for ctx in _contexts(roots):
-        payload = ctx.store.load_current()
-        if payload:
-            reports.append({"dataset_id": ctx.dataset_id, "index_built": True,
-                            "generation_id": payload.get("generation_id"),
-                            "documents": len(payload["documents"]),
-                            "records": len(payload["records"])})
-        else:
-            # P1-6: нули до первой пересборки читались как «в датасете ничего нет».
-            # Честный ответ — «ещё не измерено» (null), а не выдуманное число.
-            reports.append({"dataset_id": ctx.dataset_id, "index_built": False,
-                            "generation_id": None, "documents": None, "records": None})
-    next_actions = ([{"action": "todoc index rebuild",
-                     "reason": "Индекс ещё не опубликован: считать документы не по чему."}]
-                    if any(not r["index_built"] for r in reports) else None)
-    _emit_ok({"datasets": reports}, output, None, next_actions=next_actions)
+        snapshot = ctx.index_status()
+        valid = snapshot.state == "valid"
+        published = snapshot.meta or {}
+        counts = published.get("counts", {}) if valid else {}
+        reports.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "index_built": valid, "index_state": snapshot.state,
+                        "generation_id": published.get("generation_id"),
+                        "documents": counts.get("documents"), "records": counts.get("records")})
+    meta = {"command": "status", "scope": {"roots": [report["root"] for report in reports]}}
+    response = Envelope.result(meta, {"datasets": reports})
+    response.next_actions = [
+        {"argv": ["todoc", "index", "rebuild", "--root", report["root"]],
+         "purpose": "Посмотреть план пересборки индекса"} for report in reports if not report["index_built"]
+    ]
+    emit(response, output)
 
 
 DOCTOR_SCOPES = {"dataset": ("config", "index"), "environment": ("python",),
@@ -2422,9 +3639,9 @@ def _emit_error(code: str, message: str, exit_code: int) -> None:
     """
     diagnostic = {"dataset_id": "", "id": stable_id(code, message), "code": code, "severity": "error",
                   "path": "", "location": {}, "evidence": "", "message": message, "suggested_fixes": []}
-    emit(make_envelope(False, {}, [diagnostic],
-                       [{"argv": ["todoc", "--help"], "purpose": "Показать список команд и опций"}]),
-         _group_output, None)
+    envelope = Envelope.result({"command": "todoc", "scope": None}, {}, diagnostics=[diagnostic])
+    envelope.next_actions = [{"argv": ["todoc", "--help"], "purpose": "Показать список команд и опций"}]
+    emit(envelope, _group_output)
     sys.stderr.write(f"Error [{code}]: {message}\n")
     sys.exit(exit_code)
 
@@ -2434,68 +3651,113 @@ def state() -> None:
     """Агентский стейт сессии (v1): state.json вне данных, XDG_STATE_HOME."""
 
 
-@state.command("set")
+@state.command("set", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("key")
 @click.argument("value")
-def state_set(roots: tuple[str, ...], output: str, no_input: bool, key: str, value: str) -> None:
-    """Записать переменную стейта (белый список v1: context.current_project)."""
-    ctx = _contexts(roots)[0]
-    data = set_var(ctx.dataset_id, key, value)
-    _emit_ok({"ok": True, "key": key, "value": data["vars"][key], "updated_at": data["updated_at"]},
-             output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["state", "get", key],
-                            "purpose": "Перечитать записанное"}])
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def state_set(roots: tuple[str, ...], output: str, no_input: bool, key: str, value: str,
+              preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
+    """Показать или применить изменение переменной стейта."""
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "state")
+    previous = get_var(ctx.dataset_id, key)
+    plan_hash = selection_key([ctx.dataset_id, "set", key, previous, value])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The state plan is stale.", "write.hash_mismatch")
+    data = set_var(ctx.dataset_id, key, value, apply=apply_)
+    _emit_command_result(ctx, {"key": key, "value": data["vars"][key], "previous": previous,
+                               "updated_at": data["updated_at"], "plan_hash": plan_hash, "applied": apply_}, output,
+                         next_actions=[{"argv": _root_argv(roots) + ["state", "get", key],
+                                        "purpose": "Перечитать записанное"}] if apply_ else None)
 
 
-@state.command("get")
+@state.command("get", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("key")
 def state_get(roots: tuple[str, ...], output: str, no_input: bool, key: str) -> None:
     """Прочитать переменную стейта (value: null — не установлена)."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "state")
     value = get_var(ctx.dataset_id, key)
-    _emit_ok({"ok": True, "key": key, "value": value}, output, None)
+    _emit_command_result(ctx, {"key": key, "value": value}, output)
 
 
-@state.command("list")
+@state.command("list", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json")
 @click.option("--no-input", is_flag=True)
-@click.option("--prefix", default=None, help="Фильтр по префиксу ключа (секции).")
-def state_list(roots: tuple[str, ...], output: str, no_input: bool, prefix: str | None) -> None:
-    """Переменные стейта датасета (сортировка по ключу)."""
-    ctx = _contexts(roots)[0]
+@click.option("--prefix")
+@click.option("--fields", "include")
+@click.option("--exclude-fields", "exclude")
+@click.option("--limit", type=click.IntRange(1, 1000), default=100)
+@click.option("--cursor")
+@click.option("--view", default="flat")
+def state_list(roots: tuple[str, ...], output: str, no_input: bool, prefix: str | None,
+               include: str | None, exclude: str | None, limit: int, cursor: str | None, view: str) -> None:
+    """List dataset-scoped session variables."""
+    ctx = _single_context(roots, "state")
     data = load_state(ctx.dataset_id)
-    vars_ = {k: v for k, v in sorted(data["vars"].items())
-             if prefix is None or k.startswith(prefix)}
-    _emit_ok({"ok": True, "vars": vars_}, output, None)
+    rows = [{"key": key, "value": value} for key, value in sorted(data["vars"].items())
+            if prefix is None or key.startswith(prefix)]
+    meta = _collection_meta("state list")
+    meta["requested_view"] = view
+    meta["scope"] = {"dataset_id": ctx.dataset_id, "prefix": prefix}
+    fields = selected_fields(("key", "value"), include, exclude, structural=("key",))
+    _emit_flat_page(meta, rows, [2, "state list", ctx.dataset_id, prefix, data], fields, limit, cursor, output)
 
 
-@state.command("unset")
+@state.command("unset", cls=UnifiedCommand)
 @click.option("--root", "roots", multiple=True)
-@click.option("--output", type=click.Choice(["json", "table"]), default="json", show_default=True)
+@click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
 @click.argument("key")
-def state_unset(roots: tuple[str, ...], output: str, no_input: bool, key: str) -> None:
-    """Удалить переменную стейта (removed: false — не была установлена)."""
-    ctx = _contexts(roots)[0]
-    removed = unset_var(ctx.dataset_id, key)
-    _emit_ok({"ok": True, "key": key, "removed": removed}, output, None,
-             next_actions=[{"argv": _root_argv(roots) + ["state", "list"],
-                            "purpose": "Оставшиеся переменные"}] if removed else None)
+@click.option("--preview", is_flag=True)
+@click.option("--apply", "apply_", is_flag=True)
+@click.option("--if-plan-hash")
+def state_unset(roots: tuple[str, ...], output: str, no_input: bool, key: str,
+                preview: bool, apply_: bool, if_plan_hash: str | None) -> None:
+    """Показать или применить удаление переменной стейта."""
+    _check_action_flags(preview, apply_)
+    ctx = _single_context(roots, "state")
+    previous = get_var(ctx.dataset_id, key)
+    plan_hash = selection_key([ctx.dataset_id, "unset", key, previous])
+    if if_plan_hash is not None and if_plan_hash != plan_hash:
+        raise ConflictError("The state plan is stale.", "write.hash_mismatch")
+    removed = unset_var(ctx.dataset_id, key) if apply_ else False
+    _emit_command_result(ctx, {"key": key, "previous": previous, "removed": removed,
+                               "plan_hash": plan_hash, "applied": apply_}, output,
+                         next_actions=[{"argv": _root_argv(roots) + ["state", "list"],
+                                        "purpose": "Оставшиеся переменные"}] if removed else None)
+
+
+def _emit_unified_error(ctx: click.Context, code: str, message: str, exit_code: int) -> None:
+    name = command_name(ctx)
+    default = {"docs tree": "tree", "relations tree": "tree", "relations graph": "graph"}
+    meta = _collection_meta(name, default.get(name, "flat"))
+    _emit_collection_error(meta, code, message, ctx.params.get("output") or _group_output)
+    sys.exit(exit_code)
 
 
 def main() -> None:
     try:
-        cli(standalone_mode=False)
+        result = cli(standalone_mode=False)
+        if isinstance(result, int):
+            sys.exit(result)
     except TodocError as exc:
+        ctx = getattr(exc, "cli_context", None)
+        if ctx is not None:
+            _emit_unified_error(ctx, exc.code, exc.message, exc.exit_code)
         _emit_error(exc.code, exc.message, exc.exit_code)
     except click.ClickException as exc:
+        if (isinstance(exc, click.UsageError) and exc.ctx is not None
+                and isinstance(exc.ctx.command, UnifiedCommand)):
+            _emit_unified_error(exc.ctx, "usage.error", exc.format_message(), EXIT_USAGE)
         _emit_error("usage.error", exc.format_message(), EXIT_USAGE)
 
 

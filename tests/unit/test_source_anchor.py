@@ -26,7 +26,7 @@ def _codes(runner, tmp_path):
 
 def test_source_anchor_valid_and_missing(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     vitrine = tmp_path / "glossary/envelope.md"
     vitrine.parent.mkdir(parents=True)
     vitrine.write_text("---\ntitle: Конверт\n---\n\n# Конверт\n\n## Связи\n\nтекст.\n",
@@ -51,7 +51,7 @@ def test_source_anchor_valid_and_missing(tmp_path):
 
 def test_source_anchor_without_vitrine_is_defect(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     rec = tmp_path / "records/documents/a.json"
     rec.parent.mkdir(parents=True)
     rec.write_text(json.dumps({
@@ -64,7 +64,7 @@ def test_source_anchor_without_vitrine_is_defect(tmp_path):
 
 def test_source_anchor_null_or_absent_untouched(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     rec = tmp_path / "records/documents/a.json"
     rec.parent.mkdir(parents=True)
     rec.write_text(json.dumps({
@@ -77,7 +77,7 @@ def test_source_anchor_null_or_absent_untouched(tmp_path):
 
 def test_source_anchor_unreadable_vitrine_skipped(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     vitrine = tmp_path / "glossary/envelope.md"
     vitrine.parent.mkdir(parents=True)
     vitrine.write_bytes(b"\xff\xfe not utf-8")
@@ -93,7 +93,7 @@ def test_source_anchor_unreadable_vitrine_skipped(tmp_path):
 
 def test_source_anchor_non_string_skipped(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     rec = tmp_path / "records/documents/a.json"
     rec.parent.mkdir(parents=True)
     rec.write_text(json.dumps({

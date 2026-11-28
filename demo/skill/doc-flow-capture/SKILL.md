@@ -1,11 +1,13 @@
 ---
+id: "doc:skill/doc-flow-capture/SKILL.md"
+title: "Захват флоу-документа"
 name: doc-flow-capture
 description: >
   Захват или обновление флоу-документа из задачи/изменения: 4 артефакта (state machine, таблица решений, flowchart, lineage), истина — записи flow/rule. Применять, когда изменился бизнес-процесс и нужно обновить его витрину в KB.
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-27
+updated: 2026-11-28
 tags: [skill, documentation, agent]
 ---
 

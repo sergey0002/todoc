@@ -9,6 +9,7 @@ from typing import Any
 
 from todoc.errors import ValidationError
 from todoc.typing_system.descriptors import load_json_file, require_schema_version
+from todoc.typing_system.document_metadata import SCHEMA_PATH, default_metadata_schema
 
 DEFAULT_LIMITS: dict[str, int] = {
     "max_file_bytes": 10485760,
@@ -120,7 +121,8 @@ def _write_type_assets(type_dir: Path, kind: str, type_id: str, description: str
         (prompts_dir / f"{operation}.md").write_text(text, encoding="utf-8")
 
 
-def init_dataset(root: Path, dataset_id: str | None = None) -> dict[str, Any]:
+def init_dataset(root: Path, dataset_id: str | None = None, *,
+                 document_metadata: bool = False) -> dict[str, Any]:
     """Create .todoc/ control files. Never scans/moves user data.
 
     ``dataset_id`` по умолчанию случаен, но его можно задать явно: без этого
@@ -128,6 +130,9 @@ def init_dataset(root: Path, dataset_id: str | None = None) -> dict[str, Any]:
     одинаковый набор файлов каждый раз даёт разный идентификатор.
     """
     todoc_dir = root / ".todoc"
+    metadata_path = root / SCHEMA_PATH
+    if document_metadata and metadata_path.exists():
+        raise ValidationError(f"Metadata schema already exists at {metadata_path}", "metadata.schema_exists")
     if (todoc_dir / "dataset.json").is_file():
         raise ValidationError(f"Dataset already initialized at {root}", "config.already_initialized")
     if dataset_id is not None:
@@ -148,6 +153,10 @@ def init_dataset(root: Path, dataset_id: str | None = None) -> dict[str, Any]:
     (todoc_dir / "queries").mkdir(parents=True, exist_ok=True)
     (todoc_dir / "generated").mkdir(parents=True, exist_ok=True)
 
+    if document_metadata:
+        with metadata_path.open("x", encoding="utf-8") as handle:
+            json.dump(default_metadata_schema(), handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
     (todoc_dir / "dataset.json").write_text(json.dumps(dataset, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (todoc_dir / "rules" / "directory-rules.json").write_text(
         json.dumps(default_directory_rules(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from todoc.adapters.filesystem.scanner import scan_dataset
-from todoc.adapters.formats.jsonfmt import parse_json
+from todoc.adapters.history.store import FileHistoryStore
 from todoc.application.history import observe_external_changes, open_backend, record_write
-from todoc.application.registry import RegistryStore, corpus_digest
+from todoc.application.registry import JsonParseCache, RegistryStore, _config_digest, corpus_digest
+from todoc.application.storage import HistoryStore, IndexStatus, IndexStore, ParseCache
 from todoc.application import temporal
 from todoc.application.validator import build_mentions, stable_id, validate_dataset, validate_relations
 from todoc.config import load_dataset, load_rules
@@ -27,19 +28,21 @@ class HistoryRecorder:
     """
 
     def __init__(self, root: Path, backend: Any | None = None, git_head: str | None = None,
-                 change_id: str | None = None) -> None:
+                 change_id: str | None = None, store: HistoryStore | None = None) -> None:
         self.root = root
         self.backend = backend
         self.git_head = git_head
         self.change_id = change_id
+        self.store = store if store is not None else FileHistoryStore(root)
 
     def record(self, rel_path: str, before: bytes | None, after: bytes, kind: str, basis: str = "") -> None:
         record_write(self.root, rel_path, before, after, kind=kind, basis=basis,
-                     backend=self.backend, git_head=self.git_head, change_id=self.change_id)
+                     backend=self.backend, git_head=self.git_head, change_id=self.change_id, store=self.store)
 
 
 class DatasetContext:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, index_store: IndexStore | None = None,
+                 parse_cache: ParseCache | None = None, history_store: HistoryStore | None = None) -> None:
         self.root = root.resolve()
         self.dataset = load_dataset(self.root)
         self.dataset_id = self.dataset["dataset_id"]
@@ -47,9 +50,12 @@ class DatasetContext:
         self.registry_types = TypeRegistry()
         self.registry_types.load(self.root, self.dataset)
         self.registry_types.validate_references(self.dir_rules, self.doc_rules)
-        self.store = RegistryStore(self.root)
+        self.store: IndexStore = index_store if index_store is not None else RegistryStore(self.root)
+        self.parse_cache: ParseCache = parse_cache if parse_cache is not None else JsonParseCache(self.root)
+        self.history_store: HistoryStore = history_store if history_store is not None else FileHistoryStore(self.root)
 
-    def scan_and_validate(self, scanned: tuple[Any, Any] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    def scan_and_validate(self, scanned: tuple[Any, Any] | None = None, *,
+                          write_cache: bool = True, check_content: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         """Returns (folders, documents, records, relations, diagnostics) as dicts.
 
         ``scanned`` lets a caller that already walked the tree (to compute the corpus
@@ -59,7 +65,8 @@ class DatasetContext:
             scanned = self.scan()
         scanned_folders, scanned_files = scanned
         diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules,
-                                           registry=self.registry_types)
+                                           registry=self.registry_types, write_cache=write_cache,
+                                           parse_cache=self.parse_cache, check_content=check_content)
 
         folders: list[dict[str, Any]] = []
         for folder in scanned_folders:
@@ -81,7 +88,8 @@ class DatasetContext:
         documents: list[dict[str, Any]] = []
         for scanned in scanned_files:
             info = doc_info.get(scanned.rel_path, {})
-            doc_id = _document_id(scanned.rel_path, info.get("front_matter") or {})
+            front_matter = info.get("front_matter") or {}
+            doc_id = _document_id(scanned.rel_path, front_matter)
             parent = str(Path(scanned.rel_path).parent.as_posix())
             documents.append(Document(
                 document_id=doc_id, dataset_id=self.dataset_id, path=scanned.rel_path,
@@ -90,31 +98,39 @@ class DatasetContext:
                 rule_source=str(info.get("rule_source", "default")), hash=scanned.hash, size=scanned.size,
                 title=str(info.get("title", "")), status=scanned.status if scanned.status != "ok" else "ok",
             ).to_dict())
+            status = front_matter.get("status")
+            updated = front_matter.get("updated")
+            tags = front_matter.get("tags")
+            documents[-1].update(
+                attributes=front_matter,
+                headings=info.get("headings", []),
+                managed_metadata=info.get("managed_metadata", False),
+                metadata_pointer=info.get("metadata_pointer", ""),
+                lifecycle_status=status if isinstance(status, str) and status.strip() else None,
+                updated=updated if isinstance(updated, str) else None,
+                tags=[tag for tag in tags if isinstance(tag, str)] if isinstance(tags, list) else [],
+            )
         # Records + relations from JSON files.
         records: list[dict[str, Any]] = []
         relations: list[dict[str, Any]] = []
         record_texts: dict[str, str] = {}
         for doc in documents:
-            if doc["format"] != "json" or doc["status"] != "ok":
+            parsed = doc_info.get(doc["path"], {}).get("parsed_record")
+            if parsed is None:
                 continue
-            try:
-                text = (self.root / doc["path"]).read_text(encoding="utf-8")
-            except OSError:
-                continue
-            # parse_json (not json.loads): hostile nesting must not raise
-            # RecursionError out of the CLI.
-            value, errors = parse_json(text, max_depth=int((self.dataset.get("limits") or {}).get("max_json_depth", 128)))
-            if errors:
-                continue
-            if not isinstance(value, dict) or "record_id" not in value:
-                continue
+            value, text = parsed
             records.append({"record_id": str(value["record_id"]), "entity_type": str(value.get("entity_type", "")),
                             "dataset_id": self.dataset_id, "path": doc["path"], "hash": doc["hash"], "data": value})
             record_texts[doc["path"]] = text
-            for rel in (value.get("relations") or []):
-                if isinstance(rel, dict) and (rel.get("target") or {}).get("id"):
+            record_relations = value.get("relations") or []
+            if not isinstance(record_relations, list):
+                continue
+            for relation_index, rel in enumerate(record_relations):
+                target = rel.get("target") if isinstance(rel, dict) else None
+                if isinstance(target, dict) and target.get("id"):
                     edge = {"type_id": str(rel.get("type_id", "")), "source_id": str(value["record_id"]),
-                            "target_id": str(rel["target"]["id"]), "dataset_id": self.dataset_id}
+                            "target_id": str(target["id"]), "dataset_id": self.dataset_id,
+                            "source_path": doc["path"], "source_pointer": f"/relations/{relation_index}"}
                     # Би-темпоральные поля (§5.5) попадают в ребро, иначе `--as-of`
                     # не смог бы решить, было ли ребро правдой на момент T.
                     edge.update(temporal.temporal_of(rel))
@@ -131,12 +147,12 @@ class DatasetContext:
         """Индекс упоминаний md → цели (план entity-catalog З2). Derived, rebuildable."""
         scanned_folders, scanned_files = scanned
         all_paths = {f.rel_path for f in scanned_files}
-        return build_mentions(self.root, scanned_files, records, all_paths)
+        return build_mentions(self.root, scanned_files, records, all_paths, parse_cache=self.parse_cache)
 
     def history_recorder(self, change_id: str | None = None) -> HistoryRecorder:
         """Рекодер с бэкендом из конфигурации; деградация в embedded видна в `degraded`."""
         backend, degraded = open_backend(self.root, self.dataset)
-        recorder = HistoryRecorder(self.root, backend=backend, change_id=change_id)
+        recorder = HistoryRecorder(self.root, backend=backend, change_id=change_id, store=self.history_store)
         recorder.degraded = degraded  # type: ignore[attr-defined]
         return recorder
 
@@ -152,24 +168,64 @@ class DatasetContext:
             mode = str(section["mode"])
         backend = self.history_recorder().backend
         return observe_external_changes(self.root, [(f.rel_path, f.hash) for f in scanned_files],
-                                        backend=backend, mode=mode)
+                                        backend=backend, mode=mode, store=self.history_store)
 
-    def scan(self) -> tuple[Any, Any]:
+    def scan(self, *, strict: bool = False) -> tuple[Any, Any]:
         """Walk the corpus once, reusing cached hashes for files whose mtime+size held."""
         follow = bool(self.dataset.get("follow_symlinks", False))
         max_bytes = int((self.dataset.get("limits") or {}).get("max_file_bytes", 10485760))
         return scan_dataset(self.root, follow_symlinks=follow, max_file_bytes=max_bytes,
-                            hash_cache=self.store.read_stats())
+                            hash_cache=None if strict else self.store.read_stats(), strict=strict)
+
+    def index_status(self) -> IndexStatus:
+        return self.store.inspect(self.dataset_id)
+
+    def load_published_index(self) -> dict[str, Any] | None:
+        return self.store.load_current()
+
+    def read_index(self, *, include_mentions: bool = True) -> dict[str, Any]:
+        """Read a verified snapshot or assemble one in memory without publishing."""
+        def fingerprint(scanned: tuple[Any, Any]) -> str:
+            return corpus_digest(scanned[1], _config_digest(self.root, strict=True))
+
+        try:
+            scanned = self.scan(strict=True)
+            digest = fingerprint(scanned)
+            current = self.store.load_current()
+            manifest = {file.rel_path: file.hash for file in scanned[1]}
+            if (current is not None and current.get("dataset_id") == self.dataset_id
+                    and current.get("corpus_digest") == digest
+                    and {doc.get("path"): doc.get("hash") for doc in current["documents"]} == manifest
+                    and all({"document_id", "path", "hash", "format", "title", "status", "doc_type"} <= doc.keys()
+                            and isinstance(doc.get("attributes"), dict) and isinstance(doc.get("headings"), list)
+                            and "managed_metadata" in doc
+                            for doc in current["documents"])
+                    and all("source_path" in edge for edge in current["relations"])):
+                payload = current
+            else:
+                folders, documents, records, relations, diagnostics = self.scan_and_validate(
+                    scanned, write_cache=False, check_content=include_mentions
+                )
+                payload = {
+                    "folders": folders, "documents": documents, "records": records,
+                    "relations": relations, "diagnostics": diagnostics,
+                    "mentions": self.build_mentions(scanned, records, folders, documents) if include_mentions else [],
+                }
+            if fingerprint(self.scan(strict=True)) != digest:
+                raise IncompleteError("Dataset changed while reading.")
+        except OSError as exc:
+            raise IncompleteError(f"Dataset could not be read: {exc.strerror or type(exc).__name__}") from exc
+        return {**payload, "dataset_id": self.dataset_id, "corpus_digest": digest}
 
     def rebuild_index(self, force: bool = True, observe: bool = True) -> dict[str, Any]:
         """Recompute and publish the snapshot. ``force=False`` reuses a valid one."""
-        scanned = self.scan()
-        digest = corpus_digest(scanned[1], self.store.config_digest())
+        scanned = self.scan(strict=True)
+        digest = corpus_digest(scanned[1], _config_digest(self.root, strict=True))
         if not force:
             meta = self.store.read_current_meta()
             if meta and meta.get("corpus_digest") == digest:
                 existing = self.store.load_current()
-                if existing is not None:
+                if existing is not None and existing.get("dataset_id") == self.dataset_id:
                     return {"dataset_id": self.dataset_id, "generation_id": existing.get("generation_id"),
                             "corpus_digest": digest, "reused": True,
                             "folders": len(existing.get("folders") or []),
@@ -194,12 +250,12 @@ class DatasetContext:
         Read commands call this, not ``rebuild_index``. A command that only reads must
         not publish, otherwise an unchanged corpus accumulates one snapshot per run.
         """
-        scanned = self.scan()
-        digest = corpus_digest(scanned[1], self.store.config_digest())
+        scanned = self.scan(strict=True)
+        digest = corpus_digest(scanned[1], _config_digest(self.root, strict=True))
         meta = self.store.read_current_meta()
         if meta and meta.get("corpus_digest") == digest:
             payload = self.store.load_current()
-            if payload is not None:
+            if payload is not None and payload.get("dataset_id") == self.dataset_id:
                 return payload
         folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
         mentions = self.build_mentions(scanned, records, folders, documents)

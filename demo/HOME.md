@@ -4,7 +4,7 @@ title: "HOME: карта содержимого демо-датасета"
 doc_type: moc
 lang: ru
 created: 2026-11-26
-updated: 2026-11-27
+updated: 2026-11-28
 tags: [moc, содержимого, датасета]
 ---
 
@@ -34,6 +34,7 @@ tags: [moc, содержимого, датасета]
 - [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **исполнен** (Задачи 1–2, DoD 3/3; **done**): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
 - [Пакет скилов волнового планирования без переделок (`BMAD v6/v7` + `GSD` + `Spec Kit` + `OpenSpec`) и CLI-механика волн](plan/bmad-wave-planning-skills.md) — **активен** (`status: active`, 9 задач): `doc_type: roadmap`, CLI-команды `todoc stale anchor/reanchor`, `todoc plan portfolio/bind`, секционный `docs edit` и 6 скилов `process/bmad/*` со связкой из `todoc-plan`.
 - [Самодокументируемый CLI: единые виды вывода и фильтры — план реализации](plan/unified-cli-output-implementation.md) — целевой контракт `--view flat|tree|graph`, read-only чистота выборок и модульный CLI.
+- [Исследование обзора документов по статусу](plan/metadata-overview-and-harness-efficiency.md) — исторический план, объединён с основным планом единого CLI.
 - [Прямое редактирование файлов, команда финализации `todoc sync` и отказ от обязательного `docs edit` в правилах и промптах](plan/direct-edit-and-sync.md) — **исполнен** (Задачи 1–5, DoD 7/7; fm **done**, закрыт по явному подтверждению пользователя, 2026-11-26): ядро `sync_files` и команда `todoc sync`, защита автособираемых витрин (`"generated": true` + `guidance` `P15`), скрытие `.todoc/history/` из Git (`BUG-012` → `fixed`) и перевод всех правил, скилов и 56 типов на прямую правку + `todoc sync`.
 
 ### Хранилище скилов (`skills/`)
@@ -59,7 +60,7 @@ import`, оставлен на постоянку). Разделы описан�
 matter; репорты не удаляются. **Перед созданием — поиск дубликата** (`--type
 bug-report` по симптому и компоненту); нашли — сослайтесь на `BUG-NNN`, не
 плодите дубль (канон: `notes/agent-contract.md` → «Баг-репорты», промпт:
-`todoc types prompt bug-report --op create`). Создание: `todoc docs new --type
+`todoc types prompt bug-report --op create`). Создание: `todoc docs new --apply --type
 bug-report --title "BUG-NNN: суть" --dir bugs`.
 
 Конвенция именования (2026-11-25): русский заголовок — в поле `title`
@@ -117,7 +118,7 @@ bug-report --title "BUG-NNN: суть" --dir bugs`.
 - [CLI-команды волнового планирования (`todoc stale anchor/reanchor`, `todoc plan portfolio` и пакетный `todoc plan bind`)](ideas/wave-planning-cli-helpers.md) — детерминированная механика якорей свежести, рентгена сирот/дублей/файловых коллизий волн, секционных правок `docs edit` и сверки `git diff → state/`. **В плане** (fm planned, покрыта [bmad-wave-planning-skills](plan/bmad-wave-planning-skills.md), 2026-11-27).
 - [Самодокументируемое поле `guidance` для моделей во всех выводах CLI и переключаемый `i18n`-каталог подсказок](ideas/cli-model-guidance-and-hint-catalog.md) — принцип Конституции `P15`: коды ситуаций в коде, рекомендации со ссылками на скилы/доки в переключаемом каталоге (`JSON` + `CSV`), минимальный шум на успехе и подробная опора при ошибках. **В плане** (fm planned, покрыта [bmad-wave-planning-skills](plan/bmad-wave-planning-skills.md), 2026-11-27).
 - [Самодокументируемый CLI: единые виды вывода и фильтры](ideas/unified-cli-output.md) — единые виды `flat/tree/graph`, предсказуемые умолчания и подсказки в ответе CLI.
-- [Прямое редактирование файлов без дорогого `docs edit`, короткая команда финализации `todoc sync <path>` и замена правил/промптов](ideas/direct-edit-and-git-sync.md) — отказ от принудительного построчного `docs edit --patch-file` во всех правилах/скилах/`prompts/edit.md` (`56` типов) в пользу прямой правки и одной короткой команды `todoc sync <path>` (`updated:`, `history`, `parse_cache`, защита витрин + `guidance` `P15`, исключение `.todoc/history/` из Git). **Реализована** (Этап 1, fm **done**, 2026-11-26 — [план](plan/direct-edit-and-sync.md) исполнен; Этап 2 `--from-git`/`auto-docs`/`auto-review` отложен).
+- [Прямое редактирование файлов без дорогого `docs edit`, короткая команда финализации `todoc sync --apply <path>` и замена правил/промптов](ideas/direct-edit-and-git-sync.md) — отказ от принудительного построчного `docs edit --patch-file` во всех правилах/скилах/`prompts/edit.md` (`56` типов) в пользу прямой правки и одной короткой команды `todoc sync --apply <path>` (`updated:`, `history`, `parse_cache`, защита витрин + `guidance` `P15`, исключение `.todoc/history/` из Git). **Реализована** (Этап 1, fm **done**, 2026-11-26 — [план](plan/direct-edit-and-sync.md) исполнен; Этап 2 `--from-git`/`auto-docs`/`auto-review` отложен).
 - [Агентные флоу (`agent_flow`) — исполняемые деревья решений для агента поверх `flow`, квиз из рёбер и скил `flow-runner`](ideas/agent-flows.md) — специализированный исполняемый наследник `flow` (в любой папке по `P4`, с `enabled: bool` и `todoc flows clone`), пошаговый навигатор `todoc flows step` (`~100` токенов/шаг), стандартный квиз `ask-user` прямо из рёбер `edges` и универсальный скил `flow-runner` для любых доменов (ТРИЗ, Карпаты, ресёрч, штурм, разработка). **Зафиксирована** (fm captured, 2026-11-27).
 - [Сквозной флоу разработки на базе `agent_flow` и папок-доменов `folderize` (от идеи до петли аудита полноты)](ideas/dev-lifecycle-flow.md) — модульный граф `agent_flow:dev-lifecycle` с превращением идеи и плана в изолированные папки-домены (`todoc folderize` + `--within`), двойным аудитом свежести против мира, четырёхтактным циклом задачи (`task-exec`) и обязательной обратной петлёй аудита полноты перед `done`. **Зафиксирована** (fm captured, 2026-11-27).
 

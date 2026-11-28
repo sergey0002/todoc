@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "todoc CLI result, version 2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ok", "data", "diagnostics", "next_actions", "guidance"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "ok": {"type": "boolean"},
+    "data": {
+      "type": "object",
+      "required": ["meta", "result"],
+      "properties": {
+        "executed": {"type": "boolean"},
+        "meta": {
+          "type": "object",
+          "required": ["command", "scope"],
+          "properties": {
+            "command": {"type": "string", "minLength": 1},
+            "scope": {"type": ["object", "null"]},
+            "complete": {"type": "boolean"},
+            "requested_view": {"type": "string"},
+            "actual_view": {"enum": ["flat", "tree", "graph"]},
+            "total": {"type": ["integer", "null"], "minimum": 0},
+            "returned": {"type": "integer", "minimum": 0},
+            "truncated": {"type": "boolean"},
+            "next_cursor": {"type": ["string", "null"]}
+          }
+        },
+        "result": {"type": "object"}
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["info", "warning", "error"]},
+          "message": {"type": "string"}
+        }
+      }
+    },
+    "next_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["argv", "purpose"],
+        "properties": {
+          "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "purpose": {"type": "string"}
+        }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "required": ["profile", "mode", "items"],
+      "properties": {
+        "profile": {"type": "string"},
+        "mode": {"enum": ["compact", "on_error", "guided"]},
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "hint", "skills", "docs"],
+            "properties": {
+              "code": {"type": "string"},
+              "hint": {"type": "string"},
+              "skills": {"type": "array", "items": {"type": "string"}},
+              "docs": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    }
+  }
+}

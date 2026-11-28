@@ -20,7 +20,7 @@ def _json(result):
 
 def _demo_vault(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     for rel, body in [
         ("ideas/repair", '{"schema_version": 1, "title": "Ремонт и стройка", '
                          '"aliases": "ремонт|ванна|дизайн ванны", '
@@ -38,12 +38,12 @@ def test_suggest_exact_alias_top_with_reason(tmp_path):
     _demo_vault(tmp_path)
     d = _json(_run(runner, ["docs", "suggest", "--root", str(tmp_path),
                             "--query", "нужно сохранить идею про дизайн ванны"]))["data"]
-    assert d["candidates"][0]["path"] == "ideas/repair"
-    assert d["candidates"][0]["score"] >= 0.8
-    assert "exact alias «дизайн ванны»" in d["candidates"][0]["reason"]
-    assert d["threshold"] == 0.25
-    assert any(x["path"] == "ideas/home" for x in d["discarded"])
-    assert d["candidates"][0]["order"] == 10
+    assert d["result"]["items"][0]["path"] == "ideas/repair"
+    assert d["result"]["items"][0]["score"] >= 0.8
+    assert "exact alias «дизайн ванны»" in d["result"]["items"][0]["reason"]
+    assert d["meta"]["threshold"] == 0.25
+    assert any(x["path"] == "ideas/home" for x in d["result"]["discarded"])
+    assert d["result"]["items"][0]["order"] == 10
 
 
 def test_suggest_miss_returns_all_discarded(tmp_path):
@@ -51,8 +51,8 @@ def test_suggest_miss_returns_all_discarded(tmp_path):
     _demo_vault(tmp_path)
     d = _json(_run(runner, ["docs", "suggest", "--root", str(tmp_path),
                             "--query", "космический лифт"]))["data"]
-    assert d["candidates"] == []
-    assert len(d["discarded"]) == 3
+    assert d["result"]["items"] == []
+    assert len(d["result"]["discarded"]) == 3
 
 
 def test_suggest_deterministic_byte_for_byte(tmp_path):

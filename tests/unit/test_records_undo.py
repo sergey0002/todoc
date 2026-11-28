@@ -23,7 +23,7 @@ def _json(result):
 
 
 def _init(runner, tmp_path):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
 
 
 def _record_text(record_id, relations):
@@ -45,7 +45,7 @@ def _write_with_history(tmp_path, record_id, versions):
 
 
 def _rebuild(runner, tmp_path):
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
 
 
 def test_undo_added_edge_preview_then_apply(tmp_path):
@@ -58,8 +58,8 @@ def test_undo_added_edge_preview_then_apply(tmp_path):
     _rebuild(runner, tmp_path)
     plan = _json(_run(runner, ["records", "undo-relation", "--root", str(tmp_path),
                                "--id", "document:a", "--pointer", "/relations/0"]))
-    assert plan["ok"] and plan["data"]["preview"] is True
-    p = plan["data"]["plan"]
+    assert plan["ok"] and plan["data"]["result"]["preview"] is True
+    p = plan["data"]["result"]["plan"]
     assert p["mode"] == "remove" and p["previous_present"] is False
     assert p["current"]["type_id"] == "supports"
     events_before = len(journal.read_events(tmp_path))
@@ -70,7 +70,7 @@ def test_undo_added_edge_preview_then_apply(tmp_path):
     assert applied["ok"], applied
     data = json.loads((tmp_path / "records/documents/a.json").read_text(encoding="utf-8"))
     assert data["relations"] == []
-    assert applied["data"]["new_hash"] == file_hash(tmp_path / "records/documents/a.json")
+    assert applied["data"]["result"]["new_hash"] == file_hash(tmp_path / "records/documents/a.json")
     assert len(journal.read_events(tmp_path)) == events_before + 1  # новая ревизия в журнале
     v = _json(_run(runner, ["validate", "--root", str(tmp_path), "--all"]))
     assert v["ok"] is True, v["diagnostics"]
@@ -89,7 +89,7 @@ def test_undo_modified_edge_restores_previous_target(tmp_path):
     _rebuild(runner, tmp_path)
     plan = _json(_run(runner, ["records", "undo-relation", "--root", str(tmp_path),
                                "--id", "document:a", "--pointer", "/relations/0"]))
-    p = plan["data"]["plan"]
+    p = plan["data"]["result"]["plan"]
     assert p["mode"] == "restore" and p["previous_present"] is True
     assert p["previous"]["target"]["id"] == "document:b"
     hash_before = file_hash(tmp_path / "records/documents/a.json")

@@ -9,12 +9,12 @@
    ops/postmortems/ для postmortem):
 
    ```bash
-   todoc docs new --root KB --type postmortem --title "<Название>" --path <путь>/<имя>.md
+   todoc docs new --apply --root KB --type postmortem --title "<Название>" --path <путь>/<имя>.md
    todoc validate --root KB --all   # 0 диагностик
    ```
 
 3. Наполнить по шаблону (`.todoc/doc_types/postmortem/template.md`); правки —
-   прямую правку файла + `todoc sync --root KB <путь>`; чтение назад — `docs read --section`.
+   прямую правку файла + `todoc sync --apply --root KB <путь>`; чтение назад — `docs read --section`.
 
 - **Порядок**: запись incident создаётся после утверждения разбора; ребро fixes — от release, когда фикс поедет.
 ## Запрещённые заглушки

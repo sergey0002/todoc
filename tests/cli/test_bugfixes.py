@@ -21,7 +21,7 @@ def _json(result):
 
 def _init(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
 
 
 def _skill(root, rel, name, body):
@@ -42,7 +42,7 @@ def test_section_budget_extends_window(tmp_path):
     runner = CliRunner()
     r = _run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:inbox/long.md",
                       "--section", "Секция", "--budget", "12000"])
-    d = _json(r)["data"]
+    d = _json(r)["data"]["result"]
     assert len(d["lines"]) == 62  # заголовок + пустая + 60 строк: лимит 40 снят бюджетом
     assert d["truncated"] is False
     assert d["section_total_lines"] == 62
@@ -57,9 +57,11 @@ def test_section_budget_small_cuts_early(tmp_path):
     runner = CliRunner()
     r = _run(runner, ["docs", "read", "--root", str(tmp_path), "--id", "doc:inbox/long.md",
                       "--section", "Секция", "--budget", "150"])
-    d = _json(r)["data"]
+    d = _json(r)["data"]["result"]
     assert len(d["lines"]) < 62 and len(d["lines"]) >= 1
-    assert sum(len(ln.encode("utf-8")) + 1 for ln in d["lines"]) <= 150
+    assert d["text"] == "\n".join(d["lines"])
+    assert len(d["text"]) == 150
+    assert len(d["text"].encode("utf-8")) > 150
     assert d["truncated"] is True
     assert d["section_total_lines"] == 62
 
@@ -69,9 +71,9 @@ def test_section_budget_small_cuts_early(tmp_path):
 def test_docs_new_transliterates_cyrillic_title(tmp_path):
     _init(tmp_path)
     runner = CliRunner()
-    r = _run(runner, ["docs", "new", "--root", str(tmp_path), "--title", "Оформление заказа",
+    r = _run(runner, ["docs", "new", "--apply", "--root", str(tmp_path), "--title", "Оформление заказа",
                       "--dir", "inbox", "--template", "note"])
-    d = _json(r)["data"]
+    d = _json(r)["data"]["result"]
     assert d["path"] == "inbox/oformlenie-zakaza.md"
     assert (tmp_path / "inbox/oformlenie-zakaza.md").is_file()
     assert "Оформление заказа" in (tmp_path / "inbox/oformlenie-zakaza.md").read_text(encoding="utf-8")
@@ -80,9 +82,9 @@ def test_docs_new_transliterates_cyrillic_title(tmp_path):
 def test_docs_new_punctuation_only_title_falls_back(tmp_path):
     _init(tmp_path)
     runner = CliRunner()
-    r = _run(runner, ["docs", "new", "--root", str(tmp_path), "--title", "!!!",
+    r = _run(runner, ["docs", "new", "--apply", "--root", str(tmp_path), "--title", "!!!",
                       "--dir", "inbox", "--template", "note"])
-    assert _json(r)["data"]["path"] == "inbox/untitled.md"
+    assert _json(r)["data"]["result"]["path"] == "inbox/untitled.md"
 
 
 # --- BUG-008: skills tree — каскадный счётчик раздела --------------------------------
@@ -112,7 +114,7 @@ def test_docs_edit_insert_and_delete_ops(tmp_path):
     runner = CliRunner()
     r = _run(runner, ["docs", "edit", "--root", str(tmp_path), "--id", "doc:inbox/doc.md",
                       "--patch-file", str(pf)])
-    assert _json(r)["data"]["preview"] is True  # preview не пишет
+    assert _json(r)["data"]["result"]["preview"] is True  # preview не пишет
     assert (tmp_path / "inbox/doc.md").read_text(encoding="utf-8").startswith("# Титул")
     r = _run(runner, ["docs", "edit", "--root", str(tmp_path), "--id", "doc:inbox/doc.md",
                       "--patch-file", str(pf), "--apply"])
@@ -135,12 +137,13 @@ def test_docs_links_counts_and_broken(tmp_path):
     runner = CliRunner()
     r = _run(runner, ["docs", "links", "--root", str(tmp_path)])
     d = _json(r)["data"]
-    assert d["total"] == 3  # [[b]], [[битая-цель]], [локальная](c.md); https — не локальная
-    assert d["broken"] == 1
-    assert d["items"][0]["path"] == "inbox/a.md"
-    assert d["items"][0]["target"] == "битая-цель"
-    assert d["items"][0]["kind"] == "wikilink"
-    assert d["items"][0]["line"] >= 1
+    assert d["meta"]["total_links"] == 3
+    assert d["meta"]["total"] == 1
+    issue, = d["result"]["items"]
+    assert issue["source"] == "inbox/a.md"
+    assert issue["target"] == "битая-цель"
+    assert issue["kind"] == "wikilink"
+    assert issue["line"] >= 1 and issue["column"] >= 1
 
 
 # --- BUG-001/BUG-002: явный doc_type без правила + файлы change open -----------------
@@ -153,7 +156,7 @@ def test_explain_path_explicit_doc_type_without_rule(tmp_path):
         "---\ntitle: \"Кастом\"\ndoc_type: plan\n---\n\n# Кастом\n", encoding="utf-8")
     runner = CliRunner()
     r = _run(runner, ["explain-path", "--root", str(tmp_path), "inbox/custom.md"])
-    d = _json(r)["data"]
+    d = _json(r)["data"]["result"]
     assert d["doc_type"] == "plan"          # раньше: unknown
     assert d["rule_source"] == "front-matter"  # явное объявление — высший приоритет
 
@@ -161,12 +164,12 @@ def test_explain_path_explicit_doc_type_without_rule(tmp_path):
 def test_change_open_files_resolve_note(tmp_path):
     _init(tmp_path)
     runner = CliRunner()
-    r = _run(runner, ["change", "open", "--root", str(tmp_path), "--title", "Проверка"])
+    r = _run(runner, ["change", "open", "--apply", "--root", str(tmp_path), "--title", "Проверка"])
     assert r.exit_code == 0, r.output
-    change_dir = PurePosixPath(_json(r)["data"]["path"]).parent.as_posix()
+    change_dir = PurePosixPath(_json(r)["data"]["result"]["path"]).parent.as_posix()
     for name in ("proposal.md", "tasks.md"):
         target = f"{change_dir}/{name}"
         assert (tmp_path / target).is_file(), target
         e = _run(runner, ["explain-path", "--root", str(tmp_path), target])
-        d = _json(e)["data"]
+        d = _json(e)["data"]["result"]
         assert d["doc_type"] == "note", (name, d["doc_type"], d["rule_source"])

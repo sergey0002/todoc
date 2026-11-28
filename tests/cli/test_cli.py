@@ -50,18 +50,18 @@ def test_validate(root, sample_md):
 
 def test_index_status_rebuild(root, sample_md):
     runner = CliRunner()
-    result = _run(runner, ["--root", str(root), "index", "rebuild", "--output", "json"])
+    result = _run(runner, ["--root", str(root), "index", "rebuild", "--apply", "--output", "json"])
     assert result.exit_code == 0, result.output
     result = _run(runner, ["--root", str(root), "index", "status", "--output", "json"])
     assert result.exit_code == 0
-    assert _json(result)["data"]["datasets"][0]["current"] is True
+    assert _json(result)["data"]["result"]["datasets"][0]["current"] is True
 
 
 def test_explain_path(root, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "explain-path", "notes/design.md", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["path"] == "notes/design.md"
+    assert _json(result)["data"]["result"]["path"] == "notes/design.md"
 
 
 def test_explain_path_missing(root):
@@ -72,16 +72,16 @@ def test_explain_path_missing(root):
 
 def test_docs_new_search_read(root, sample_md):
     runner = CliRunner()
-    result = _run(runner, ["--root", str(root), "docs", "new", "--title", "Release decision", "--dir", "inbox", "--template", "note", "--output", "json"])
+    result = _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "Release decision", "--dir", "inbox", "--template", "note", "--output", "json"])
     assert result.exit_code == 0, result.output
     result = _run(runner, ["--root", str(root), "docs", "search", "--query", "refresh token", "--limit", "10", "--output", "json"])
     assert result.exit_code == 0, result.output
     data = _json(result)
-    assert data["data"]["total"] >= 1
-    doc_id = data["data"]["items"][0]["id"]
+    assert data["data"]["meta"]["total"] >= 1
+    doc_id = data["data"]["result"]["items"][0]["id"]
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", doc_id, "--section", "Decision", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert "refresh token" in _json(result)["data"]["text"]
+    assert "refresh token" in _json(result)["data"]["result"]["text"]
 
 
 def test_docs_read_pointer_and_columns(root, sample_record, sample_csv):
@@ -91,11 +91,11 @@ def test_docs_read_pointer_and_columns(root, sample_record, sample_csv):
     # Read JSON record via docs read pointer.
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:records/workouts/w1.json", "--pointer", "/date", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["value"] == "2026-11-24"
+    assert _json(result)["data"]["result"]["value"] == "2026-11-24"
     # Read CSV columns.
     result = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:data/runs.csv", "--columns", "run_id,status", "--rows", "1", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["rows"] == [{"run_id": "r1", "status": "ok"}]
+    assert _json(result)["data"]["result"]["rows"] == [{"run_id": "r1", "status": "ok"}]
 
 
 def test_docs_read_missing(root):
@@ -108,7 +108,8 @@ def test_docs_tree(root, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "tree", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["total_documents"] >= 1
+    tree = _json(result)["data"]["result"]["root"]
+    assert tree["children"]
 
 
 def test_docs_edit_preview_apply(root, sample_md, tmp_path):
@@ -117,7 +118,7 @@ def test_docs_edit_preview_apply(root, sample_md, tmp_path):
     patch.write_text(json.dumps({"ops": [{"line": 1, "text": "# Changed"}]}))
     result = _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/design.md", "--patch-file", str(patch), "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["preview"] is True
+    assert _json(result)["data"]["result"]["preview"] is True
     result = _run(runner, ["--root", str(root), "docs", "edit", "--id", "doc:notes/design.md", "--patch-file", str(patch), "--apply", "--output", "json"])
     assert result.exit_code == 0, result.output
     assert (root / "notes" / "design.md").read_text().splitlines()[0] == "# Changed"
@@ -137,14 +138,14 @@ def test_records_list_query_aggregate_read(root, sample_record):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "records", "list", "--type", "workout", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["total"] == 1
+    assert _json(result)["data"]["meta"]["total"] == 1
     query_file = root / ".todoc" / "queries" / "q.json"
     query_file.write_text(json.dumps({"entity_type": "workout", "limit": 10}))
     result = _run(runner, ["--root", str(root), "records", "query", "--query-file", str(query_file), "--output", "json"])
     assert result.exit_code == 0, result.output
     result = _run(runner, ["--root", str(root), "records", "aggregate", "--metric", "volume", "--type", "workout", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["groups"]["all"] == 100.0
+    assert _json(result)["data"]["result"]["items"][0]["value"] == 100.0
     result = _run(runner, ["--root", str(root), "records", "read", "--id", "workout:2026-11-24-sergei-01", "--output", "json"])
     assert result.exit_code == 0, result.output
 
@@ -159,21 +160,22 @@ def test_relations_graph(root, sample_record):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "relations", "graph", "--from", "person:sergei", "--type", "performed_by", "--depth", "2", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert _json(result)["data"]["total"] >= 1
+    assert _json(result)["data"]["meta"]["total"] >= 1
 
 
 def test_types_list_show_guide(root):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "types", "list", "--output", "json"])
     assert result.exit_code == 0
-    assert "workout" in _json(result)["data"]["entity_types"]
+    items = _json(result)["data"]["result"]["items"]
+    assert any(item["type_id"] == "workout" and item["kind"] == "entity_type" for item in items)
     result = _run(runner, ["--root", str(root), "types", "show", "workout", "--output", "json"])
     assert result.exit_code == 0
     result = _run(runner, ["--root", str(root), "types", "show", "ghost", "--output", "json"])
     assert result.exit_code == 3
     result = _run(runner, ["--root", str(root), "types", "guide", "--format", "markdown", "--output", "json"])
     assert result.exit_code == 0
-    result = _run(runner, ["--root", str(root), "types", "guide", "--format", "json", "--out", ".todoc/generated/types-reference.md", "--output", "json"])
+    result = _run(runner, ["--root", str(root), "types", "guide", "--apply", "--format", "json", "--out", ".todoc/generated/types-reference.md", "--output", "json"])
     assert result.exit_code == 0
     assert (root / ".todoc" / "generated" / "types-reference.md").is_file()
 
@@ -188,7 +190,7 @@ def test_fix_preview_apply(root):
     assert result.exit_code == 3  # issues_found -> validation error exit
     # Find diagnostic id via validate.
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    diags = _json(result)["diagnostics"]
     target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
     result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--preview", "--output", "json"])
     assert result.exit_code == 0, result.output
@@ -201,7 +203,7 @@ def test_fix_preview_apply(root):
     written = (root / "notes" / "broken.md").read_text(encoding="utf-8")
     assert "../ops/runbook.md" in written
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    remaining = [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+    remaining = [d for d in _json(result)["diagnostics"]
                  if d["code"] == "markdown.link.target_missing"]
     assert remaining == []
 
@@ -213,13 +215,13 @@ def test_fix_apply_at_dataset_root_keeps_root_relative_target(root):
     (root / "broken.md").write_text("# Broken\n\nSee [runbook](ops/runbok.md).\n", encoding="utf-8")
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    diags = _json(result)["diagnostics"]
     target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
     assert target["suggested_fixes"][0]["replacement"] == "ops/runbook.md"
     result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--apply", "--output", "json"])
     assert result.exit_code == 0, result.output
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    assert [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+    assert [d for d in _json(result)["diagnostics"]
             if d["code"] == "markdown.link.target_missing"] == []
 
 
@@ -232,14 +234,14 @@ def test_fix_apply_on_exact_basename_match(root):
     (root / "notes" / "a.md").write_text("# A\n\nSee [runbook](runbook.md).\n", encoding="utf-8")
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    diags = _json(result)["diagnostics"]
     target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
     assert target["suggested_fixes"][0]["replacement"] == "../ops/runbook.md"
     assert "единственный кандидат" in target["suggested_fixes"][0]["basis"]
     result = _run(runner, ["--root", str(root), "fix", "--diagnostic", target["id"], "--apply", "--output", "json"])
     assert result.exit_code == 0, result.output
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    assert [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+    assert [d for d in _json(result)["diagnostics"]
             if d["code"] == "markdown.link.target_missing"] == []
 
 
@@ -250,7 +252,7 @@ def test_fix_apply_on_wikilink(root):
     (root / "notes" / "page.md").write_text("# Page\n\nSee [[targt.md]].\n", encoding="utf-8")
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    diags = _json(result)["data"]["datasets"][0]["diagnostics"]
+    diags = _json(result)["diagnostics"]
     target = next(d for d in diags if d["code"] == "markdown.link.target_missing")
     # Wikilinks resolve by stem anywhere in the root, so no path is written.
     assert target["suggested_fixes"][0]["replacement"] == "target"
@@ -259,7 +261,7 @@ def test_fix_apply_on_wikilink(root):
     assert _json(result)["ok"] is True
     assert "[[target]]" in (root / "notes" / "page.md").read_text(encoding="utf-8")
     result = _run(runner, ["--root", str(root), "validate", "--all", "--output", "json"])
-    assert [d for d in _json(result)["data"]["datasets"][0]["diagnostics"]
+    assert [d for d in _json(result)["diagnostics"]
             if d["code"] == "markdown.link.target_missing"] == []
 
 
@@ -287,7 +289,7 @@ def test_multi_root(root, tmp_path):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "--root", str(root2), "check", "--output", "json"])
     assert result.exit_code == 0, result.output
-    assert len(_json(result)["data"]["datasets"]) == 2
+    assert len(_json(result)["data"]["result"]["datasets"]) == 2
 
 
 def test_missing_root():

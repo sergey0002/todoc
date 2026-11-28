@@ -140,3 +140,20 @@ def test_aggregate_ignores_a_malformed_metric_spec():
     result = aggregate_records(_records(), "workout", "volume", metric_spec="не словарь")
     assert result["prompt"] == ""
     assert result["groups"]["all"] == 30.0
+
+
+
+@pytest.mark.parametrize("value", [True, 10 ** 400, float("inf"), {"value": "2", "unit": "g"}])
+def test_aggregate_refuses_nonfinite_and_nonnumeric_values(value):
+    record = {"entity_type": "metric", "record_id": "metric:a", "data": {"value": value}}
+    with pytest.raises(ValidationError) as error:
+        aggregate_records([record], "metric", "value")
+    assert error.value.code == "query.unknown_metric"
+
+
+def test_aggregate_refuses_overflowing_group_sum():
+    records = [{"entity_type": "metric", "record_id": f"metric:{i}", "data": {"value": 1e308}}
+               for i in range(2)]
+    with pytest.raises(ValidationError) as error:
+        aggregate_records(records, "metric", "value")
+    assert error.value.code == "query.aggregate_overflow"

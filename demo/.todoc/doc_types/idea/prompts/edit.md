@@ -15,7 +15,7 @@
 3. Сразу после прямой правки запусти финализацию и убедись, что `ok: true` и `diagnostics: []`:
 
    ```bash
-   todoc sync --root KB <путь-к-идее.md>
+   todoc sync --apply --root KB <путь-к-идее.md>
    ```
 
 ## Правила

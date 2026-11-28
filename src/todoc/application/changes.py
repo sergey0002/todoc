@@ -17,15 +17,19 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.filesystem.scanner import atomic_write, file_hash
-from todoc.adapters.formats.jsonfmt import validate_against_schema
+from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root
+from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.adapters.formats.markdown import parse_markdown, section_bounds
+from todoc.adapters.history.store import FileHistoryStore
+from todoc.application.history import add_tag, first_before
 from todoc.application.registry import invalidate_parse_cache
+from todoc.application.storage import HistoryStore, ParseCache
 from todoc.domain.models import Diagnostic
-from todoc.errors import ValidationError
+from todoc.errors import IncompleteError, ValidationError
 
 SCHEMA_VERSION = 1
 DELTA_OPERATIONS = ("ADDED", "MODIFIED", "REMOVED")
@@ -178,24 +182,38 @@ def load_change(root: Path, change_id: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def list_changes(root: Path, status: str | None = None) -> list[dict[str, Any]]:
-    """Активные и архивные изменения. ``record_id`` читается из файла, а не из имени
-    папки: в архиве имя дополнено датой (§4)."""
+def _change_paths(root: Path, *, strict: bool) -> Iterator[Path]:
     base = changes_dir(root)
-    if not base.is_dir():
-        return []
-    folders = [f for f in sorted(base.iterdir()) if f.is_dir() and f.name != "archive"]
     archive = archive_dir(root)
-    if archive.is_dir():
-        folders += [f for f in sorted(archive.iterdir()) if f.is_dir()]
-    out: list[dict[str, Any]] = []
-    for folder in folders:
-        path = folder / "change.json"
-        if not path.is_file():
+    for parent in (base, archive):
+        if strict and parent.is_symlink():
+            raise IncompleteError(f"Change directory is a symlink: {parent.relative_to(root)}",
+                                  "change.unreadable")
+        if not parent.is_dir():
             continue
+        for folder in sorted(parent.iterdir()):
+            if parent == base and folder == archive:
+                continue
+            if strict and folder.is_symlink():
+                raise IncompleteError(f"Change directory is a symlink: {folder.relative_to(root)}",
+                                      "change.unreadable")
+            if not folder.is_dir():
+                continue
+            path = folder / "change.json"
+            if strict and path.is_symlink():
+                raise IncompleteError(f"Change record is a symlink: {path.relative_to(root)}",
+                                      "change.unreadable")
+            if path.exists():
+                yield path
+
+
+def list_changes(root: Path, status: str | None = None) -> list[dict[str, Any]]:
+    """Read legacy change listings, skipping broken records."""
+    out = []
+    for path in _change_paths(root, strict=False):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, UnicodeError, json.JSONDecodeError):
             continue
         if not isinstance(data, dict):
             continue
@@ -203,6 +221,22 @@ def list_changes(root: Path, status: str | None = None) -> list[dict[str, Any]]:
             continue
         out.append(data)
     return out
+
+
+def list_change_entries(root: Path) -> list[dict[str, Any]]:
+    """Read active and archived records with their source paths."""
+    result = []
+    try:
+        for path in _change_paths(root, strict=True):
+            rel = path.relative_to(root).as_posix()
+            data, errors = parse_json(path.read_text(encoding="utf-8"))
+            if (errors or not isinstance(data, dict) or not isinstance(data.get("record_id"), str)
+                    or not data["record_id"].strip()):
+                raise IncompleteError(f"Invalid change record: {rel}", "change.unreadable")
+            result.append({**data, "path": rel})
+    except (OSError, UnicodeError) as exc:
+        raise IncompleteError(f"Could not read changes: {exc}", "change.unreadable") from exc
+    return result
 
 
 def set_status(root: Path, change_id: str, status: str, **extra: Any) -> dict[str, Any]:
@@ -541,7 +575,8 @@ def plan_apply(root: Path, change_id: str, dataset_id: str = "",
 def apply_change(root: Path, change_id: str, *, apply: bool = False,
                  history: Any = None, dataset_id: str = "",
                  descriptor_lookup: Any = None,
-                 expected_hashes: dict[str, str] | None = None) -> dict[str, Any]:
+                 expected_hashes: dict[str, str] | None = None,
+                 parse_cache: ParseCache | None = None) -> dict[str, Any]:
     """Применяет дельты изменения одной транзакцией.
 
     Атомарность (K39): сначала считаются все новые содержимые и проверяются все дельты,
@@ -573,7 +608,10 @@ def apply_change(root: Path, change_id: str, *, apply: bool = False,
             written.append((path, path.read_bytes()))
             atomic_write(path, item["content"])
             # Кэш парсинга сбрасывается вместе с данными, которые он описывает (P1-3).
-            invalidate_parse_cache(root, item["path"])
+            if parse_cache is None:
+                invalidate_parse_cache(root, item["path"])
+            else:
+                parse_cache.invalidate(item["path"])
             if history is not None:
                 history.record(item["path"], written[-1][1], item["content"].encode("utf-8"),
                                "change.apply", f"change apply {change_id}")
@@ -597,9 +635,12 @@ def apply_change(root: Path, change_id: str, *, apply: bool = False,
 
 def archive_change(root: Path, change_id: str, tag: str | None = None,
                    history_root: Path | None = None,
-                   history: Any = None) -> dict[str, Any]:
+                   history: Any = None, *, store: HistoryStore | None = None) -> dict[str, Any]:
     """Переводит изменение в ``archived``, уносит папку в ``changes/archive/`` (§4)
     и опционально ставит метку на последнее событие."""
+    if tag and store is not None:
+        store.read_events(strict=True)
+        store.read_refs()
     record = set_status(root, change_id, "archived", archived_at=_utc_now())
     result: dict[str, Any] = {"change_id": change_id, "status": record["status"],
                               "archived_at": record["archived_at"], "tag": None,
@@ -625,18 +666,17 @@ def archive_change(root: Path, change_id: str, tag: str | None = None,
                 history.record(str(moved.relative_to(root)), None, moved.read_bytes(),
                                "change.archive", f"change archive {change_id}")
     if tag and history_root is not None:
-        from todoc.adapters.history import journal
-        from todoc.application.history import add_tag
-
-        events = journal.read_events(history_root)
+        storage = FileHistoryStore(history_root) if store is None else store
+        events = storage.read_events(strict=store is not None)
         if events:
-            add_tag(history_root, tag, events[-1]["rev"], f"archive {change_id}")
+            add_tag(history_root, tag, events[-1]["rev"], f"archive {change_id}", store=store)
             result["tag"] = tag
     return result
 
 
 def revert_change(root: Path, change_id: str, *, apply: bool = False,
-                  history: Any = None) -> dict[str, Any]:
+                  history: Any = None, store: HistoryStore | None = None,
+                  parse_cache: ParseCache | None = None) -> dict[str, Any]:
     """Откат применения: файлы возвращаются к состоянию на момент открытия.
 
     Восстановление идёт по базовой линии изменения, а не по обратным дельтам: обратная
@@ -654,17 +694,21 @@ def revert_change(root: Path, change_id: str, *, apply: bool = False,
     files: list[dict[str, Any]] = []
     for artifact in record.get("artifacts") or []:
         path = root / str(artifact)
+        if not is_within_root(root, path):
+            raise ValidationError(f"Artifact is outside the dataset: {artifact}", "change.target_outside_root")
         files.append({"path": str(artifact), "exists": path.is_file(),
                       "current_hash": file_hash(path) if path.is_file() else "",
                       "baseline_hash": hashes.get(str(artifact), "")})
     if not apply:
         return {"change_id": change_id, "applied": False, "preview": True, "files": files}
 
+    events = store.read_events(strict=True) if store is not None else None
+    backend = history.backend if store is not None and history is not None else None
     restored: list[tuple[Path, bytes]] = []
     try:
         for item in files:
             path = root / item["path"]
-            data, status = _baseline_content(root, item["path"])
+            data, status = first_before(root, item["path"], store=store, events=events, backend=backend)
             if data is None:
                 code = ("history.object_missing" if status == "object_missing"
                         else "history.revision_unknown")
@@ -672,7 +716,10 @@ def revert_change(root: Path, change_id: str, *, apply: bool = False,
                     f"Не удалось восстановить {item['path']} из истории ({status})", code)
             restored.append((path, path.read_bytes()) if path.is_file() else (path, b""))
             atomic_write(path, data.decode("utf-8"))
-            invalidate_parse_cache(root, item["path"])
+            if parse_cache is None:
+                invalidate_parse_cache(root, item["path"])
+            else:
+                parse_cache.invalidate(item["path"])
             if history is not None:
                 history.record(item["path"], restored[-1][1], data, "change.revert",
                                f"change revert {change_id}")
@@ -693,18 +740,4 @@ def revert_change(root: Path, change_id: str, *, apply: bool = False,
 
 
 def _baseline_content(root: Path, rel_path: str) -> tuple[bytes | None, str]:
-    """Содержимое файла до первого события изменения — точка, к которой откатываем.
-
-    Именно ``before_content``, а не ``content_at``: последний возвращает состояние
-    **после** события, то есть уже изменённый файл, и откат оказался бы пустым действием.
-    """
-    from todoc.adapters.history import journal
-    from todoc.application.history import before_content
-
-    events = journal.read_events(root)
-    first = next((e for e in events
-                  if any(isinstance(i, dict) and i.get("path") == rel_path for i in e.get("paths") or [])),
-                 None)
-    if first is None:
-        return None, "revision_unknown"
-    return before_content(root, first.get("rev"), rel_path)
+    return first_before(root, rel_path)

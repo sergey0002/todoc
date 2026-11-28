@@ -16,7 +16,7 @@ def _skill(root: Path, rel: str, name: str, desc: str = "Описание ски
 
 
 def _vault(root: Path) -> None:
-    _run(CliRunner(), ["init", "--root", str(root)])  # house: команды идут через _contexts
+    _run(CliRunner(), ["init", "--apply", "--root", str(root)])  # house: команды идут через _contexts
     _skill(root, "coding/git/commit-message", "commit-message", "Пишет commit message.")
     _skill(root, "coding/review/adr", "adr", "Пишет ADR: контекст, решение, последствия.")
     _skill(root, "docs/jira-fetch", "jira-fetch", "Тянет задачу Jira в снимок.")
@@ -38,7 +38,7 @@ def _json(result):
 def test_tree_json_bounded(tmp_path):
     runner = CliRunner()
     _vault(tmp_path)
-    d = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "json"]))["data"]
+    d = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "json"]))["data"]["result"]
     assert d["counts"]["skills"] == 5 and d["counts"]["muted"] == 1
     assert d["truncated"] is False
     assert all("description" in s for s in d["skills"])
@@ -62,34 +62,34 @@ def test_tree_table_query_within_all(tmp_path):
     assert "commit-message" not in d1.output         # глубина ограничивает выдачу
     lim = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path),
                               "--output", "json", "--limit", "2"]))
-    assert lim["data"]["truncated"] is True and len(lim["data"]["skills"]) == 2
+    assert lim["data"]["result"]["truncated"] is True and len(lim["data"]["result"]["skills"]) == 2
 
 
 def test_read_by_dir_and_file(tmp_path):
     runner = CliRunner()
     _vault(tmp_path)
     d = _json(_run(runner, ["skills", "read", "--root", str(tmp_path),
-                            "--path", "coding/review/adr"]))["data"]
+                            "--path", "coding/review/adr"]))["data"]["result"]
     assert d["name"] == "adr" and "# adr" in d["content"]
     d2 = _json(_run(runner, ["skills", "read", "--root", str(tmp_path),
-                             "--path", "skills/docs/jira-fetch/SKILL.md"]))["data"]
+                             "--path", "skills/docs/jira-fetch/SKILL.md"]))["data"]["result"]
     assert d2["name"] == "jira-fetch"
     md = _run(runner, ["skills", "read", "--root", str(tmp_path),
                        "--path", "coding/review/adr", "--output", "markdown"])
     assert "# adr" in md.output
     rng = _json(_run(runner, ["skills", "read", "--root", str(tmp_path),
-                              "--path", "coding/review/adr", "--line-range", "1-2"]))["data"]
+                              "--path", "coding/review/adr", "--line-range", "1-2"]))["data"]["result"]
     assert rng["content"].count("\n") <= 2
     bad = _run(runner, ["skills", "read", "--root", str(tmp_path), "--path", "../secrets.md"])
     assert bad.exit_code != 0
     assert isinstance(bad.exception, TodocError)
-    assert bad.exception.code == "skills.not_found"
+    assert bad.exception.code == "docs.invalid_scope"
 
 
 def test_tree_sections_from_config_order_and_titles(tmp_path):
     """Задача 4: разделы описываются .config.json — title в table, section_meta в JSON, порядок order."""
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
     _skill(tmp_path, "process/release-flow", "release-flow", "Проводит merge-forward релиза.")
     (tmp_path / "skills/coding/.config.json").write_text(
@@ -100,7 +100,7 @@ def test_tree_sections_from_config_order_and_titles(tmp_path):
     t = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "table"])
     assert "process/ — Процессы" in t.output and "coding/ — Скилы кодинга" in t.output
     assert t.output.index("Процессы") < t.output.index("Скилы кодинга")  # order 1 выше 3
-    d = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path)]))["data"]
+    d = _json(_run(runner, ["skills", "tree", "--root", str(tmp_path)]))["data"]["result"]
     assert d["section_meta"]["coding"]["title"] == "Скилы кодинга"
     assert d["section_meta"]["process"]["order"] == 1
 
@@ -108,7 +108,7 @@ def test_tree_sections_from_config_order_and_titles(tmp_path):
 def test_tree_query_matches_section_config(tmp_path):
     """query по alias/тексту конфига раздела находит скилы внутри даже без совпадения в самом скиле."""
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
     (tmp_path / "skills/coding/.config.json").write_text(
         '{"schema_version": 1, "title": "Скилы кодинга", "aliases": "кодинг|dev-work"}', encoding="utf-8")
@@ -124,7 +124,7 @@ def test_tree_query_matches_section_config(tmp_path):
 def test_tree_max_depth_cuts_recursion(tmp_path):
     """--max-depth отсекает рекурсию рендера: вложенный скил не печатается."""
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     _skill(tmp_path, "coding/git/commit-message", "commit-message", "Пишет commit message.")
     t = _run(runner, ["skills", "tree", "--root", str(tmp_path), "--output", "table",
                       "--max-depth", "1"])

@@ -6,7 +6,7 @@
 (``docs/research/mcp-cli-agents.md``): меньше обращений, меньше токенов, меньше шансов
 собрать контекст неверно.
 
-Выдача ограничена бюджетом байт (P7). Порядок заполнения фиксированный: сначала
+Выдача ограничена бюджетом символов (P7). Порядок заполнения фиксированный: сначала
 структура (запись, дельты, события), потом содержимое файлов — так усечение режет
 текст, а не смысл.
 """
@@ -16,18 +16,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.filesystem.scanner import file_hash
+from todoc.adapters.filesystem.scanner import file_hash, is_within_root
 from todoc.application import changes as C
 from todoc.application import history as H
+from todoc.application.storage import HistoryStore
 
 
 def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
                   tag: str | None = None, budget: int = 8000,
-                  with_diff: bool = False, max_diff_lines: int | None = None) -> dict[str, Any]:
+                  with_diff: bool = False, max_diff_lines: int | None = None,
+                  store: HistoryStore | None = None, backend: Any = None) -> dict[str, Any]:
     """Собирает контекст задачи. Возвращает словарь с флагом ``truncated``.
 
     ``budget`` считается по сериализованному объёму добавляемых кусков, а не по числу
-    строк: агенту важно, сколько байт он получит, а не сколько в них строк.
+    строк: размер измеряется в символах Unicode. Поля конверта не входят в бюджет.
 
     ``max_diff_lines`` — потолок строк на один дифф (``limits.max_diff_lines``): один
     огромный дифф не должен съедать бюджет, оставленный остальным частям контекста.
@@ -41,7 +43,7 @@ def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
         nonlocal used
         import json
 
-        size = len(json.dumps(value, ensure_ascii=False))
+        size = len(value) if isinstance(value, str) else len(json.dumps(value, ensure_ascii=False))
         if used + size > budget:
             return None, False
         used += size
@@ -72,12 +74,10 @@ def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
     result["truncated"] = result["truncated"] or not ok
 
     # События истории: по change_id, либо по метке, либо последние по затронутым файлам.
-    if tag:
-        events, total, _t = H.log(root, tag=tag, limit=20)
-    elif change_id:
-        events, total, _t = H.log(root, change_id=change_id, limit=20)
-    else:
-        events, total, _t = H.log(root, limit=20)
+    all_events = store.read_events(strict=True) if store is not None else None
+    refs = store.read_refs() if store is not None and tag else None
+    events, total, _t = H.log(root, tag=tag, change_id=change_id if not tag else None,
+                              limit=20, events=all_events, refs=refs)
     value, ok = take([{"rev": e.get("rev"), "at": e.get("at"), "kind": e.get("kind"),
                        "actor": e.get("actor"),
                        "paths": [p.get("path") for p in e.get("paths") or []]}
@@ -99,7 +99,7 @@ def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
     files: list[dict[str, Any]] = []
     for rel in paths:
         target = root / rel
-        if not target.is_file():
+        if not is_within_root(root, target) or not target.is_file():
             continue
         try:
             text = target.read_text(encoding="utf-8")
@@ -113,7 +113,6 @@ def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
         entry["content"] = value
         files.append(entry)
     result["files"] = files
-    result["used_bytes"] = used
 
     if with_diff and change_id:
         diffs: list[dict[str, Any]] = []
@@ -122,11 +121,12 @@ def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
         for rel in paths:
             target = root / rel
             known = base_hashes.get(rel)
-            if not target.is_file() or known is None or known == file_hash(target):
+            if not is_within_root(root, target) or not target.is_file() or known is None or known == file_hash(target):
                 # Без базового хеша сравнивать не с чем: отдавать «revision_unknown»
                 # означало бы шум вместо контекста.
                 continue
-            before, status = _before_text(root, rel)
+            data, status = H.first_before(root, rel, backend=backend, store=store, events=all_events)
+            before = data.decode("utf-8", "replace") if data is not None else None
             if before is None:
                 diffs.append({"path": rel, "status": status})
                 continue
@@ -142,23 +142,5 @@ def build_context(root: Path, dataset_id: str, *, change_id: str | None = None,
                 break
             diffs.append({"path": rel, "changed": bool(lines), "lines": len(lines), "diff": value})
         result["diffs"] = diffs
+    result["used_chars"] = used
     return result
-
-
-def _before_text(root: Path, rel_path: str) -> tuple[str | None, str]:
-    """Содержимое файла до первого события по нему — точка сравнения для контекста.
-
-    Нужен именно образ «до»: ``H.show`` вернул бы состояние **после** события, и дифф
-    против текущего файла всегда выходил бы пустым.
-    """
-    from todoc.adapters.history import journal
-
-    events = journal.read_events(root)
-    first = next((e for e in events if any(isinstance(i, dict) and i.get("path") == rel_path
-                                           for i in e.get("paths") or [])), None)
-    if first is None:
-        return None, "revision_unknown"
-    data, status = H.before_content(root, str(first.get("rev")), rel_path)
-    if data is None:
-        return None, status
-    return data.decode("utf-8", "replace"), "ok"

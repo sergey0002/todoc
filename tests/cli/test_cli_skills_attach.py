@@ -16,7 +16,7 @@ def test_attach_copies_and_embeds_root(tmp_path):
     runner = CliRunner()
     proj = tmp_path / "proj"; (proj / ".agents" / "skills").mkdir(parents=True)
     demo = tmp_path / "demo"; demo.mkdir()
-    args = ["skills", "attach", "--to", str(proj / ".agents/skills"), "--root", str(demo)]
+    args = ["skills", "attach", "--apply", "--to", str(proj / ".agents/skills"), "--root", str(demo)]
     r = _run(runner, args)
     assert r.exit_code == 0, r.output
     sk = proj / ".agents" / "skills" / "todoc" / "SKILL.md"

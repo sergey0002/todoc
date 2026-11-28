@@ -30,11 +30,11 @@ todoc --version           # todoc, version 0.1.0
 
 ```bash
 # 1. Создать датасет (создаёт только .todoc/, данные не трогает)
-todoc init --root ./knowledge
+todoc init --apply --root ./knowledge
 
 # 2. Проверить конфигурацию и состояние
 todoc check-config --root ./knowledge
-todoc index rebuild --root ./knowledge
+todoc index rebuild --apply --root ./knowledge
 todoc status --root ./knowledge
 
 # 3. Найти и прочитать
@@ -78,8 +78,8 @@ todoc validate --root demo --all                              # 0 диагнос
 todoc skills tree --root demo                    # оглавление на лету (live-scan, bounded)
 todoc skills tree --root demo --all              # + мьютнутые (!-папки) с пометкой [!]
 todoc skills read --root demo --path <из дерева> # тело скила (path-confinement, --budget)
-todoc skills attach --to .claude/skills --root demo   # диспетчер-скил todoc платформе
-todoc skills import --root demo --src <папка/репо> --into <раздел>   # офлайн-импорт
+todoc skills attach --apply --to .claude/skills --root demo   # диспетчер-скил todoc платформе
+todoc skills import --apply --root demo --src <папка/репо> --into <раздел>   # офлайн-импорт
 ```
 
 - **Подключение к любому агенту:** платформам с нативными скилами — одна папка
@@ -91,7 +91,7 @@ todoc skills import --root demo --src <папка/репо> --into <раздел
   папки со SKILL.md, плагинная обвязка (hooks/, манифесты) не переносится; либо
   одной командой `skills import`. Чужие скрипты — аудировать (скил
   `coding/review/security-review`).
-- После мьюта/импорта: `todoc index rebuild --root demo`.
+- После мьюта/импорта: `todoc index rebuild --apply --root demo`.
 
 ## Все команды
 

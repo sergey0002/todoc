@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "todoc document metadata",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "lang",
+    "created",
+    "updated"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lang": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created": {
+      "type": "string",
+      "format": "date"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date"
+    },
+    "doc_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 32,
+        "pattern": "^[a-z0-9\\u0400-\\u04ff]+(-[a-z0-9\\u0400-\\u04ff]+)*$"
+      },
+      "uniqueItems": true,
+      "maxItems": 8
+    },
+    "related": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[[^\\[\\]]+\\]\\]$"
+      }
+    }
+  }
+}

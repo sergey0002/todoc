@@ -5,16 +5,22 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.filesystem.scanner import atomic_write
+from todoc.adapters.filesystem.scanner import atomic_write, file_hash
+from todoc.application.storage import IndexStatus
 from todoc.errors import IncompleteError
 
 
-def _config_digest(root: Path) -> str:
+
+_SHARDS = ('folders', 'documents', 'records', 'relations', 'diagnostics', 'mentions')
+
+
+def _config_digest(root: Path, *, strict: bool = False) -> str:
     h = hashlib.sha256()
     todoc_dir = root / ".todoc"
     if todoc_dir.is_dir():
@@ -22,9 +28,14 @@ def _config_digest(root: Path) -> str:
             if "index" in path.parts or "cache" in path.parts or "generated" in path.parts or "history" in path.parts:
                 continue
             try:
-                h.update(path.read_bytes())
+                data = path.read_bytes()
             except OSError:
+                if strict:
+                    raise
                 continue
+            h.update(path.relative_to(root).as_posix().encode("utf-8"))
+            h.update(b"\0")
+            h.update(hashlib.sha256(data).digest())
     return "sha256:" + h.hexdigest()
 
 
@@ -75,6 +86,43 @@ class RegistryStore:
             return None
         return data if isinstance(data, dict) else None
 
+    def inspect(self, dataset_id: str, fingerprint: str | None = None) -> IndexStatus:
+        """Verify shard bytes without decoding item lists."""
+        pointer = self.index_dir / "CURRENT.json"
+        try:
+            raw = pointer.read_bytes()
+        except FileNotFoundError:
+            return IndexStatus("missing")
+        except OSError:
+            return IndexStatus("inaccessible")
+        try:
+            meta = json.loads(raw)
+            if not isinstance(meta, dict) or meta.get("schema_version") != 1:
+                return IndexStatus("corrupt")
+            if (meta.get("dataset_id") != dataset_id or not isinstance(meta.get("generation_id"), str)
+                    or json.loads((self.current_dir / "meta.json").read_bytes()) != meta):
+                return IndexStatus("corrupt")
+            manifest = meta.get("shards")
+            if manifest is None:
+                return IndexStatus("stale", meta)
+            if not isinstance(manifest, dict) or set(manifest) != set(_SHARDS):
+                return IndexStatus("corrupt")
+            counts = meta.get("counts")
+            if not isinstance(counts, dict) or any(type(counts.get(key)) is not int or counts[key] < 0
+                                                  for key in ("documents", "records")):
+                return IndexStatus("corrupt")
+            if any(file_hash(self.current_dir / f"{key}.json") != manifest[key] for key in _SHARDS):
+                return IndexStatus("corrupt")
+            if pointer.read_bytes() != raw:
+                return IndexStatus("stale")
+            if fingerprint is not None and meta.get("corpus_digest") != fingerprint:
+                return IndexStatus("stale", meta)
+            return IndexStatus("valid", meta)
+        except (FileNotFoundError, ValueError, UnicodeError, RecursionError):
+            return IndexStatus("corrupt")
+        except OSError:
+            return IndexStatus("inaccessible")
+
     def current_generation_id(self) -> str | None:
         meta = self.read_current_meta()
         if meta is None:
@@ -106,28 +154,35 @@ class RegistryStore:
         gen_id = str(meta.get("generation_id") or "")
         if not self.current_dir.is_dir():
             return None
-        payload: dict[str, Any] = {"generation_id": gen_id,
+        payload: dict[str, Any] = {"generation_id": gen_id, "dataset_id": meta.get("dataset_id"),
                                    "corpus_digest": meta.get("corpus_digest"),
                                    "created_at": meta.get("created_at")}
-        for name in ("folders", "documents", "records", "relations", "diagnostics", "mentions"):
+        manifest = meta.get("shards")
+        if manifest is not None and (not isinstance(manifest, dict) or set(manifest) != set(_SHARDS)):
+            return None
+        for name in _SHARDS:
             path = self.current_dir / f"{name}.json"
             if not path.is_file():
                 return None
             try:
-                payload[name] = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
+                raw = path.read_bytes()
+                if manifest is not None and "sha256:" + hashlib.sha256(raw).hexdigest() != manifest[name]:
+                    return None
+                payload[name] = json.loads(raw)
+            except (OSError, UnicodeError, json.JSONDecodeError, RecursionError):
                 return None
+            if not isinstance(payload[name], list) or any(not isinstance(row, dict) for row in payload[name]):
+                return None
+        if self.read_current_meta() != meta:
+            return None
         return payload
 
     def publish(self, dataset: dict[str, Any], folders: list[dict[str, Any]], documents: list[dict[str, Any]],
                 records: list[dict[str, Any]], relations: list[dict[str, Any]], diagnostics: list[dict[str, Any]],
                 digest: str | None = None, mentions: list[dict[str, Any]] | None = None) -> str:
-        """Atomically (re)publish the single snapshot. On error, the old one stays."""
+        """Publish a manifest-bound snapshot, restoring the prior directory on a failed swap."""
         gen_id = uuid.uuid4().hex[:12]
-        tmp_dir = self.index_dir / ".tmp-current"
-        if tmp_dir.exists():
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-        tmp_dir.mkdir(parents=True, exist_ok=True)
+        self.index_dir.mkdir(parents=True, exist_ok=True)
         meta = {
             "schema_version": 1,
             "dataset_id": dataset["dataset_id"],
@@ -135,24 +190,37 @@ class RegistryStore:
             "config_digest": _config_digest(self.root),
             "corpus_digest": digest,
             "created_at": _utc_now(),
+            "shards": {},
+            "counts": {"documents": len(documents), "records": len(records)},
         }
-        try:
-            for name, payload in (("folders", folders), ("documents", documents), ("records", records),
-                                  ("relations", relations), ("diagnostics", diagnostics),
-                                  ("mentions", mentions if mentions is not None else [])):
-                (tmp_dir / f"{name}.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            (tmp_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            # Validate: all JSON parse + meta present.
-            for name in ("folders", "documents", "records", "relations", "diagnostics", "mentions", "meta"):
-                json.loads((tmp_dir / f"{name}.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory(prefix=".tmp-current-", dir=self.index_dir) as temp:
+            temporary = Path(temp)
+            staged = temporary / "staged"
+            previous = temporary / "previous"
+            staged.mkdir()
+            data = (folders, documents, records, relations, diagnostics, mentions or [])
+            for name, rows in zip(_SHARDS, data, strict=True):
+                raw = (json.dumps(rows, indent=2, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+                (staged / f"{name}.json").write_bytes(raw)
+                meta["shards"][name] = "sha256:" + hashlib.sha256(raw).hexdigest()
+            rendered = json.dumps(meta, indent=2, ensure_ascii=False) + "\n"
+            (staged / "meta.json").write_text(rendered, encoding="utf-8")
             if self.current_dir.exists():
-                shutil.rmtree(self.current_dir)
-            tmp_dir.rename(self.current_dir)
-        except BaseException:
-            if tmp_dir.exists():
-                shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise
-        atomic_write(self.index_dir / "CURRENT.json", json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
+                self.current_dir.rename(previous)
+            moved = False
+            try:
+                staged.rename(self.current_dir)
+                moved = True
+                atomic_write(self.index_dir / "CURRENT.json", rendered)
+            except BaseException:
+                if moved:
+                    self.current_dir.rename(staged)
+                if previous.exists():
+                    previous.rename(self.current_dir)
+                raise
+        legacy_stage = self.index_dir / ".tmp-current"
+        if legacy_stage.is_dir():
+            shutil.rmtree(legacy_stage, ignore_errors=True)
         # Migration: the pre-redesign layout accumulated one directory per run.
         if self.legacy_generations_dir.is_dir():
             shutil.rmtree(self.legacy_generations_dir, ignore_errors=True)
@@ -179,7 +247,7 @@ def _mtime_ns(path: Path) -> int:
 
 #: Версия разбора. Поднимается при любом изменении того, как файл превращается в
 #: структуру: запись кэша чужой версии — промах, а не источник правды.
-PARSER_VERSION = "todoc-0.2.0"
+PARSER_VERSION = "todoc-0.2.0-metadata1"
 
 
 def parse_cache_key(path: str) -> str:
@@ -246,3 +314,19 @@ def invalidate_parse_cache(root: Path, path: str) -> bool:
     except OSError:
         return False
     return True
+
+
+class JsonParseCache:
+    """Dataset-scoped adapter for disposable parsed documents."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def read(self, path: str, content_hash: str) -> dict[str, Any] | None:
+        return read_parse_cache(self.root, path, content_hash)
+
+    def write(self, path: str, content_hash: str, payload: dict[str, Any]) -> None:
+        write_parse_cache(self.root, path, content_hash, payload)
+
+    def invalidate(self, path: str) -> bool:
+        return invalidate_parse_cache(self.root, path)

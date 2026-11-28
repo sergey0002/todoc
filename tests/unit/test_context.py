@@ -57,7 +57,7 @@ def test_context_budget_truncates_files(task):
     root, change_id = task
     result = build_context(root, change_id=change_id, dataset_id="ds", budget=200)
     assert result["truncated"] is True
-    assert result["used_bytes"] <= 200
+    assert result["used_chars"] <= 200
 
 
 def test_context_by_tag(task):
@@ -95,7 +95,7 @@ def test_context_diff_budget_truncates(task):
     assert full["truncated"] is False and full["diffs"]
     tight = build_context(root, "ds", change_id=change_id, budget=400, with_diff=True)
     assert tight["truncated"] is True
-    assert tight["used_bytes"] <= 400
+    assert tight["used_chars"] <= 400
 
 
 def test_context_diff_without_history_reports_status(task):
@@ -175,10 +175,10 @@ def test_context_diff_budget_breaks_on_large_diff(task):
     # Бюджет берём от измеренного расхода без диффов: остаток заведомо меньше диффа,
     # поэтому срабатывает именно ветка прерывания, а не ранний выход по бюджету.
     without = build_context(root, "ds", change_id=change_id, budget=100000, with_diff=False)
-    budget = without["used_bytes"] + 5
+    budget = without["used_chars"] + 5
     result = build_context(root, "ds", change_id=change_id, budget=budget, with_diff=True)
     assert result["truncated"] is True
-    assert result["used_bytes"] <= budget
+    assert result["used_chars"] <= budget
     assert result["diffs"] == []
 
 

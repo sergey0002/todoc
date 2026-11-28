@@ -1,9 +1,9 @@
 # Правка: `flow-doc`
 
-Если витрина сгенерирована командой `todoc docs flow render --write` (имеет `derived_from` / метку `<!-- СГЕНЕРИРОВАНО:`), **не правь её вручную** — отредактируй исходную запись `flow:<slug>`, запусти `todoc sync --root KB <путь-к-записи>` и пересобери витрину `todoc docs flow render --id flow:<slug> --write <путь>`.
+Если витрина сгенерирована командой `todoc docs flow render --write` (имеет `derived_from` / метку `<!-- СГЕНЕРИРОВАНО:`), **не правь её вручную** — отредактируй исходную запись `flow:<slug>`, запусти `todoc sync --apply --root KB <путь-к-записи>` и пересобери витрину `todoc docs flow render --id flow:<slug> --write <путь>`.
 
 Если это ручной эталонный `flow-doc` без `derived_from` — сохраняй обязательные секции (`## Жизненный цикл`, `## Таблица решений`, `## Диаграмма исходов`, `## Lineage`), вноси правку напрямую в файл и сразу финализируй:
 
 ```bash
-todoc sync --root KB <путь-к-файлу.md>
+todoc sync --apply --root KB <путь-к-файлу.md>
 ```

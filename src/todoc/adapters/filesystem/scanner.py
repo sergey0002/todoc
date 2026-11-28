@@ -7,6 +7,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from todoc.errors import IncompleteError
+
 HARD_EXCLUDE_DIRS = {".todoc", ".git", "__pycache__", "node_modules", ".obsidian", ".venv", "venv"}
 
 FORMAT_BY_SUFFIX: dict[str, str] = {
@@ -34,8 +36,22 @@ def is_within_root(root: Path, candidate: Path) -> bool:
     return True
 
 
-def atomic_write(path: Path, content: str | bytes) -> None:
-    """Write via temp file + atomic replace (E9)."""
+def read_verified_text(root: Path, rel_path: str, expected_hash: str) -> str:
+    """Read and verify a source against the snapshot before exposing its text."""
+    target = root / rel_path
+    if not is_within_root(root, target):
+        raise IncompleteError(f"Source left the dataset: {rel_path}", "read.changed")
+    try:
+        content = target.read_bytes()
+        if "sha256:" + hashlib.sha256(content).hexdigest() != expected_hash:
+            raise IncompleteError(f"Source changed while reading: {rel_path}", "read.changed")
+        return content.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    except (OSError, UnicodeError) as exc:
+        raise IncompleteError(f"Could not read source: {rel_path}", "file.unreadable") from exc
+
+
+def atomic_write(path: Path, content: str | bytes, *, exclusive: bool = False) -> None:
+    """Publish complete bytes atomically, optionally requiring an absent target."""
     path.parent.mkdir(parents=True, exist_ok=True)
     data = content.encode("utf-8") if isinstance(content, str) else content
     fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".tmp.")
@@ -44,7 +60,11 @@ def atomic_write(path: Path, content: str | bytes) -> None:
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
-        os.replace(tmp_name, path)
+        if exclusive:
+            os.link(tmp_name, path)
+            os.unlink(tmp_name)
+        else:
+            os.replace(tmp_name, path)
     except BaseException:
         try:
             os.unlink(tmp_name)
@@ -70,7 +90,8 @@ class ScannedFolder:
 
 
 def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int = 10485760,
-                 hash_cache: dict[str, dict[str, object]] | None = None) -> tuple[list[ScannedFolder], list[ScannedFile]]:
+                 hash_cache: dict[str, dict[str, object]] | None = None,
+                 *, strict: bool = False) -> tuple[list[ScannedFolder], list[ScannedFile]]:
     """Walk root deterministically (sorted). Returns (folders, files).
 
     Hard-excludes apply before classification and cannot be lifted by config.
@@ -88,6 +109,8 @@ def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int 
         try:
             entries = sorted(os.scandir(dir_path), key=lambda e: e.name)
         except OSError:
+            if strict:
+                raise
             return
         for entry in entries:
             name = entry.name
@@ -110,6 +133,8 @@ def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int 
                     st = entry.stat(follow_symlinks=follow_symlinks)
                     size, mtime = st.st_size, st.st_mtime_ns
                 except OSError:
+                    if strict:
+                        raise
                     files.append(ScannedFile(rel, entry_path, "opaque", 0, "sha256:", "permission_denied"))
                     continue
                 fmt = FORMAT_BY_SUFFIX.get(Path(name).suffix.lower(), "opaque")
@@ -125,6 +150,8 @@ def scan_dataset(root: Path, follow_symlinks: bool = False, max_file_bytes: int 
                 try:
                     digest = file_hash(entry_path)
                 except OSError:
+                    if strict:
+                        raise
                     files.append(ScannedFile(rel, entry_path, fmt, size, "sha256:", "permission_denied"))
                     continue
                 files.append(ScannedFile(rel, entry_path, fmt, size, digest))

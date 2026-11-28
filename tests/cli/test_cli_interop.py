@@ -73,7 +73,7 @@ def _entity_type(tmp_path, type_id, path_dir):
 
 def _init_interop(tmp_path):
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     export_type = tmp_path / ".todoc" / "doc_types" / "export"
     export_type.mkdir(parents=True)
     (export_type / "type.json").write_text(json.dumps(
@@ -98,7 +98,7 @@ def _init_interop(tmp_path):
         path = tmp_path / "records" / sub / f"{rec['record_id'].split(':', 1)[1]}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
     return runner
 
 
@@ -107,7 +107,7 @@ def test_asl_export_to_stdout(tmp_path):
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "asl",
                       "--id", "flow:checkout"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert data["kind"] == "asl" and data["record_id"] == "flow:checkout"
     asl = json.loads(data["artifact"])
     assert asl["StartAt"] == "start" and asl["States"]["q-ok"]["Type"] == "Choice"
@@ -118,7 +118,7 @@ def test_dmn_export_to_stdout(tmp_path):
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "dmn",
                       "--id", "rule:no-funds-v1"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert data["kind"] == "dmn"
     table = ET.fromstring(data["artifact"])\
         .find("{https://www.omg.org/spec/DMN/20191111/MODEL/}decision/"
@@ -130,7 +130,7 @@ def test_rasa_glossary_export_without_id(tmp_path):
     runner = _init_interop(tmp_path)
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "rasa"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert data["record_id"] is None and "- intent: term_cart" in data["artifact"]
 
 
@@ -139,7 +139,7 @@ def test_rasa_single_term_export(tmp_path):
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "rasa",
                       "--id", "term:cart"])
     assert r.exit_code == 0, r.output
-    assert _json(r)["data"]["artifact"].count("- intent: ") == 1
+    assert _json(r)["data"]["result"]["artifact"].count("- intent: ") == 1
 
 
 def test_export_requires_id_for_asl_and_dmn(tmp_path):
@@ -172,7 +172,7 @@ def test_dmn_rule_without_flow_relation(tmp_path):
     rec = json.loads(rule_path.read_text(encoding="utf-8"))
     rec["relations"] = []
     rule_path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "dmn",
                       "--id", "rule:no-funds-v1"])
     assert r.exit_code != 0
@@ -181,27 +181,26 @@ def test_dmn_rule_without_flow_relation(tmp_path):
 
 def test_write_only_inside_exports(tmp_path):
     runner = _init_interop(tmp_path)
-    r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "asl",
+    r = _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "asl",
                       "--id", "flow:checkout", "--write", "tasks/x.md"])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "interop.write_outside_exports"
-    r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "asl",
+    r = _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "asl",
                       "--id", "flow:checkout", "--write", "../escape.md"])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "access.outside_data_root"
-    # ведущий "/" срезается (как в docs flow render --write) → путь становится относительным
-    r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "asl",
+    r = _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "asl",
                       "--id", "flow:checkout", "--write", "/abs/x.md"])
     assert r.exit_code != 0
-    assert getattr(r.exception, "code", "") == "interop.write_outside_exports"
+    assert getattr(r.exception, "code", "") == "access.outside_data_root"
 
 
 def test_write_creates_derived_doc_and_is_fresh(tmp_path):
     runner = _init_interop(tmp_path)
-    r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "asl",
+    r = _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "asl",
                       "--id", "flow:checkout", "--write", "exports/asl-checkout.md"])
     assert r.exit_code == 0, r.output
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     target = tmp_path / "exports" / "asl-checkout.md"
     text = target.read_text(encoding="utf-8")
     fm_lines = text.splitlines()[:text.index("\n---", 3) + 1]
@@ -213,18 +212,18 @@ def test_write_creates_derived_doc_and_is_fresh(tmp_path):
     assert data["hash"].startswith("sha256:") and data["derived_from"] == 1
     assert _run(runner, ["validate", "--root", str(tmp_path), "--all"]).exit_code == 0
     s = _run(runner, ["stale", "--root", str(tmp_path)])
-    assert s.exit_code == 0 and _json(s)["data"]["stale"] == 0
+    assert s.exit_code == 0 and _json(s)["data"]["result"]["stale"] == 0
 
 
 def test_write_overwrites_derived_target_and_refuses_manual_file(tmp_path):
     runner = _init_interop(tmp_path)
-    args = ["interop", "export", "--root", str(tmp_path), "--kind", "rasa", "--id", "term:cart",
+    args = ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "rasa", "--id", "term:cart",
             "--write", "exports/rasa-cart.md"]
     assert _run(runner, args).exit_code == 0
     assert _run(runner, args).exit_code == 0  # derived-цель (fm derived_from) перезаписывается
     manual = tmp_path / "exports" / "manual.md"
     manual.write_text("---\ntitle: Ручной файл\n---\n\nТекст агента.\n", encoding="utf-8")
-    r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "rasa",
+    r = _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "rasa",
                       "--id", "term:cart", "--write", "exports/manual.md"])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "interop.target_not_derived"
@@ -232,7 +231,7 @@ def test_write_overwrites_derived_target_and_refuses_manual_file(tmp_path):
 
 def test_stale_sees_drift_after_record_edit(tmp_path):
     runner = _init_interop(tmp_path)
-    assert _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "asl",
+    assert _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "asl",
                          "--id", "flow:checkout", "--write", "exports/asl-checkout.md"]).exit_code == 0
     flow_path = tmp_path / "records" / "flows" / "checkout.json"
     original = flow_path.read_text(encoding="utf-8")
@@ -240,28 +239,28 @@ def test_stale_sees_drift_after_record_edit(tmp_path):
     rec["tree"]["nodes"][0]["prompt"] = "Правка после экспорта"
     flow_path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     s = _run(runner, ["stale", "--root", str(tmp_path)])
-    assert s.exit_code == 0 and _json(s)["data"]["stale"] == 1
+    assert s.exit_code == 0 and _json(s)["data"]["result"]["stale"] == 1
     assert _json(s)["diagnostics"][0]["code"] == "staleness.dependency_changed"
     flow_path.write_text(original, encoding="utf-8")
     s = _run(runner, ["stale", "--root", str(tmp_path)])
-    assert _json(s)["data"]["stale"] == 0
+    assert _json(s)["data"]["result"]["stale"] == 0
 
 
 def test_written_export_is_valid_doc_with_export_type(tmp_path):
     runner = _init_interop(tmp_path)
-    assert _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "dmn",
+    assert _run(runner, ["interop", "export", "--apply", "--root", str(tmp_path), "--kind", "dmn",
                          "--id", "rule:no-funds-v1", "--write", "exports/dmn-no-funds.md"]).exit_code == 0
-    docs = _run(runner, ["docs", "tree", "--root", str(tmp_path), "--output", "json"])
+    docs = _run(runner, ["docs", "tree", "--root", str(tmp_path), "--view", "flat", "--output", "json"])
     assert docs.exit_code == 0
     payload = _json(docs)
-    paths = [d.get("path") for d in (payload.get("data") or {}).get("documents", [])]
+    paths = [item["path"] for item in payload["data"]["result"]["items"] if item["kind"] == "document"]
     assert "exports/dmn-no-funds.md" in paths
 
 
 def test_rasa_glossary_without_terms(tmp_path):
     runner = _init_interop(tmp_path)
     (tmp_path / "records" / "terms" / "cart.json").unlink()
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "rasa"])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "interop.no_terms"
@@ -273,7 +272,7 @@ def test_dmn_related_flow_record_missing(tmp_path):
     rec = json.loads(rule_path.read_text(encoding="utf-8"))
     rec["relations"] = [{"type_id": "belongs_to", "target": {"kind": "record", "id": "flow:ghost"}}]
     rule_path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     r = _run(runner, ["interop", "export", "--root", str(tmp_path), "--kind", "dmn",
                       "--id", "rule:no-funds-v1"])
     assert r.exit_code != 0
@@ -290,3 +289,17 @@ def test_dmn_rejects_non_rule_and_rasa_rejects_non_term(tmp_path):
                       "--id", "flow:checkout"])
     assert r.exit_code != 0
     assert getattr(r.exception, "code", "") == "interop.wrong_entity_type"
+
+
+
+def test_generated_export_preview_is_read_only_and_stale_hash_is_rejected(tmp_path):
+    runner = _init_interop(tmp_path)
+    args = ["interop", "export", "--root", str(tmp_path), "--kind", "rasa", "--write", "exports/rasa.md"]
+    result = _run(runner, args)
+    assert result.exit_code == 0, result.exception
+    preview = _json(result)["data"]["result"]
+    assert preview["preview"] and "new_content" in preview["plan"]
+    assert not (tmp_path / "exports").exists()
+    denied = _run(runner, [*args, "--apply", "--if-plan-hash", "stale"])
+    assert denied.exception.code == "write.hash_mismatch"
+    assert not (tmp_path / "exports").exists()

@@ -111,6 +111,8 @@ def test_scan_stat_error_permission_denied(root, sample_md, monkeypatch):
     _folders, files = scan_dataset(root)
     denied = [f for f in files if f.status == "permission_denied"]
     assert denied, "expected permission_denied entries"
+    with pytest.raises(OSError, match="nope"):
+        scan_dataset(root, strict=True)
 
 
 def test_scan_hash_error_permission_denied(root, sample_md, monkeypatch):
@@ -122,6 +124,8 @@ def test_scan_hash_error_permission_denied(root, sample_md, monkeypatch):
     monkeypatch.setattr(scanner_mod, "file_hash", boom)
     _folders, files = scan_dataset(root)
     assert any(f.status == "permission_denied" for f in files)
+    with pytest.raises(OSError, match="nope"):
+        scan_dataset(root, strict=True)
 
 
 def test_scan_unreadable_dir(root, monkeypatch):
@@ -136,6 +140,8 @@ def test_scan_unreadable_dir(root, monkeypatch):
     monkeypatch.setattr(os, "scandir", fake_scandir)
     folders, _files = scan_dataset(root)
     assert any(f.rel_path == "blocked" for f in folders)
+    with pytest.raises(OSError, match="blocked"):
+        scan_dataset(root, strict=True)
 
 
 # --- formats ---------------------------------------------------------------
@@ -234,17 +240,20 @@ def test_publish_gen_collision(root, monkeypatch):
     assert gen1 == gen2 == "abc123abc123"
 
 
-def test_publish_failure_cleans_tmp(root, monkeypatch):
+def test_publish_failure_cleans_tmp_and_restores_snapshot(root, monkeypatch):
     store = RegistryStore(root)
+    gen = store.publish({"dataset_id": "ds"}, [], [{"path": "old.md"}], [], [], [])
 
-    def bad_loads(text, *args, **kwargs):
-        raise ValueError("boom")
+    def fail_pointer(path, text):
+        raise OSError("Publishing pointer failed")
 
-    monkeypatch.setattr(registry_mod.json, "loads", bad_loads)
-    with pytest.raises(ValueError):
-        store.publish({"dataset_id": "ds"}, [], [], [], [], [])
+    monkeypatch.setattr(registry_mod, "atomic_write", fail_pointer)
+    with pytest.raises(OSError, match="Publishing pointer failed"):
+        store.publish({"dataset_id": "ds"}, [], [{"path": "new.md"}], [], [], [])
     assert list(store.index_dir.glob(".tmp-*")) == []
-    assert not store.current_dir.exists()
+    assert store.inspect("ds").state == "valid"
+    assert store.current_generation_id() == gen
+    assert store.load_current()["documents"] == [{"path": "old.md"}]
 
 
 # --- search ----------------------------------------------------------------
@@ -288,7 +297,7 @@ def test_search_budget_break(root, tmp_path):
     assert len(hits) == 1
 
 
-def test_search_heading_oserror(root, sample_md, monkeypatch):
+def test_search_parses_heading_and_text_once(root, sample_md, monkeypatch):
     import todoc.application.search as search_mod
 
     real_parse = search_mod.parse_markdown
@@ -305,7 +314,7 @@ def test_search_heading_oserror(root, sample_md, monkeypatch):
                   "doc_type": "note", "title": "Design", "status": "ok"}]
     hits, total, _ = search_documents(root, documents, "refresh")
     assert total == 1
-    assert hits[0].heading_path == ()
+    assert calls["n"] == 1 and hits[0].heading_path
 
 
 def test_search_markdown_without_headings(root, tmp_path):

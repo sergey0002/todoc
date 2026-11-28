@@ -1,4 +1,6 @@
 ---
+created: 2026-11-24
+updated: 2026-11-26
 id: doc:state-config-types
 title: "Состояние: конфигурация и типовая система"
 doc_type: reference

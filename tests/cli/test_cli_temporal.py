@@ -58,33 +58,33 @@ def _query(root, spec):
 
 def test_records_query_as_of_cuts_by_valid_time(kb):
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
     query_file = _query(kb, {"entity_type": "person"})
 
     before = _json(_run(runner, ["--root", str(kb), "records", "query",
                                  "--query-file", query_file, "--as-of", "2023-01-01"]))["data"]
     after = _json(_run(runner, ["--root", str(kb), "records", "query",
                                 "--query-file", query_file, "--as-of", "2025-01-01"]))["data"]
-    assert before["as_of"] == "2023-01-01"
-    assert sorted(r["record_id"] for r in before["items"]) == ["person:a", "person:b"]
-    assert sorted(r["record_id"] for r in after["items"]) == ["person:b", "person:c"]
-    assert before["total"] == 2 and after["total"] == 2
+    assert before["meta"]["as_of"] == "2023-01-01"
+    assert sorted(r["record_id"] for r in before["result"]["items"]) == ["person:a", "person:b"]
+    assert sorted(r["record_id"] for r in after["result"]["items"]) == ["person:b", "person:c"]
+    assert before["meta"]["total"] == 2 and after["meta"]["total"] == 2
 
 
 def test_records_query_without_as_of_hides_closed_records(kb):
     """Без точки во времени закрытый факт не показывается как правда о настоящем."""
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
     result = _json(_run(runner, ["--root", str(kb), "records", "query",
                                  "--query-file", _query(kb, {"entity_type": "person"})]))["data"]
-    ids = sorted(r["record_id"] for r in result["items"])
+    ids = sorted(r["record_id"] for r in result["result"]["items"])
     assert ids == ["person:a", "person:b", "person:c"]
-    assert result["as_of"] is None
+    assert result["meta"]["as_of"] is None
 
 
 def test_records_query_rejects_unparseable_as_of(kb):
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
     result = _run(runner, ["--root", str(kb), "--output", "json", "records", "query",
                            "--query-file", _query(kb, {"entity_type": "person"}),
                            "--as-of", "примерно май"])
@@ -94,10 +94,10 @@ def test_records_query_rejects_unparseable_as_of(kb):
 
 def test_timeline_lists_facts_and_events(kb):
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
-    data = _json(_run(runner, ["--root", str(kb), "timeline"]))["data"]
-    facts = [e for e in data["entries"] if e["entry"] == "fact"]
-    assert data["count"] >= 1
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
+    data = _json(_run(runner, ["--root", str(kb), "timeline"]))["data"]["result"]
+    facts = [e for e in data["items"] if e["entry"] == "fact"]
+    assert len(data["items"]) >= 1
     assert facts, "отношение с интервалом обязано попасть в ленту"
     assert facts[0]["type_id"] == "performed_by"
     assert facts[0]["valid_from"] == "2020-01-01"
@@ -105,20 +105,20 @@ def test_timeline_lists_facts_and_events(kb):
 
 def test_timeline_as_of_hides_closed_fact(kb):
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
     before = _json(_run(runner, ["--root", str(kb), "timeline", "--as-of", "2023-01-01"]))["data"]
-    after = _json(_run(runner, ["--root", str(kb), "timeline", "--as-of", "2025-01-01"]))["data"]
-    assert [e["valid_to"] for e in before["entries"] if e["entry"] == "fact"] == ["2024-06-01"]
-    assert after["entries"] == []
+    after = _json(_run(runner, ["--root", str(kb), "timeline", "--as-of", "2025-01-01"]))["data"]["result"]
+    assert [e["valid_to"] for e in before["result"]["items"] if e["entry"] == "fact"] == ["2024-06-01"]
+    assert after["items"] == []
     # Дата без времени остаётся датой: это полночь того дня.
-    assert before["as_of"] == "2023-01-01"
+    assert before["meta"]["scope"]["as_of"] == "2023-01-01"
 
 
 def test_timeline_path_filter(kb):
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
-    data = _json(_run(runner, ["--root", str(kb), "timeline", "--path", "records/persons/b.json"]))["data"]
-    assert data["entries"] == [] and data["path"] == "records/persons/b.json"
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
+    data = _json(_run(runner, ["--root", str(kb), "timeline", "--path", "records/persons/b.json"]))["data"]["result"]
+    assert data["items"] == []
 
 
 def test_timeline_rejects_unparseable_as_of(kb):
@@ -130,9 +130,10 @@ def test_timeline_rejects_unparseable_as_of(kb):
 
 def test_timeline_limit_reports_truncation(kb):
     runner = CliRunner()
-    assert _run(runner, ["--root", str(kb), "index", "rebuild"]).exit_code == 0
+    assert _run(runner, ["--root", str(kb), "index", "rebuild", "--apply"]).exit_code == 0
     data = _json(_run(runner, ["--root", str(kb), "timeline", "--limit", "0"]))["data"]
-    assert data["truncated"] is True and data["entries"] == [] and data["count"] >= 1
+    assert data["meta"]["truncated"] is True and data["result"]["items"] == []
+    assert data["meta"]["total"] >= 1 and data["meta"]["next_cursor"] is None
 
 
 def test_validate_reports_inverted_interval(kb):

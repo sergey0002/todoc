@@ -6,7 +6,7 @@
 
 ```bash
 todoc check-config --root KB                 # конфигурация цела?
-todoc index rebuild --root KB                # опубликовать поколение
+todoc index rebuild --apply --root KB                # опубликовать поколение
 todoc status --root KB                       # сколько документов и записей
 todoc docs search --root KB --query "..." --limit 3
 todoc docs read --root KB --id <id> --section "<заголовок>"
@@ -48,7 +48,7 @@ todoc types show --root KB guide                  # пути template/prompts + 
 Создание документа — из шаблона типа, а не «с чистого листа»:
 
 ```bash
-todoc docs new --root KB --type guide --title "Как читать конверт" --dir guides
+todoc docs new --apply --root KB --type guide --title "Как читать конверт" --dir guides
 ```
 
 Шаблон подставляет `{title}`, `{slug}`, `{date}`, `{type_id}`, `{id}`, `{format}` как текст.
@@ -77,13 +77,13 @@ todoc records create --root KB --type note --input-file note.json --apply
 потом применение одной транзакцией.
 
 ```bash
-todoc change open --root KB --title "Обновить суть" --artifact notes/a.md --artifact notes/b.md
+todoc change open --apply --root KB --title "Обновить суть" --artifact notes/a.md --artifact notes/b.md
 # положить дельты в changes/<change-id>/deltas/*.md
 todoc change validate KB:change:obnovit-sut     # применимость к живому состоянию
 todoc change apply change:obnovit-sut           # план (review-first)
 todoc change apply change:obnovit-sut --apply   # всё или ничего
 todoc change verify change:obnovit-sut          # completeness / correctness / coherence
-todoc change archive change:obnovit-sut --tag v1.2
+todoc change archive --apply change:obnovit-sut --tag v1.2
 ```
 
 Порядок обязателен: `validate` до `apply`, потому что он ловит дрейф якоря и `base_hash`
@@ -155,7 +155,7 @@ ID диагностики — SHA-256 от `path + code + message` (`stable_id`)
   (команда статусов не создаёт поле); терминальный `done` — только по явной фразе пользователя
   (DESIGN-Q01); тики чекбоксов — в коммите шага.
 - **Экспорт витрин**: `todoc interop export --kind dmn|asl|rasa …` — [19-interop-exports.md](19-interop-exports.md).
-- **Стейт между сессиями**: `state set context.current_project …`, `context --change|--tag`
+- **Стейт между сессиями**: `state set --apply context.current_project …`, `context --change|--tag`
   для контекста задачи — [18-agent-state-and-context.md](18-agent-state-and-context.md).
 - **Ритуалы сессии** (из баг-реестра): перед коммитом чистить history-ревизии (BUG-012);
   после смены исходника проверять `stale` и перепривязывать `derived_from` (BUG-011);

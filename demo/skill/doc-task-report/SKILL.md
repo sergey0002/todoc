@@ -1,11 +1,13 @@
 ---
+id: "doc:skill/doc-task-report/SKILL.md"
+title: "Отчёт по задаче"
 name: doc-task-report
 description: >
   Отчёт по выполненной задаче из фактов: task-snapshot/задача + change (proposal) + дифф + вывод проверок. Применять после закрытия задачи или изменения.
 doc_type: agent-skill
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [skill, documentation, agent]
 ---
 

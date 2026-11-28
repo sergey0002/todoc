@@ -9,13 +9,13 @@
 2. Создать одной командой (create-only, явный путь для латинских имён):
 
    ```bash
-   todoc docs new --root KB --type flow-doc --title "<Название>" --path <папка>/<имя>.md
+   todoc docs new --apply --root KB --type flow-doc --title "<Название>" --path <папка>/<имя>.md
    todoc validate --root KB --all   # 0 диагностик
    ```
 
 3. Наполнить тело по шаблону (`.todoc/doc_types/flow-doc/template.md`):
    заменить плейсхолдеры фактами, комментарии-подсказки удалить.
-   Правка после создания — прямую правку файла + `todoc sync --root KB <путь>`,
+   Правка после создания — прямую правку файла + `todoc sync --apply --root KB <путь>`,
    чтение назад — `docs read --section ...`.
 
 - **Колонка «Режим»**: каждый шаг таблицы — `auto` (действовать автоматически) или

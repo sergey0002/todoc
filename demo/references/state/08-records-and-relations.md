@@ -1,4 +1,6 @@
 ---
+created: 2026-11-24
+updated: 2026-11-26
 id: doc:state-records
 title: "Состояние: записи, отношения, запросы"
 doc_type: reference

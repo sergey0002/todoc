@@ -107,7 +107,7 @@ def test_walk_from_node():
 # --- CLI: render / --write / stale ----------------------------------------------
 
 def _init_with_flow(runner, tmp_path, flows_rel="flows/order-placement.md"):
-    assert _run(runner, ["init", "--root", str(tmp_path), "--no-input"]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"]).exit_code == 0
     (tmp_path / "flows").mkdir()
     (tmp_path / "records/flows").mkdir(parents=True)
     (tmp_path / "records/flows/order-placement.json").write_text(
@@ -118,39 +118,39 @@ def _init_with_flow(runner, tmp_path, flows_rel="flows/order-placement.md"):
     (tmp_path / "records/terms/t.json").parent.mkdir(parents=True)
     (tmp_path / "records/terms/t.json").write_text(
         json.dumps(TERM, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    assert _run(runner, ["index", "rebuild", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)]).exit_code == 0
 
 
 def test_cli_render_envelope(tmp_path):
     runner = CliRunner()
     _init_with_flow(runner, tmp_path)
     r = _run(runner, ["docs", "flow", "render", "--root", str(tmp_path), "--id", "flow:order-placement"])
-    data = _json(r)["data"]
+    data = _json(r)["data"]["result"]
     assert "Таблица решений" in data["markdown"] and data["id"] == "flow:order-placement"
     s = _json(_run(runner, ["docs", "flow", "render", "--root", str(tmp_path),
-                            "--id", "flow:order-placement", "--section", "terms"]))["data"]
+                            "--id", "flow:order-placement", "--section", "terms"]))["data"]["result"]
     assert s["section"] == "terms" and "term:entity-type" in s["text"]
 
 
 def test_cli_render_write_and_stale_drift(tmp_path):
     runner = CliRunner()
     _init_with_flow(runner, tmp_path)
-    r = _run(runner, ["docs", "flow", "render", "--root", str(tmp_path), "--id", "flow:order-placement",
+    r = _run(runner, ["docs", "flow", "render", "--apply", "--root", str(tmp_path), "--id", "flow:order-placement",
                       "--write", "flows/order-placement.md"])
-    assert _json(r)["data"]["written"] == "flows/order-placement.md"
+    assert _json(r)["data"]["result"]["written"] == "flows/order-placement.md"
     text = (tmp_path / "flows/order-placement.md").read_text(encoding="utf-8")
     assert "derived_from" in text and "не править руками" in text.lower()
     assert "## Таблица решений" in text
     # validate в bare-init tmp без зарегистрированных entity/relation типов шумит —
     # проверка validate=0 выполняется на демо-датасете с полной базой типов.
     stale_before = _json(_run(runner, ["stale", "--root", str(tmp_path)]))
-    assert stale_before["data"]["stale"] == 0
+    assert stale_before["data"]["result"]["stale"] == 0
     # правка записи → дрейф
     rec_text = (tmp_path / "records/flows/order-placement.json").read_text(encoding="utf-8")
     edited = rec_text.replace('"Покупатель подтверждает оплату заказа"',
                               '"Покупатель оплачивает заказ"')
     (tmp_path / "records/flows/order-placement.json").write_text(edited, encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     stale_after = _run(runner, ["stale", "--root", str(tmp_path)])
     assert "staleness" in stale_after.output, stale_after.output
 
@@ -159,19 +159,19 @@ def test_cli_walk_envelope(tmp_path):
     runner = CliRunner()
     _init_with_flow(runner, tmp_path)
     walk = _json(_run(runner, ["docs", "flow", "walk", "--root", str(tmp_path),
-                               "--id", "flow:order-placement"]))["data"]
+                               "--id", "flow:order-placement"]))["data"]["result"]
     assert walk["steps"][0]["node_id"] == "start"
     allp = _json(_run(runner, ["docs", "flow", "walk", "--root", str(tmp_path),
-                               "--id", "flow:order-placement", "--all-paths"]))["data"]
+                               "--id", "flow:order-placement", "--all-paths"]))["data"]["result"]
     assert len(allp["paths"]) == 2
     at = _json(_run(runner, ["docs", "flow", "walk", "--root", str(tmp_path),
-                             "--id", "flow:order-placement", "--at", "q-funds"]))["data"]
+                             "--id", "flow:order-placement", "--at", "q-funds"]))["data"]["result"]
     assert at["steps"][0]["node_id"] == "q-funds"
 
 
 def test_cli_render_unknown_flow(tmp_path):
     runner = CliRunner()
-    _run(runner, ["init", "--root", str(tmp_path), "--no-input"])
+    _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"])
     r = _run(runner, ["docs", "flow", "render", "--root", str(tmp_path), "--id", "flow:ghost"])
     assert r.exit_code == 3 and "flow" in str(r.exception)
 
@@ -300,7 +300,7 @@ def test_cli_render_section_empty(tmp_path):
     no_dep["relations"] = []
     (tmp_path / "records/flows/order-placement.json").write_text(
         json.dumps(no_dep, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    _run(runner, ["index", "rebuild", "--root", str(tmp_path)])
+    _run(runner, ["index", "rebuild", "--apply", "--root", str(tmp_path)])
     r2 = _run(runner, ["docs", "flow", "render", "--root", str(tmp_path),
                        "--id", "flow:order-placement", "--section", "lineage"])
     assert r2.exit_code == 3 and "empty" in str(r2.exception)
@@ -311,7 +311,7 @@ def test_cli_render_write_refuses_manual_file(tmp_path):
     _init_with_flow(runner, tmp_path)
     target = tmp_path / "flows/order-placement.md"
     target.write_text("# Ручной файл\n\nТекст без derived_from.\n", encoding="utf-8")
-    r = _run(runner, ["docs", "flow", "render", "--root", str(tmp_path),
+    r = _run(runner, ["docs", "flow", "render", "--apply", "--root", str(tmp_path),
                       "--id", "flow:order-placement", "--write", "flows/order-placement.md"])
     assert r.exit_code == 5 and "derived_from" in str(r.exception)
     assert "Ручной файл" in target.read_text(encoding="utf-8")  # не перезаписан
@@ -320,7 +320,7 @@ def test_cli_render_write_refuses_manual_file(tmp_path):
 def test_cli_render_write_outside_root(tmp_path):
     runner = CliRunner()
     _init_with_flow(runner, tmp_path)
-    r = _run(runner, ["docs", "flow", "render", "--root", str(tmp_path),
+    r = _run(runner, ["docs", "flow", "render", "--apply", "--root", str(tmp_path),
                       "--id", "flow:order-placement", "--write", "../escape.md"])
     assert r.exit_code != 0
     assert not (tmp_path.parent / "escape.md").exists()
@@ -328,7 +328,7 @@ def test_cli_render_write_outside_root(tmp_path):
 
 def test_cli_flow_not_found_for_walk(tmp_path):
     runner = CliRunner()
-    _run(runner, ["init", "--root", str(tmp_path), "--no-input"])
+    _run(runner, ["init", "--apply", "--root", str(tmp_path), "--no-input"])
     r = _run(runner, ["docs", "flow", "walk", "--root", str(tmp_path), "--id", "flow:ghost"])
     assert r.exit_code == 3 and "flow" in str(r.exception)
 
@@ -351,3 +351,16 @@ def test_lineage_rules_without_deps():
     view = build_flow_view(no_dep, rules=[rel_rule], terms=[])
     assert "Зависимости" not in view["sections"]["lineage"]
     assert "Правила флоу:" in view["sections"]["lineage"] and "rule:a-v1" in view["sections"]["lineage"]
+
+
+def test_render_write_reports_preview_conflicts_before_publication(tmp_path):
+    runner = CliRunner()
+    _init_with_flow(runner, tmp_path)
+    args = ["--root", str(tmp_path), "docs", "flow", "render",
+            "--id", FLOW["record_id"], "--write", "flows/preview.md"]
+    preview = _run(runner, args)
+    assert preview.exit_code == 0, preview.exception
+    assert _json(preview)["data"]["result"]["applied"] is False
+    assert not (tmp_path / "flows/preview.md").exists()
+    assert _run(runner, args + ["--section", "state"]).exception.code == "usage.error"
+    assert _run(runner, args + ["--apply", "--if-plan-hash", "stale"]).exception.code == "write.hash_mismatch"

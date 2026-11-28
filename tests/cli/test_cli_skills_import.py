@@ -38,7 +38,7 @@ def _repo_with_wrapper(base: Path) -> Path:
 
 def _demo(tmp_path: Path) -> Path:
     runner = CliRunner()
-    assert _run(runner, ["init", "--root", str(tmp_path)]).exit_code == 0
+    assert _run(runner, ["init", "--apply", "--root", str(tmp_path)]).exit_code == 0
     return tmp_path
 
 
@@ -46,10 +46,10 @@ def test_import_whole_package_copies_only_skills(tmp_path):
     runner = CliRunner()
     demo = _demo(tmp_path)
     src = _repo_with_wrapper(tmp_path)
-    r = _run(runner, ["skills", "import", "--root", str(demo), "--src", str(src),
+    r = _run(runner, ["skills", "import", "--apply", "--root", str(demo), "--src", str(src),
                       "--into", "coding/imported"])
     assert r.exit_code == 0, r.output
-    data = json.loads(r.output)["data"]
+    data = json.loads(r.output)["data"]["result"]
     assert [s["name"] for s in data["imported"]] == ["alpha", "beta", "gamma"]
     assert data["audit_note"]
     vault = demo / "skills/coding/imported"
@@ -64,17 +64,17 @@ def test_import_no_overwrite_and_skill_filter_and_dry_run(tmp_path):
     runner = CliRunner()
     demo = _demo(tmp_path)
     src = _repo_with_wrapper(tmp_path)
-    args = ["skills", "import", "--root", str(demo), "--src", str(src), "--into", "coding/imported"]
+    args = ["skills", "import", "--apply", "--root", str(demo), "--src", str(src), "--into", "coding/imported"]
     assert _run(runner, args).exit_code == 0
     again = _run(runner, args)
     assert again.exit_code != 0
     assert again.exception.code == "skills.path_exists"
     # выборочный
     demo2 = _demo(tmp_path / "d2")
-    one = _run(runner, ["skills", "import", "--root", str(demo2), "--src", str(src),
+    one = _run(runner, ["skills", "import", "--apply", "--root", str(demo2), "--src", str(src),
                         "--skill", "beta", "--into", "process/x"])
     assert one.exit_code == 0
-    assert [s["name"] for s in json.loads(one.output)["data"]["imported"]] == ["beta"]
+    assert [s["name"] for s in json.loads(one.output)["data"]["result"]["imported"]] == ["beta"]
     # dry-run ничего не пишет
     demo3 = _demo(tmp_path / "d3")
     dry = _run(runner, ["skills", "import", "--root", str(demo3), "--src", str(src),
@@ -91,10 +91,10 @@ def test_import_reports_invalid_front_matter(tmp_path):
     bad = src / "skills/bad"
     bad.mkdir(parents=True)
     (bad / "SKILL.md").write_text("---\nname: Wrong_Name\ndescription: x\n---\n", encoding="utf-8")
-    r = _run(runner, ["skills", "import", "--root", str(demo), "--src", str(src),
+    r = _run(runner, ["skills", "import", "--apply", "--root", str(demo), "--src", str(src),
                       "--into", "coding/review"])
     assert r.exit_code == 0  # файлы — истина: импорт состоялся
-    data = json.loads(r.output)["data"]
+    data = json.loads(r.output)["data"]["result"]
     codes = {d["code"] for d in data["diagnostics"]}
     assert {"skills.bad_name", "skills.name_mismatch"} <= codes
     assert (demo / "skills/coding/review/bad/SKILL.md").exists()
@@ -107,7 +107,7 @@ def test_adopt_validates_existing_folder(tmp_path):
     r = _run(runner, ["skills", "import", "--root", str(demo), "--src", str(demo / "skills"),
                       "--skill", "manual", "--adopt", "--into", "coding/review"])
     assert r.exit_code == 0, r.output
-    data = json.loads(r.output)["data"]
+    data = json.loads(r.output)["data"]["result"]
     assert data["adopted"] == ["manual"] and data["imported"] == []
     miss = _run(runner, ["skills", "import", "--root", str(demo), "--src", str(demo / "skills"),
                          "--skill", "absent", "--adopt", "--into", "coding/review"])

@@ -7,7 +7,7 @@
 1. **Рабочий (основной)** — движок создаёт папку и запись сам:
 
    ```bash
-   todoc change open --root KB --title "<что меняется>"
+   todoc change open --apply --root KB --title "<что меняется>"
    ```
 
    `change_id` = `change:<транслитерация заголовка>` (slugify); рядом создаются
@@ -16,7 +16,7 @@
 
 2. **Capture-уровень (OpenSpec-интероп)** — заполнить `requirements_delta`:
    SHALL-строки из дифа требований по операциям `added`/`modified`/`removed`.
-   Правка прямой правкой JSON-файла + `todoc sync --root KB <путь>`.
+   Правка прямой правкой JSON-файла + `todoc sync --apply --root KB <путь>`.
 
 ## Правила качества
 
