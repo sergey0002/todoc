@@ -34,6 +34,12 @@ class MemoryIndex:
     def load_current(self):
         return deepcopy(self.snapshot)
 
+    def read_snapshot(self, query):
+        meta = self.read_current_meta()
+        if self.inspect(query.dataset_id, query.fingerprint).state != "valid":
+            return None
+        return deepcopy({**meta, **{name: self.snapshot[name] for name in query.sections}})
+
     def read_stats(self):
         return self.stats
 
@@ -95,6 +101,11 @@ def test_index_contract_reads_current_source_without_publishing(root, sample_md,
 
 
 class MemoryHistory:
+    def transaction(self):
+        from contextlib import nullcontext
+
+        return nullcontext()
+
     def __init__(self):
         self.events = []
         self.objects = {}
@@ -137,6 +148,25 @@ class MemoryHistory:
         self.objects[digest] = content
         return digest
 
+
+    def check_backup_destination(self, destination):
+        pass
+
+    def backup_manifest(self):
+        from hashlib import sha256
+        import json
+
+        return {"events": sha256(json.dumps(self.events, sort_keys=True).encode()).hexdigest()}
+
+    def write_backup(self, destination, manifest):
+        import json
+        from todoc.errors import ConflictError
+
+        if manifest != self.backup_manifest():
+            raise ConflictError("History changed before backup.", "write.hash_mismatch")
+        destination.mkdir()
+        (destination / "events").write_text(json.dumps(self.events), encoding="utf-8")
+        return 1
 
 @pytest.mark.parametrize("kind", ["jsonl", "memory"])
 def test_history_contract_reads_back_verified_before_image(root, kind):
@@ -658,3 +688,315 @@ def test_atomic_write_reports_unsupported_exclusive_publication(root, monkeypatc
         apply_write_plan(root, plan)
     assert error.value.code == "write.create_failed"
     assert not list((root / "notes").iterdir())
+
+
+def test_application_use_cases_import_only_storage_ports_and_composition():
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / "src/todoc"
+    checked = [src / "cli.py", src / "service.py", *sorted((src / "application").glob("*.py"))]
+    adapter_modules = ("todoc.adapters.history", "todoc.application.registry")
+    filesystem_layout = {"index_dir", "current_dir", "legacy_generations_dir"}
+    for path in checked:
+        if path.name in {"__init__.py", "registry.py"}:
+            continue  # Public compatibility export and the JSON adapter itself.
+        module = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(module):
+            imported = [alias.name for alias in node.names] if isinstance(node, ast.Import) else []
+            if isinstance(node, ast.ImportFrom):
+                imported = [f"{node.module}.{alias.name}" for alias in node.names]
+            assert not any(name.startswith(adapter_modules) for name in imported), (path, imported)
+            if isinstance(node, ast.Attribute):
+                assert node.attr not in filesystem_layout, (path, node.attr)
+
+
+@pytest.mark.parametrize("memory_index", [False, True])
+@pytest.mark.parametrize("memory_history", [False, True])
+def test_cli_storage_composition_matrix(root, sample_md, sample_record, monkeypatch, memory_index, memory_history):
+    import json
+    from click.testing import CliRunner
+
+    import todoc.cli as entry
+    from todoc.adapters.history.store import FileHistoryStore
+    from todoc.application.registry import JsonParseCache
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("CLI constructed a default filesystem adapter despite injection")
+
+    index = MemoryIndex() if memory_index else RegistryStore(root)
+    cache = MemoryParseCache() if memory_index else JsonParseCache(root)
+    history = MemoryHistory() if memory_history else FileHistoryStore(root)
+    if memory_index:
+        monkeypatch.setattr(RegistryStore, "__init__", forbidden)
+        monkeypatch.setattr(JsonParseCache, "__init__", forbidden)
+    if memory_history:
+        monkeypatch.setattr(FileHistoryStore, "__init__", forbidden)
+    context = DatasetContext(root, index_store=index, parse_cache=cache, history_store=history)
+    monkeypatch.setattr(entry, "DatasetContext", lambda scope: context)
+    runner = CliRunner()
+
+    def call(*args):
+        result = runner.invoke(entry.cli, ["--root", str(root), *args])
+        assert result.exit_code == 0, (args, result.output, result.exception)
+        envelope = json.loads(result.output)
+        assert envelope["ok"] and envelope["schema_version"] == 2
+        return envelope["data"]["result"]
+
+    original = sample_md.read_bytes()
+    context.history_recorder().record("notes/design.md", original, original, "doc.edit")
+    rev = history.read_events(strict=True)[0]["rev"]
+    context.rebuild_index(observe=False)
+    call("tag", "baseline", "--apply")
+    initial = {file: file.read_bytes() for file in root.rglob("*") if file.is_file()}
+    commands = [
+        ["status"], ["index", "status"], ["doctor"], ["index", "rebuild"],
+        ["docs", "list", "--within", "notes"], ["docs", "search", "--query", "rotation"],
+        ["docs", "read", "--id", "doc:notes/design.md"], ["docs", "tree"], ["docs", "links"],
+        ["explain-path", "notes/design.md"], ["types", "metadata"], ["stale"],
+        ["records", "list", "--type", "workout"], ["records", "read", "--id", "person:sergei"],
+        ["records", "query", "--attr-record_id", "person:sergei"],
+        ["relations", "graph", "--from", "person:sergei"], ["relations", "tree", "--from", "person:sergei"],
+        ["log"], ["show", rev, "--path", "notes/design.md"], ["diff", rev, "--path", "notes/design.md"],
+        ["blame", "--path", "notes/design.md"], ["timeline"], ["context", "--tag", "baseline"],
+        ["history", "adopt"], ["history", "gc"], ["history", "export", "--to", "backup"],
+        ["tag", "release"], ["revert", rev, "--path", "notes/design.md"], ["sync", "notes/design.md"],
+    ]
+    for args in commands:
+        call(*args)
+    assert {file: file.read_bytes() for file in root.rglob("*") if file.is_file()} == initial
+
+    plan = call("history", "export", "--to", "backup")
+    applied = call("history", "export", "--to", "backup", "--apply", "--if-plan-hash", plan["plan_hash"])
+    assert applied["exported"] > 0
+    patch = root.parent / "doc-edits.json"
+    patch.write_text('{"ops":[{"op":"insert_after","line":5,"text":"Updated"}]}', encoding="utf-8")
+    call("docs", "edit", "--id", "doc:notes/design.md", "--patch-file", str(patch), "--apply")
+    assert "Updated" in sample_md.read_text(encoding="utf-8")
+    assert history.read_events(strict=True)[-1]["kind"] == "doc.edit"
+
+
+def test_projected_read_skips_unrequested_json_shards(root, sample_md, sample_record, monkeypatch):
+    from pathlib import Path
+
+    ctx = DatasetContext(root)
+    published = ctx.rebuild_index(observe=False)
+    read_bytes = Path.read_bytes
+
+    def read_requested(path):
+        if path.parent == ctx.store.current_dir:
+            assert path.name in {"documents.json", "diagnostics.json", "meta.json"}
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_requested)
+    payload = ctx.read_index(sections=())
+    assert payload["generation_id"] == published["generation_id"]
+    assert payload["documents"] and "records" not in payload and "relations" not in payload
+
+
+@pytest.mark.parametrize(("field", "replacement"), [
+    ("schema_version", 9), ("shards", None), ("dataset_id", "another"), ("corpus_digest", "stale"),
+])
+def test_projected_read_rejects_incompatible_generation(root, sample_md, field, replacement):
+    import json
+
+    ctx = DatasetContext(root)
+    ctx.rebuild_index(observe=False)
+    path = ctx.store.index_dir / "CURRENT.json"
+    pointer = json.loads(path.read_bytes())
+    if field == "shards":
+        del pointer[field]
+    else:
+        pointer[field] = replacement
+    path.write_text(json.dumps(pointer), encoding="utf-8")
+    projected = ctx.read_index(sections=())
+    assert "generation_id" not in projected
+    assert projected["documents"] and json.loads(path.read_bytes()) == pointer
+
+
+@pytest.mark.parametrize(("stage", "code", "published"), [
+    ("publish", "index.publish_failed", False),
+    ("stats", "index.stats_failed", True),
+    ("history", "index.history_failed", True),
+])
+def test_publish_reports_which_stage_completed(root, sample_md, monkeypatch, stage, code, published):
+    from todoc.errors import IncompleteError
+
+    ctx = DatasetContext(root)
+
+    def fail(*args, **kwargs):
+        raise PermissionError("stage failure")
+
+    target, method = {
+        "publish": (ctx.store, "publish"),
+        "stats": (ctx.store, "write_stats"),
+        "history": (ctx, "observe_history"),
+    }[stage]
+    monkeypatch.setattr(target, method, fail)
+    with pytest.raises(IncompleteError) as error:
+        ctx.rebuild_index()
+    assert error.value.code == code
+    assert (ctx.load_published_index() is not None) is published
+
+
+def test_index_does_not_publish_changed_source(root, sample_md, monkeypatch):
+    from todoc.errors import IncompleteError
+
+    ctx = DatasetContext(root)
+    original = ctx.rebuild_index(observe=False)["generation_id"]
+    build_mentions = ctx.build_mentions
+
+    def change_after_read(*args, **kwargs):
+        result = build_mentions(*args, **kwargs)
+        sample_md.write_text("# Changed just before publication\n", encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(ctx, "build_mentions", change_after_read)
+    with pytest.raises(IncompleteError) as error:
+        ctx.rebuild_index(observe=False)
+    assert error.value.code == "read.changed"
+    assert ctx.load_published_index()["generation_id"] == original
+
+
+def test_source_change_during_parse_does_not_poison_cache(root, sample_md):
+    from todoc.errors import IncompleteError
+
+    ctx = DatasetContext(root, parse_cache=MemoryParseCache())
+    scanned = ctx.scan(strict=True)
+    sample_md.write_text("# Changed during validation\n", encoding="utf-8")
+    with pytest.raises(IncompleteError) as error:
+        ctx.scan_and_validate(scanned, verify_sources=True)
+    assert error.value.code == "read.changed"
+    assert not ctx.parse_cache.entries
+
+
+def test_write_reports_source_saved_when_history_fails(root, sample_md):
+    from todoc.application.write import apply_write_plan, plan_edit_ops
+    from todoc.errors import IncompleteError
+
+    class BrokenHistory:
+        def record(self, *args):
+            raise OSError("journal unavailable")
+
+    plan, _, _ = plan_edit_ops(root, "notes/design.md", [{"line": 1, "text": "# Changed"}])
+    with pytest.raises(IncompleteError) as caught:
+        apply_write_plan(root, plan, history=BrokenHistory())
+    assert caught.value.code == "write.history_failed"
+    assert plan.new_hash in caught.value.message
+    assert sample_md.read_text(encoding="utf-8") == plan.new_content
+
+
+def test_parse_cache_detects_corruption_and_conflicting_path(root):
+    import json
+
+    from todoc.application.registry import JsonParseCache, parse_cache_key, parse_cache_path
+
+    cache = JsonParseCache(root)
+    cache.write("notes.md", "hash", {"title": "Source"})
+    path = parse_cache_path(root, parse_cache_key("notes.md"))
+    entry = json.loads(path.read_bytes())
+    entry["path"] = "other.md"
+    path.write_text(json.dumps(entry), encoding="utf-8")
+    assert cache.read("notes.md", "hash") is None
+    path.write_bytes(b"\xff")
+    assert cache.read("notes.md", "hash") is None
+
+
+def test_concurrent_writers_leave_a_published_index_and_history_intact(root, sample_md):
+    from todoc.adapters.filesystem.locks import directory_lock
+    from todoc.application.history import record_write
+    from todoc.errors import ConflictError
+
+    ctx = DatasetContext(root)
+    published = ctx.rebuild_index(observe=False)
+    other = DatasetContext(root)
+    lock = ctx.store.index_dir / ".publish.lock"
+    with directory_lock(lock):
+        with pytest.raises(ConflictError) as caught:
+            other.rebuild_index(observe=False)
+        assert caught.value.code == "write.busy"
+        assert ctx.load_published_index()["generation_id"] == published["generation_id"]
+    assert not lock.exists()
+
+    history = ctx.history_store
+    with history.transaction():
+        with pytest.raises(ConflictError) as caught:
+            record_write(root, "notes/design.md", b"before", b"after", kind="doc.edit",
+                         store=other.history_store)
+        assert caught.value.code == "write.busy"
+    assert history.read_events(strict=True) == []
+    ctx.history_recorder().record("notes/design.md", b"before", b"after", "doc.edit")
+    assert len(history.read_events(strict=True)) == 1
+
+
+@pytest.mark.parametrize("change", ["events", "refs", "objects"])
+def test_history_cleanup_rechecks_staged_state_before_mutating(root, change):
+    from todoc.application.history import gc
+    from todoc.errors import ConflictError
+
+    store = MemoryHistory()
+    store.append_event({"kind": "doc.edit", "paths": []})
+    events, refs, snapshots = store.read_events(), store.read_refs(), store.list_snapshots()
+    if change == "events":
+        store.append_event({"kind": "external.change", "paths": []})
+    elif change == "refs":
+        store.write_refs({"tags": {"baseline": {"rev": "1"}}})
+    else:
+        store.write_snapshot(b"concurrent content")
+    with pytest.raises(ConflictError) as caught:
+        gc(root, store=store, events=events, refs=refs, snapshots=snapshots)
+    assert caught.value.code == "write.hash_mismatch"
+    assert store.read_events()[0] == events[0]
+
+
+def test_adoption_reports_preserved_baseline_if_ref_publication_fails(root, monkeypatch):
+    from todoc.application.history import adopt
+    from todoc.errors import ConflictError, IncompleteError
+
+    store = MemoryHistory()
+    prior = store.read_events(), store.read_refs()
+    store.append_event({"kind": "external.change", "paths": []})
+    with pytest.raises(ConflictError) as caught:
+        adopt(root, [], store=store, expected_history=prior)
+    assert caught.value.code == "write.hash_mismatch"
+
+    def fail(refs):
+        raise OSError("refs unavailable")
+
+    monkeypatch.setattr(store, "write_refs", fail)
+    with pytest.raises(IncompleteError) as caught:
+        adopt(root, [], store=store)
+    assert caught.value.code == "history.adopt_refs_failed"
+    assert store.read_events()[-1]["kind"] == "snapshot"
+
+
+@pytest.mark.parametrize("change", ["refs", "events"])
+def test_tag_does_not_apply_to_a_revised_history(root, change):
+    from todoc.application.history import add_tag
+    from todoc.errors import ConflictError
+
+    store = MemoryHistory()
+    rev = store.append_event({"kind": "snapshot"})
+    expected = store.read_refs()
+    if change == "refs":
+        store.write_refs({"tags": {"concurrent": {"rev": rev}}})
+    else:
+        store.replace_events([])
+    with pytest.raises(ConflictError) as caught:
+        add_tag(root, "release", rev, store=store, expected_refs=expected)
+    assert caught.value.code == "write.hash_mismatch"
+    assert "release" not in store.read_refs()["tags"]
+
+
+def test_folder_inventory_and_config_changes_invalidate_snapshot(root, sample_md):
+    ctx = DatasetContext(root)
+    first = ctx.rebuild_index(observe=False)
+    folder = root / "empty"
+    folder.mkdir()
+    updated = ctx.read_index(sections=("folders",))
+    assert updated["corpus_digest"] != first["corpus_digest"]
+    assert "empty" in {row["path"] for row in updated["folders"]}
+    ctx.rebuild_index(observe=False)
+    (folder / ".config.json").write_text('{"schema_version":1,"title":"New title"}', encoding="utf-8")
+    revised = ctx.read_index(sections=("folders",))
+    assert revised["corpus_digest"] != updated["corpus_digest"]

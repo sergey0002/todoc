@@ -30,7 +30,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from todoc.adapters.history.store import FileHistoryStore
+from todoc.composition import default_history_store
+
 
 TEMPORAL_FIELDS = ("valid_from", "valid_to", "observed_at", "superseded_at")
 
@@ -190,7 +191,7 @@ def timeline(root: Path, records: list[dict[str, Any]], relations: list[dict[str
     by_record = {str(r.get("record_id", "")): str(r.get("path", "")) for r in records}
     entries: list[dict[str, Any]] = []
 
-    for event in FileHistoryStore(root).read_events() if events is None else events:
+    for event in default_history_store(root).read_events() if events is None else events:
         at = str(event.get("at") or "")
         if moment is not None and at and at > moment:
             continue

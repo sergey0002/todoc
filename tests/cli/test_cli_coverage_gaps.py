@@ -124,13 +124,6 @@ def test_docs_links_edge_cases(tmp_path, monkeypatch):
     (notes / "tab.csv").write_text("col\n1\n", encoding="utf-8")  # не-markdown: continue
     broken = notes / "broken.md"
     broken.write_text("---\nid: doc:b\n---\n\nтекст\n", encoding="utf-8")
-    real_read_text = pathlib.Path.read_text
-
-    def flaky_read_text(self, *args, **kwargs):
-        if self.name == "broken.md":
-            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "simulated")
-        return real_read_text(self, *args, **kwargs)
-
     # wikilink с пустой целью — защитная ветка: подсунем линк парсером
     import todoc.cli as cli_mod
     from todoc.adapters.formats.markdown import parse_markdown as real_parse
@@ -148,7 +141,7 @@ def test_docs_links_edge_cases(tmp_path, monkeypatch):
     data = json.loads(r.output)["data"]
     assert data["meta"]["total_links"] == 2
     assert data["meta"]["total"] == 1
-    monkeypatch.setattr(pathlib.Path, "read_text", flaky_read_text)
+    broken.write_bytes(b"\xff")
     incomplete = _run(runner, ["docs", "links", "--root", str(tmp_path)])
     assert incomplete.exit_code == 6
     body = json.loads(incomplete.output)

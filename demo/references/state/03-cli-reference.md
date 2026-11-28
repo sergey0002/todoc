@@ -455,10 +455,16 @@ derived-целей (`docs.flow_render_not_derived`), дрейф ловит `stal
 ### `relations tree --from ID [--type T] [--depth N] [--limit N] [--cursor C]`
 `data.result.tree` содержит группы рёбер и признаки цикла. Курсор сохраняет контекст предков.
 
-### `skills tree [--vault V] [--within P] [--query Q] [--all] [--limit N] [--max-depth N]` / `skills read --path P [--line-range A-B] [--budget B]` / `skills attach --to DIR [--force]` / `skills import --src S --into SEC [--skill N] [--dry-run] [--adopt]`
+### `skills tree [--vault V] [--within P] [--query Q] [--all] [--limit N] [--depth N] [--view tree|flat] [--fields F] [--exclude-fields F] [--cursor C]` / `skills read --path P [--line-range A-B] [--budget B]` / `skills attach --to DIR [--force]` / `skills import --src S --into SEC [--skill N] [--dry-run] [--adopt]`
 Хранилище-движок скилов (план [skills-vault](../../plan/skills-vault-implementation.md), идея
 [skills-engine](../../ideas/skills-engine.md)). Полное описание — [17-skills-and-vault.md](17-skills-and-vault.md):
 формат Agent Skills, confinement, диспетчер-скил, мьют через `!`.
+Список скилов фильтруется в пределах vault до пагинации. `--depth` (`--max-depth`)
+считает глубину от `--within`. Путь и ID сохраняются при любой проекции.
+`tree` возвращает иерархию в `data.result.root`, `flat` возвращает строки в
+`data.result.items`. Курсор действует в обоих видах для той же выборки.
+Неизвестный вид возвращает `tree` с диагностикой `view.fallback`. Каталог `!`
+скрывает также скилы в дочерних папках, пока не передан `--all`.
 `skills read` возвращает `data.result.content` и метаданные проверенного файла.
 `--budget` задаётся в символах Unicode, по умолчанию 4000.
 

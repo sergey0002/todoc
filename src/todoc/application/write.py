@@ -13,7 +13,7 @@ from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within
 from todoc.adapters.formats.jsonfmt import parse_json, validate_against_schema
 from todoc.application.history import previous_relation_state
 from todoc.application.storage import HistoryStore, ParseCache
-from todoc.application.registry import invalidate_parse_cache
+from todoc.composition import default_parse_cache
 from todoc.domain.models import WritePlan
 from todoc.errors import (EXIT_OPERATION, EXIT_USAGE, AccessError, ConflictError, IncompleteError, TodocError,
                      ValidationError)
@@ -140,15 +140,19 @@ def apply_write_plan(root: Path, plan: WritePlan, expected_hash: str | None = No
         if expected_hash is not None and expected_hash != plan.expected_hash:
             raise ConflictError("Caller expected_hash does not match plan", "write.hash_mismatch")
         atomic_write(target, plan.new_content)
-    if parse_cache is None:
-        invalidate_parse_cache(root, plan.target_path)
-    else:
-        parse_cache.invalidate(plan.target_path)
+    cache = parse_cache if parse_cache is not None else default_parse_cache(root)
+    cache.invalidate(plan.target_path)
     if history is not None:
         prefix = "doc" if target.suffix.lower() in (".md", ".markdown") else "record"
         operation = "create" if before is None else "edit"
-        history.record(plan.target_path, before, plan.new_content.encode("utf-8"),
-                       event_kind or f"{prefix}.{operation}", plan.basis or f"WritePlan {plan.target_path}")
+        try:
+            history.record(plan.target_path, before, plan.new_content.encode("utf-8"),
+                           event_kind or f"{prefix}.{operation}", plan.basis or f"WritePlan {plan.target_path}")
+        except (OSError, TodocError) as exc:
+            raise IncompleteError(
+                f"Saved {plan.target_path} with hash {plan.new_hash}. History recording failed: {exc}",
+                "write.history_failed",
+            ) from exc
     return plan.new_hash
 
 
@@ -167,7 +171,7 @@ def apply_fix(root: Path, rel_path: str, old_target: str, new_target: str, expec
     new_text = text.replace(old_target, new_target, 1)
     before = target.read_bytes()
     atomic_write(target, new_text)
-    invalidate_parse_cache(root, rel_path)
+    default_parse_cache(root).invalidate(rel_path)
     if history is not None:
         history.record(rel_path, before, new_text.encode("utf-8"), "doc.fix",
                        f"fix link {old_target!r} -> {new_target!r}")
@@ -409,7 +413,7 @@ def apply_undo_relation(root: Path, rel_path: str, pointer: str, previous: dict[
     new_text = _splice_element(text, spans, previous)
     before = target.read_bytes()
     atomic_write(target, new_text)
-    invalidate_parse_cache(root, rel_path)
+    default_parse_cache(root).invalidate(rel_path)
     if history is not None:
         history.record(rel_path, before, new_text.encode("utf-8"), "record.undo_relation",
                        f"undo relation {pointer}")

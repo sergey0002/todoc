@@ -79,7 +79,8 @@ def within_depth(path: str, scope: str, depth: int) -> bool:
     return relative.is_relative_to(base) and len(relative.relative_to(base).parts) <= depth
 
 
-def folder_tree(scope: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def folder_tree(scope: str, rows: list[dict[str, Any]], *,
+                folder_metadata: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Attach page rows while restoring only the ancestors needed for navigation."""
     nodes = {row["path"]: {**row, "context_only": False, "children": []} for row in rows}
 
@@ -89,6 +90,8 @@ def folder_tree(scope: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "id": f"folder:{path}", "path": path, "kind": "folder",
                 "context_only": True, "children": [],
             }
+            if folder_metadata is not None:
+                nodes[path].update({"title": PurePosixPath(path).name or path, **folder_metadata.get(path, {})})
             if path != scope:
                 folder(PurePosixPath(path).parent.as_posix())["children"].append(nodes[path])
         return nodes[path]

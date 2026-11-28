@@ -7,6 +7,7 @@ import pytest
 
 from todoc.adapters.history import journal, objects
 from todoc.adapters.history.backends import EmbeddedBackend, GitBackend, detect_backend, resolve_backend
+from todoc.adapters.history.store import FileHistoryStore
 from todoc.application import history as H
 
 
@@ -794,7 +795,7 @@ def test_gc_ignores_entries_without_before(root, doc):
 def test_last_revision_ignores_other_paths(root, doc):
     """Обход журнала пропускает события других файлов и не-словари."""
     _crafted(root, [{"path": "другой.md", "git_head": "0" * 40}, "не словарь"])
-    assert H._last_revision_for(H.FileHistoryStore(root), "notes/a.md") is None
+    assert H._last_revision_for(FileHistoryStore(root), "notes/a.md") is None
 
 
 def test_ranges_touch_section_ignores_malformed_ranges(root, sectioned):

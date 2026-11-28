@@ -1,5 +1,7 @@
 # tests/cli/test_cli_skills_tree.py — house-паттерн tests/cli/test_cli.py
 import json
+
+import pytest
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -130,3 +132,67 @@ def test_tree_max_depth_cuts_recursion(tmp_path):
                       "--max-depth", "1"])
     assert t.exit_code == 0
     assert "commit-message" not in t.output
+
+
+def test_skills_tree_pages_once_across_views_and_projections(tmp_path):
+    _vault(tmp_path)
+    args = ["skills", "tree", "--root", str(tmp_path), "--limit", "2"]
+    first = _json(_run(CliRunner(), args + ["--view", "flat", "--fields", "name"]))["data"]
+    assert first["meta"]["actual_view"] == "flat" and first["meta"]["total"] == 4
+    assert len(first["result"]["items"]) == 2
+    assert all(set(row) == {"id", "path", "name"} for row in first["result"]["items"])
+    cursor = first["meta"]["next_cursor"]
+
+    second = _json(_run(CliRunner(), args + ["--view", "tree", "--cursor", cursor,
+                                            "--exclude-fields", "refs"]))["data"]
+    paths = {row["path"] for row in second["result"]["skills"]}
+    assert len(paths) == 2
+    assert not paths & {row["path"] for row in first["result"]["items"]}
+    assert all("refs" not in row for row in second["result"]["skills"])
+    assert second["result"]["root"]["children"]
+    assert second["meta"]["next_cursor"] is None
+
+    _skill(tmp_path, "docs/extra", "extra")
+    changed = _run(CliRunner(), args + ["--cursor", cursor])
+    assert changed.exception.code == "cursor.invalid"
+
+
+@pytest.mark.parametrize("output", ["json", "table", "markdown"])
+def test_skills_tree_reports_view_fallback_in_each_format(tmp_path, output):
+    _vault(tmp_path)
+    result = _run(CliRunner(), ["skills", "tree", "--root", str(tmp_path), "--view", "graph",
+                               "--output", output])
+    assert result.exit_code == 0, result.exception
+    assert "view.fallback" in result.output and "requested_view" in result.output
+    assert "actual_view" in result.output and "commit-message" in result.output
+    if output == "json":
+        assert _json(result)["data"]["meta"]["actual_view"] == "tree"
+
+
+def test_skills_tree_keeps_a_root_skill_and_inherits_muting(tmp_path):
+    _vault(tmp_path)
+    (tmp_path / "skills/SKILL.md").write_text("---\nname: skills\ndescription: Root skill\n---\n", encoding="utf-8")
+    _skill(tmp_path, "!paused/child", "child")
+    args = ["skills", "tree", "--root", str(tmp_path)]
+    default = _json(_run(CliRunner(), args))
+    assert default["data"]["result"]["root"]["path"] == "."
+    assert "child" not in {row["name"] for row in default["data"]["result"]["skills"]}
+    scoped = _json(_run(CliRunner(), args + ["--within", "!paused", "--all"]))
+    row, = scoped["data"]["result"]["skills"]
+    assert row["path"] == "!paused/child" and row["muted"]
+    top = _run(CliRunner(), args + ["--depth", "0", "--output", "table"])
+    assert top.exit_code == 0 and "Root skill" in top.output
+    assert "commit-message" not in top.output
+
+
+def test_skills_tree_surfaces_an_incomplete_scan_and_empty_scoped_query(tmp_path):
+    _vault(tmp_path)
+    base = ["skills", "tree", "--root", str(tmp_path)]
+    empty = _json(_run(CliRunner(), base + ["--query", "no-match"]))
+    assert empty["ok"] and empty["data"]["meta"]["returned"] == 0
+    assert empty["next_actions"] == []
+    (tmp_path / "skills/docs/note-search/SKILL.md").write_bytes(b"\xff")
+    invalid = _run(CliRunner(), base)
+    envelope = _json(invalid)
+    assert invalid.exit_code == 6 and not envelope["data"]["meta"]["complete"]
+    assert envelope["diagnostics"][0]["path"] == "docs/note-search/SKILL.md"

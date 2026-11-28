@@ -6,8 +6,9 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, ContextManager
 
+from todoc.adapters.filesystem.locks import directory_lock
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash, is_within_root
 from todoc.adapters.formats.jsonfmt import parse_json
 from todoc.adapters.history import journal, objects
@@ -23,6 +24,10 @@ class FileHistoryStore:
         if path.is_symlink() or not is_within_root(self.root, path) or not is_within_root(base, path):
             raise AccessError(f"History path is outside the store: {path}", "access.outside_data_root")
         return path
+
+    def transaction(self) -> ContextManager[None]:
+        """Serialize cooperating writers across journal, refs and objects."""
+        return directory_lock(self._checked_path(journal.history_dir(self.root) / ".write.lock"))
 
     def read_events(self, *, strict: bool = False) -> list[dict[str, Any]]:
         if not strict:
@@ -157,10 +162,14 @@ class FileHistoryStore:
             raise IncompleteError(f"Could not enumerate history: {exc}", "history.backup_unreadable") from exc
         return manifest
 
-    def write_backup(self, destination: Path, manifest: dict[str, str]) -> int:
-        source = journal.history_dir(self.root)
-        if not is_within_root(self.root, destination) or is_within_root(source, destination):
+    def check_backup_destination(self, destination: Path) -> None:
+        if (not is_within_root(self.root, destination)
+                or is_within_root(journal.history_dir(self.root), destination)):
             raise AccessError("Backup must be inside the dataset and outside history.", "access.outside_data_root")
+
+    def write_backup(self, destination: Path, manifest: dict[str, str]) -> int:
+        self.check_backup_destination(destination)
+        source = journal.history_dir(self.root)
         if not manifest:
             return 0
         if manifest != self.backup_manifest():

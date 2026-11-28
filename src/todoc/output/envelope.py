@@ -94,7 +94,9 @@ def emit(envelope: Envelope, output: str, out_path: str | None = None) -> None:
             fence = chr(96) * 3
             lines.extend((f"{key}: {details}", "", f"{fence}mermaid", diagram, fence))
         elif key == "result" and isinstance(value, dict) and "tree_text" in value:
-            lines.extend(("result:", str(value["tree_text"])))
+            lines.extend(("result:", str(value["tree_text"]), "", *_table(value["skills"])))
+            lines.extend(f"{name}: {field}" for name, field in value.items()
+                         if name not in ("tree_text", "skills", "root"))
         elif envelope.schema_version == 2 and key == "result" and isinstance(value, dict) and "items" in value:
             lines.extend(("result:", "", *_table(value["items"])))
             lines.extend(f"{name}: {field}" for name, field in value.items() if name != "items")

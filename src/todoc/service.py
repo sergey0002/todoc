@@ -6,15 +6,17 @@ from pathlib import Path
 from typing import Any
 
 from todoc.adapters.filesystem.scanner import scan_dataset
-from todoc.adapters.history.store import FileHistoryStore
 from todoc.application.history import observe_external_changes, open_backend, record_write
-from todoc.application.registry import JsonParseCache, RegistryStore, _config_digest, corpus_digest
-from todoc.application.storage import HistoryStore, IndexStatus, IndexStore, ParseCache
+from todoc.application.fingerprint import source_fingerprint
+from todoc.application.storage import (
+    SNAPSHOT_SECTIONS, HistoryStore, IndexStatus, IndexStore, ParseCache, SnapshotQuery, SnapshotSection,
+)
 from todoc.application import temporal
 from todoc.application.validator import build_mentions, stable_id, validate_dataset, validate_relations
+from todoc.composition import default_history_store, default_index, default_parse_cache
 from todoc.config import load_dataset, load_rules
 from todoc.domain.models import Document, Folder
-from todoc.errors import IncompleteError, ValidationError
+from todoc.errors import IncompleteError, TodocError, ValidationError
 from todoc.typing_system.descriptors import TypeRegistry
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 
@@ -33,7 +35,7 @@ class HistoryRecorder:
         self.backend = backend
         self.git_head = git_head
         self.change_id = change_id
-        self.store = store if store is not None else FileHistoryStore(root)
+        self.store = store if store is not None else default_history_store(root)
 
     def record(self, rel_path: str, before: bytes | None, after: bytes, kind: str, basis: str = "") -> None:
         record_write(self.root, rel_path, before, after, kind=kind, basis=basis,
@@ -50,12 +52,13 @@ class DatasetContext:
         self.registry_types = TypeRegistry()
         self.registry_types.load(self.root, self.dataset)
         self.registry_types.validate_references(self.dir_rules, self.doc_rules)
-        self.store: IndexStore = index_store if index_store is not None else RegistryStore(self.root)
-        self.parse_cache: ParseCache = parse_cache if parse_cache is not None else JsonParseCache(self.root)
-        self.history_store: HistoryStore = history_store if history_store is not None else FileHistoryStore(self.root)
+        self.store: IndexStore = index_store if index_store is not None else default_index(self.root)
+        self.parse_cache: ParseCache = parse_cache if parse_cache is not None else default_parse_cache(self.root)
+        self.history_store: HistoryStore = history_store if history_store is not None else default_history_store(self.root)
 
     def scan_and_validate(self, scanned: tuple[Any, Any] | None = None, *,
-                          write_cache: bool = True, check_content: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+                          write_cache: bool = True, check_content: bool = True,
+                          verify_sources: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         """Returns (folders, documents, records, relations, diagnostics) as dicts.
 
         ``scanned`` lets a caller that already walked the tree (to compute the corpus
@@ -66,7 +69,8 @@ class DatasetContext:
         scanned_folders, scanned_files = scanned
         diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules,
                                            registry=self.registry_types, write_cache=write_cache,
-                                           parse_cache=self.parse_cache, check_content=check_content)
+                                           parse_cache=self.parse_cache, check_content=check_content,
+                                           verify_sources=verify_sources)
 
         folders: list[dict[str, Any]] = []
         for folder in scanned_folders:
@@ -142,12 +146,14 @@ class DatasetContext:
         return folders, documents, records, relations, diag_dicts
 
     def build_mentions(self, scanned: tuple[Any, Any], records: list[dict[str, Any]],
-                       folders: list[dict[str, Any]], documents: list[dict[str, Any]]
+                       folders: list[dict[str, Any]], documents: list[dict[str, Any]], *,
+                       verify_sources: bool = False
                        ) -> list[dict[str, Any]]:
         """Индекс упоминаний md → цели (план entity-catalog З2). Derived, rebuildable."""
         scanned_folders, scanned_files = scanned
         all_paths = {f.rel_path for f in scanned_files}
-        return build_mentions(self.root, scanned_files, records, all_paths, parse_cache=self.parse_cache)
+        return build_mentions(self.root, scanned_files, records, all_paths, parse_cache=self.parse_cache,
+                              verify_sources=verify_sources)
 
     def history_recorder(self, change_id: str | None = None) -> HistoryRecorder:
         """Рекодер с бэкендом из конфигурации; деградация в embedded видна в `degraded`."""
@@ -183,44 +189,71 @@ class DatasetContext:
     def load_published_index(self) -> dict[str, Any] | None:
         return self.store.load_current()
 
-    def read_index(self, *, include_mentions: bool = True) -> dict[str, Any]:
-        """Read a verified snapshot or assemble one in memory without publishing."""
-        def fingerprint(scanned: tuple[Any, Any]) -> str:
-            return corpus_digest(scanned[1], _config_digest(self.root, strict=True))
+    def read_index(
+        self, *, include_mentions: bool = True, sections: tuple[SnapshotSection, ...] | None = None,
+    ) -> dict[str, Any]:
+        """Read a verified projection or assemble one in memory without publishing."""
+        requested = SNAPSHOT_SECTIONS if sections is None else tuple(dict.fromkeys(("documents", "diagnostics", *sections)))
+        read_mentions = include_mentions and "mentions" in requested
 
         try:
             scanned = self.scan(strict=True)
-            digest = fingerprint(scanned)
-            current = self.store.load_current()
+            digest = source_fingerprint(self.root, *scanned)
+            current = self.store.read_snapshot(SnapshotQuery(self.dataset_id, digest, requested))
             manifest = {file.rel_path: file.hash for file in scanned[1]}
-            if (current is not None and current.get("dataset_id") == self.dataset_id
-                    and current.get("corpus_digest") == digest
+            if (current is not None
                     and {doc.get("path"): doc.get("hash") for doc in current["documents"]} == manifest
                     and all({"document_id", "path", "hash", "format", "title", "status", "doc_type"} <= doc.keys()
                             and isinstance(doc.get("attributes"), dict) and isinstance(doc.get("headings"), list)
                             and "managed_metadata" in doc
                             for doc in current["documents"])
-                    and all("source_path" in edge for edge in current["relations"])):
+                    and all("source_path" in edge for edge in current.get("relations", []))):
                 payload = current
             else:
                 folders, documents, records, relations, diagnostics = self.scan_and_validate(
-                    scanned, write_cache=False, check_content=include_mentions
+                    scanned, write_cache=False, check_content=read_mentions, verify_sources=True
                 )
                 payload = {
                     "folders": folders, "documents": documents, "records": records,
                     "relations": relations, "diagnostics": diagnostics,
-                    "mentions": self.build_mentions(scanned, records, folders, documents) if include_mentions else [],
+                    "mentions": self.build_mentions(scanned, records, folders, documents, verify_sources=True)
+                    if read_mentions else [],
                 }
-            if fingerprint(self.scan(strict=True)) != digest:
+                payload = {name: payload[name] for name in requested}
+            if source_fingerprint(self.root, *self.scan(strict=True)) != digest:
                 raise IncompleteError("Dataset changed while reading.")
         except OSError as exc:
             raise IncompleteError(f"Dataset could not be read: {exc.strerror or type(exc).__name__}") from exc
         return {**payload, "dataset_id": self.dataset_id, "corpus_digest": digest}
 
+    def _publish_index(self, scanned: tuple[Any, Any], digest: str, *, observe: bool) -> tuple[str, tuple[list[dict[str, Any]], ...]]:
+        try:
+            collections = self.scan_and_validate(scanned, verify_sources=True)
+            folders, documents, records, relations, diagnostics = collections
+            mentions = self.build_mentions(scanned, records, folders, documents, verify_sources=True)
+            if source_fingerprint(self.root, *self.scan(strict=True)) != digest:
+                raise IncompleteError("Dataset changed during index construction. Retry the rebuild.", "read.changed")
+            generation = self.store.publish(self.dataset, folders, documents, records, relations,
+                                            diagnostics, digest, mentions=mentions)
+        except OSError as exc:
+            raise IncompleteError(f"Could not publish the index: {exc}", "index.publish_failed") from exc
+        try:
+            self.store.write_stats(scanned[1])
+        except (OSError, TodocError) as exc:
+            raise IncompleteError(f"Index {generation} was published, but scan statistics were not saved: {exc}",
+                                  "index.stats_failed") from exc
+        if observe:
+            try:
+                self.observe_history(scanned[1])
+            except (OSError, TodocError) as exc:
+                raise IncompleteError(f"Index {generation} was published. History observation failed: {exc}",
+                                      "index.history_failed") from exc
+        return generation, collections
+
     def rebuild_index(self, force: bool = True, observe: bool = True) -> dict[str, Any]:
         """Recompute and publish the snapshot. ``force=False`` reuses a valid one."""
         scanned = self.scan(strict=True)
-        digest = corpus_digest(scanned[1], _config_digest(self.root, strict=True))
+        digest = source_fingerprint(self.root, *scanned)
         if not force:
             meta = self.store.read_current_meta()
             if meta and meta.get("corpus_digest") == digest:
@@ -233,13 +266,9 @@ class DatasetContext:
                             "records": len(existing.get("records") or []),
                             "relations": len(existing.get("relations") or []),
                             "diagnostics": len(existing.get("diagnostics") or [])}
-        folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
-        mentions = self.build_mentions(scanned, records, folders, documents)
-        gen_id = self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest,
-                                    mentions=mentions)
-        self.store.write_stats(scanned[1])
-        if observe:
-            self.observe_history(scanned[1])
+        gen_id, (folders, documents, records, relations, diagnostics) = self._publish_index(
+            scanned, digest, observe=observe,
+        )
         return {"dataset_id": self.dataset_id, "generation_id": gen_id, "corpus_digest": digest,
                 "reused": False, "folders": len(folders), "documents": len(documents),
                 "records": len(records), "relations": len(relations), "diagnostics": len(diagnostics)}
@@ -251,18 +280,13 @@ class DatasetContext:
         not publish, otherwise an unchanged corpus accumulates one snapshot per run.
         """
         scanned = self.scan(strict=True)
-        digest = corpus_digest(scanned[1], _config_digest(self.root, strict=True))
+        digest = source_fingerprint(self.root, *scanned)
         meta = self.store.read_current_meta()
         if meta and meta.get("corpus_digest") == digest:
             payload = self.store.load_current()
             if payload is not None and payload.get("dataset_id") == self.dataset_id:
                 return payload
-        folders, documents, records, relations, diagnostics = self.scan_and_validate(scanned)
-        mentions = self.build_mentions(scanned, records, folders, documents)
-        self.store.publish(self.dataset, folders, documents, records, relations, diagnostics, digest,
-                           mentions=mentions)
-        self.store.write_stats(scanned[1])
-        self.observe_history(scanned[1])
+        self._publish_index(scanned, digest, observe=True)
         payload = self.store.load_current()
         if payload is None:
             raise IncompleteError("Index publish produced no readable snapshot. Run `todoc index rebuild`.")
