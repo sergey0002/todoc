@@ -4,9 +4,9 @@ title: "BUG-045: docs search --budget не ограничивает ответ �
 doc_type: bug-report
 lang: ru
 created: 2026-11-28
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-045
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 1500
@@ -101,3 +101,5 @@ $ todoc docs search --root demo --query "контракт" --limit 1 --budget 50
 Поиск перед созданием (2026-11-28): `docs search --type bug-report --query
 "docs search budget"` — найден BUG-018 (`docs read` без `--section`), другой
 код-путь; BUG-005 — секция. Связанные: BUG-018, BUG-005, BUG-043.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `--budget` ограничивает UTF-8 байты сериализованных `data.result.items` (конверт исключён), отдаёт `data.meta.budget={limit,used_bytes,exhausted}`; слишком малый лимит даёт пустой список с `exhausted: true`. Тест: `tests/cli/test_unified_docs.py::test_search_budget_counts_serialized_utf8_items`.

@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-038
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 1500
@@ -106,3 +106,5 @@ $ todoc records read --root demo --id term:data-root --view nope --output json
 "records read view"` — совпадений по корневой причине нет (BUG-018 — docs read
 budget, BUG-020 — неймспейс records list). Связанные: BUG-022 (нет обзорной
 выборки), BUG-037 (output-контракт).
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Неизвестный `--view` даёт диагностику `view.fallback` с фактическим видом. Проверка: `tools/bug_acceptance.py --only BUG-038` → `fixed`. Тест: `tests/cli/test_unified_failures.py`.

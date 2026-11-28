@@ -4,9 +4,9 @@ title: "BUG-050: Нулевой limit зацикливает курсор пои
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-050
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 component: cli
@@ -46,3 +46,5 @@ found: 2026-11-28
 ## Заметки
 
 Дедуп 2026-11-28 по `cursor 0` и `search_documents`. Полный список совпадений сохранён; совпадения по корневой причине нет. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `--limit 0` отклоняется как `usage.error` (exit 2). Тест: `tests/cli/test_unified_failures.py`.

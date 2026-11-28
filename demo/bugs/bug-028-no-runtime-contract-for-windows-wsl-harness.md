@@ -4,7 +4,7 @@ title: "BUG-028: нет runtime-контракта для Windows/WSL-харне
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-028
 status: open
 severity: docs
@@ -122,3 +122,23 @@ $ wsl -e bash -lc "… --title \"BUG-026: doctor …\" --path bugs/bug-026-….m
   пересобран (`index rebuild --force`), BUG-026 создан с явным `--path`.
 - Поиск перед созданием (2026-11-27): `--type bug-report --query encoding` →
   только BUG-004 (про `encoding="utf-8"` в коде правок); `--query venv` — 0.
+
+### Повторный эпизод 2026-11-28: минимальный воспроизводимый пробник
+
+Подтверждён молчаливый обрыв argv при внешних одинарных кавычках и внутренних
+двойных — именно в такой форме выполнялись поиски и `docs new`:
+
+```
+$ wsl -d Ubuntu -- bash -lc 'printf "[%s]\n" "a b" --limit 5 --fields path,title'
+[a]n
+$ wsl -d Ubuntu -- bash -lc "printf '[%s]' 'a b' --limit 5 --fields path,title"
+[a b][--limit][5][--fields][path,title]
+```
+
+Следствия в этой сессии: `docs search --query "…" --limit 3 --fields path,title`
+вернул 10 элементов с полной проекцией (хвост потерян, ошибки нет), а
+`docs new --title "BUG-058: …" --path bugs/… --apply` спланировал
+`inbox/bug-058.md` с заголовком `BUG-058:` (файл не создан только потому, что
+вместе с `--path` потерялся `--apply`). Рекомендация к правилу 12 из BUG-058:
+запретить внешние одинарные кавычки в `AGENTS.md` и добавить этот `printf`-пробник
+как обязательный шаг перед мутирующей командой.

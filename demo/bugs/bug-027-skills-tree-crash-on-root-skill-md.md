@@ -4,9 +4,9 @@ title: "BUG-027: skills tree падает traceback на vault с SKILL.md в к
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-027
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 component: cli
@@ -109,3 +109,5 @@ skills/  (30 skills, 3 sections, 1 muted)
   (`skills tree` — счётчики раздела).
 - Поиск перед созданием (2026-11-27): `--type bug-report --query skills` →
   BUG-008 (счётчики), BUG-024 (шум индекса) — падения нет ни в одном.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `skills tree` сохраняет корневой `SKILL.md` как узел `.` и не падает. Проверка: `tools/bug_acceptance.py --only BUG-027` → `fixed`. Тест: `tests/cli/test_cli_skills_tree.py::test_skills_tree_keeps_a_root_skill_and_inherits_muting`.

@@ -4,7 +4,7 @@ title: "BUG-019: docs search с пустым --query возвращает ok:tru
 doc_type: bug-report
 lang: ru
 bug_id: BUG-019
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 1000
@@ -96,3 +96,5 @@ if not q.strip():
 Поиск перед созданием (2026-11-28): `--type bug-report --query "пустой query"` — совпадений нет.
 Связанные: BUG-022 (отсутствие выборки по типу — истинная потребность, породившая пустой запрос),
 BUG-021 (usage-ошибки без подсказок).
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Пустой `--query` даёт `usage.error`, exit 2, а не пустой успех. Проверка: `tools/bug_acceptance.py --only BUG-019`. Тест: `tests/cli/test_unified_failures.py`.

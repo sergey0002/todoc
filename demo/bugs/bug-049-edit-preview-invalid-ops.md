@@ -4,9 +4,9 @@ title: "BUG-049: Preview правки одобряет неисполнимый 
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-049
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 component: cli
@@ -52,3 +52,5 @@ Preview: exit 0, `ok:true`, исходные ops. Apply: exit 1, `ValueError("in
 ## Заметки
 
 Дедуп 2026-11-28: `edit.invalid_patch`, `apply_edit_ops`; существующие отчёты просмотрены по смыслу. Протокол `.doc/codexaudit/evidence/verification.md`. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Неизвестная операция патча даёт `edit.op_unknown` (exit 3). Тест: `tests/cli/test_unified_failures.py`.

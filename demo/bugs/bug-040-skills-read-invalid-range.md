@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-040
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 500
@@ -102,3 +102,5 @@ $ todoc skills read --root demo --path process/todoc-plan --budget -1 --output j
 "skills read line-range"` — совпадений по корневой причине нет (BUG-018 —
 docs read budget, BUG-005 — section budget). Связанные: BUG-018 (бюджет),
 BUG-042 (docs read --line-range вне файла).
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Невалидный `--line-range` даёт `usage.invalid_line_range` (exit 3), `--budget -1` — `usage.error` (exit 2), без traceback. Тест: `tests/cli/test_unified_failures.py::test_skill_line_range_past_end_is_rejected`.

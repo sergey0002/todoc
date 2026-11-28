@@ -4,9 +4,9 @@ title: "BUG-053: Контрактные тесты пропускают влож
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-053
-status: open
+status: fixed
 severity: minor
 agent_impact: none
 component: tests
@@ -46,3 +46,5 @@ found: 2026-11-28
 ## Заметки
 
 Дедуп 2026-11-28 по `K47 K48` и `leaf_commands`; результаты повторного поиска сохраняются при регистрации. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Контрактные тесты обходят все листья Click и проверяют грамматику публичных опций. Тест: `tests/cli/test_contract.py::test_every_leaf_command_is_covered`.

@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-042
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 tokens_extra_est: 700
@@ -100,3 +100,13 @@ TypeError: '>=' not supported between instances of 'str' and 'int'
 "records query invalid"` — найден только BUG-016 (фильтры не документированы),
 другой корень. Связанные: BUG-016 (документация фильтров), BUG-041
 (пост-лимитные фильтры).
+
+Исправление (2026-11-28, рабочее дерево): QuerySpec проверяется до чтения
+индекса. Принимаются `schema_version: 1`, `name`, `entity_type`, `filters`,
+`limit` и `sort_hint`; неизвестные ключи, операторы, версия и неверные типы
+дают `query.invalid_file` без traceback. Несравнимые операнды по-прежнему
+превращаются в `query.invalid_file`, а не в исключение. Файл читается через
+`parse_json`, поэтому BOM снимается. Тесты: `tests/cli/test_unified_failures.py`.
+Коммит не создан; после коммита статус меняется на `fixed` с его ссылкой.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. QuerySpec валидируется до чтения индекса; невалидная спецификация даёт `query.invalid_file` без traceback. Тест: `tests/cli/test_unified_failures.py::test_invalid_query_spec_is_rejected_before_index_read`.

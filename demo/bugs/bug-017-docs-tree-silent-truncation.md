@@ -4,9 +4,9 @@ title: "BUG-017: docs tree молча усекает дерево до 50 пап
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-017
-status: open
+status: fixed
 severity: major
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 9000
@@ -113,3 +113,5 @@ $ diff /tmp/t0.json /tmp/t9.json      # --max-depth 0 против --max-depth 9
   и игнорирует) и BUG-008 (`skills tree` — счётчики/глубина раздела).
 - Поиск перед созданием (2026-11-27): `--type bug-report --query max-depth` —
   найден только BUG-008 (другой компонент, `skills tree`); `--query truncated` — совпадений нет.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `docs tree` сообщает `truncated` и `next_cursor`; проверка: `--limit 5` → `total=474 returned=5 truncated=True`. Тест: `tests/cli/test_unified_docs.py::test_tree_cursor_traverses_every_row_and_rejects_scope_changes`.

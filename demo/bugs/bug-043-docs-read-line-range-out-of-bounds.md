@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-043
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 500
@@ -92,3 +92,13 @@ $ todoc docs read --root demo --id doc:ideas/action-logging.md --line-range 1-5 
 "docs read line-range"` — совпадений по границам диапазона нет (BUG-018 —
 бюджет полного чтения, BUG-005 — бюджет секции). Связанные: BUG-018,
 BUG-040 (skills read range).
+
+Исправление (2026-11-28, рабочее дерево): `docs read` и `skills read`
+отклоняют начало `--line-range` за концом файла с `usage.invalid_line_range`;
+диапазон с допустимым началом и концом за EOF обрезается. Успешный
+Markdown-ответ с `--line-range` теперь содержит `line_total`, поэтому диапазон
+можно скорректировать без полного чтения. Тесты: `tests/cli/test_cli_extra.py`,
+`tests/cli/test_unified_failures.py`. Коммит не создан; после коммита статус
+меняется на `fixed` с его ссылкой.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Начало `--line-range` за концом файла даёт `usage.invalid_line_range` с `line_total`. Тест: `tests/cli/test_cli_extra.py::test_docs_read_line_range`.

@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-037
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 1000
@@ -101,3 +101,12 @@ datasets: [{'dataset_id': 'dataset-80c70868', 'documents': 476, 'diagnostics': [
 "global output option"` — совпадений по корневой причине нет (BUG-013 —
 неоднородные id/envelope, BUG-021 — guidance). Связанные: BUG-040
 (`status.next_actions`), BUG-013 (output-контракты).
+
+Исправление (2026-11-28, рабочее дерево): module-global `_group_output`
+удалён. Успешный вывод уже наследовал ближайшее явное значение; теперь
+ошибки, включая ранние ошибки разбора, берут ближайший разобранный `--output`
+через `resolved_output`, а leaf override действует и при отказе use case.
+`render` отделён от записи. Тесты: `tests/cli/test_unified_e2e.py`.
+Коммит не создан; после коммита статус меняется на `fixed` с его ссылкой.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Ранние ошибки разбора и ошибки use case берут ближайший разобранный `--output`; `render` отделён от записи. Тест: `tests/cli/test_unified_e2e.py::test_main_uses_nearest_parsed_output_for_early_errors`.

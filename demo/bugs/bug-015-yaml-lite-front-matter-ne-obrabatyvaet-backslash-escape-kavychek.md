@@ -4,9 +4,9 @@ title: "BUG-015: YAML-lite front matter не обрабатывает backslash-
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 bug_id: BUG-015
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 600
@@ -70,3 +70,5 @@ doc.warnings      # []  — предупреждения нет
 ## Заметки
 
 - Урок зафиксирован в памяти сессий 25–26.11 («raw-кавычки — канон YAML-lite»).
+
+- 2026-11-28: `fixed` — коммит `7d32813`. YAML-lite снимает экранирование кавычек: заголовок `a "b" c` разбирается целиком. Проверка: `tools/bug_acceptance.py --only BUG-015` → `fixed`. Тест: `tests/unit/test_formats_hardened.py`.

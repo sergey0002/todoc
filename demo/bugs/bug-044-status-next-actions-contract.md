@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-044
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 500
@@ -95,3 +95,5 @@ next:  (Индекс ещё не опубликован: считать доку
 "next_actions status"` — совпадений по форме next_actions нет (BUG-021 —
 guidance, BUG-013 — output-контракты). Связанные: BUG-037 (глобальный
 `--output`), BUG-013.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `status` без индекса отдаёт `next_actions` в форме `{argv, purpose}`. Тест: `tests/cli/test_unified_e2e.py`.

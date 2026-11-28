@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-046
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 tokens_extra_est: 700
@@ -129,3 +129,5 @@ $ todoc validate --root "$KB" --all --output json
 Поиск перед созданием (2026-11-28): `docs search --type bug-report --query
 "fix apply link"` — совпадений по корневой причине нет (BUG-007 — linkcheck,
 BUG-013 — id). Связанные: BUG-007, BUG-004 (docs edit).
+
+- 2026-11-28: `fixed` — коммит `7d32813` (поведение уже было в рабочем дереве). Автофикс правит ссылку на диагностической строке, совпадающий текст в прозе не меняется, повторная валидация чистая. Проверка: `tools/bug_acceptance.py --only BUG-046` → `fixed`. Тест: `tests/cli/test_cli.py`.

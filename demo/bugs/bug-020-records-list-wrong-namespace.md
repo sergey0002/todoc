@@ -4,7 +4,7 @@ title: "BUG-020: records list по doc_type возвращает пустой у
 doc_type: bug-report
 lang: ru
 bug_id: BUG-020
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 800
@@ -100,3 +100,12 @@ def records_list(roots, output, no_input, entity_type, since, until, relation, l
 Поиск перед созданием (2026-11-28): `--type bug-report --query "records list неймспейс"` — совпадений нет.
 Связанные: BUG-022 (нет выборки по типу), BUG-021 (usage-ошибки без guidance),
 BUG-013 (неоднородные id/контракты).
+
+Исправление (2026-11-28, рабочее дерево): `records list` и `records query`
+проверяют `entity_type` до чтения индекса. Тип из другого пространства имён
+даёт `query.namespace_mismatch` с guidance, неизвестный — `query.unknown_type`;
+известный тип без записей остаётся пустым успехом. Тесты:
+`tests/cli/test_unified_failures.py`. Коммит не создан; после коммита статус
+меняется на `fixed` с его ссылкой.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `records list` по `doc_type` даёт `query.namespace_mismatch` до чтения индекса, с guidance. Тест: `tests/cli/test_unified_failures.py::test_records_type_namespace_is_checked_before_index`.

@@ -4,9 +4,9 @@ title: "BUG-048: Поиск падает на файле с невалидным
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-048
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 component: engine
@@ -46,3 +46,5 @@ Validate: exit 3, `ok:false`, `file.unreadable`. Search: exit 1, `UnicodeDecodeE
 ## Заметки
 
 Дедуп 2026-11-28: `UnicodeDecodeError`, `file.unreadable`; подходящего по корневой причине отчёта не найдено. Протокол `.doc/codexaudit/evidence/verification.md`. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Нечитаемый UTF-8 файл даёт `file.unreadable` (exit 6), поиск не падает. Тест: `tests/cli/test_unified_failures.py`.

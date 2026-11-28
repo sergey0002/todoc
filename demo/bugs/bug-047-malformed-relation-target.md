@@ -4,9 +4,9 @@ title: "BUG-047: Неверная форма target отношения обру�
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-047
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 component: engine
@@ -52,3 +52,5 @@ found: 2026-11-28
 ## Заметки
 
 Дедуп выполнен 2026-11-28 по `relation.malformed` и `service`; исходные результаты сохранены в протоколе. BUG-020 описывает другой механизм (неймспейс типа), это не дубль. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813`. Некорректная цель связи даёт `relation.*` диагностику, а не исключение. Тест: `tests/unit/test_validator.py`.

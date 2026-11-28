@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-039
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 800
@@ -103,3 +103,5 @@ $ todoc records aggregate --root demo --type metric --metric value --group-by as
 "records aggregate workout"` — совпадений по корневой причине нет (BUG-020 —
 неймспейс `records list`, BUG-016 — фильтры query не документированы).
 Связанные: BUG-022 (нет обзорной выборки по типу).
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `records aggregate` без `--type` возвращает discovery (`executed: false`), а не тип по умолчанию. Тест: `tests/cli/test_unified_failures.py`.

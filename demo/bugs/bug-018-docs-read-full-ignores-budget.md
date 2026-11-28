@@ -4,7 +4,7 @@ title: "BUG-018: docs read без --section игнорирует --budget"
 doc_type: bug-report
 lang: ru
 bug_id: BUG-018
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 3000
@@ -108,3 +108,5 @@ else:
 (`docs read --section игнорирует --budget`), другой код-путь (секция уже исправлена,
 полное чтение и line-range — нет), поэтому отдельный репорт.
 Связанные: BUG-005 (исправлен), BUG-017 (тот же класс молчаливого усечения).
+
+- 2026-11-28: `fixed` — коммит `7d32813`. `docs read` без `--section` укладывает текст в бюджет и помечает обрезку: `--budget 100` → `text_len=100 truncated=True`. Тест: `tests/cli/test_unified_docs.py::test_search_metadata_and_unicode_budget`.
