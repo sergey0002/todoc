@@ -31,7 +31,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-018: docs read без --section игнорирует --budget](../../demo/bugs/bug-018-docs-read-full-ignores-budget.md) | fixed |
 | [BUG-019: docs search с пустым --query возвращает ok:true и total 0](../../demo/bugs/bug-019-docs-search-empty-query.md) | fixed |
 | [BUG-020: records list по doc_type возвращает пустой успех вместо диагностики неймспейса](../../demo/bugs/bug-020-records-list-wrong-namespace.md) | fixed |
-| [BUG-021: usage-ошибки CLI не содержат suggested_fixes и guidance](../../demo/bugs/bug-021-usage-errors-without-guidance.md) | open |
+| [BUG-021: usage-ошибки CLI не содержат suggested_fixes и guidance](../../demo/bugs/bug-021-usage-errors-without-guidance.md) | fixed |
 | [BUG-022: нет обзорной выборки по типу документа](../../demo/bugs/bug-022-no-type-overview-query.md) | fixed |
 | [BUG-023: CLI недоступен из харнеса — нет venv и entrypoint](../../demo/bugs/bug-023-cli-not-reachable-from-harness.md) | open |
 | [BUG-024: индекс демо зашумлён 51 unknown-документом скилов, .todocignore отсутствует](../../demo/bugs/bug-024-skills-noise-no-todocignore.md) | open |

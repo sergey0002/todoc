@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-27
 updated: 2026-11-28
 bug_id: BUG-021
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 component: cli
@@ -123,3 +123,5 @@ Usage: python -m todoc explain-path [OPTIONS] PATH
 2026-11-28. Конверт v2 уже содержит guidance и ссылку на справку.
 Отдельная точная подсказка для неверного позиционного PATH и корня explain-path остаётся в объёме репорта.
 [Сводка выпуска](../notes/unified-cli-release.md).
+
+- 2026-11-28: `fixed` — коммит `fa3b0dc`. `explain-path` на отсутствующем пути объясняет, что путь относителен DATA_ROOT, и кладёт в `next_actions` исправленный argv (если путь начинался с имени корня) либо `docs tree`; guidance `explain.path_not_found` описывает маршрут. Проверка: `tools/bug_acceptance.py --only BUG-021` → `fixed` (предложенный argv исполняется). Тест: `tests/cli/test_cli.py::test_explain_path_root_prefixed_suggests_a_working_argv`.
