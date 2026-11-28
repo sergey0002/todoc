@@ -379,13 +379,14 @@ def probe_bug_034_change(ctx: Ctx) -> tuple[str, str]:
         diags = changes.validate_change(root, cid)
     code2, body2, _ = call(root, "change", "apply", cid, "--apply")
     unchanged = outside.read_text(encoding="utf-8") == "SECRET-OUTSIDE"
+    codes2 = codes(body2)
     if reads:
         return (OPEN, f"delta target outside root was read: {reads[0]}")
-    if not diags:
-        return (OPEN, "no diagnostic for outside target")
-    if code2 != 0 and unchanged:
-        return (FIXED, f"no outside read; apply exit={code2} codes={codes(body2)}")
-    return (OPEN, f"outside read blocked but apply exit={code2} codes={codes(body2)}")
+    if [d.code for d in diags] != ["change.delta_target_outside_root"]:
+        return (OPEN, f"unexpected validate diagnostics: {[d.code for d in diags]}")
+    if code2 == 3 and "change.delta_target_outside_root" in codes2 and unchanged:
+        return (FIXED, f"outside target refused with change.delta_target_outside_root; apply exit={code2}")
+    return (OPEN, f"outside read blocked but apply exit={code2} codes={codes2}")
 
 
 def probe_bug_035_history(ctx: Ctx) -> tuple[str, str]:

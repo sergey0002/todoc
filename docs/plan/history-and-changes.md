@@ -331,6 +331,7 @@ todoc history gc [--keep-objects N] [--purge-before ISO] [--dry-run]
 | `history.range_conflict` | файл изменён после снимаемой ревизии |
 | `change.not_found` / `change.id_invalid` | — |
 | `change.delta_target_missing` | целевой файл дельты не существует |
+| `change.delta_target_outside_root` | цель дельты выходит за DATA_ROOT (включая `..`, абсолютный путь и симлинк наружу) |
 | `change.delta_anchor_missing` | заголовок-якорь не найден |
 | `change.base_hash_mismatch` | файл ушёл из-под дельты |
 | `change.blocked_by_unresolved` | зависимость не в `archived` |

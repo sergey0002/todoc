@@ -288,6 +288,53 @@ def test_validate_reports_already_applied(change_root):
     assert [d.code for d in C.validate_change(root, change_id)] == ["change.already_applied"]
 
 
+def test_validate_rejects_target_outside_root(change_root, tmp_path, monkeypatch):
+    root, change_id = change_root
+    secret = tmp_path / "secret.md"
+    secret.write_text("SECRET", encoding="utf-8")
+    _write_delta(root, change_id, "d.md",
+                 "---\ntarget: ../secret.md\n---\n\n## MODIFIED: ## Суть\n\nт\n")
+    real_read = pathlib.Path.read_text
+
+    def guarded(self, *args, **kwargs):
+        if self.resolve() == secret.resolve():
+            raise AssertionError("outside target must not be read")
+        return real_read(self, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", guarded)
+    diags = C.validate_change(root, change_id)
+    assert [d.code for d in diags] == ["change.delta_target_outside_root"]
+
+
+def test_validate_rejects_absolute_and_symlink_targets(change_root, tmp_path):
+    root, change_id = change_root
+    outside = tmp_path / "outside.md"
+    outside.write_text("OUT", encoding="utf-8")
+    _write_delta(root, change_id, "abs.md",
+                 f"---\ntarget: {outside.as_posix()}\n---\n\n## MODIFIED: ## Суть\n\nт\n")
+    _write_delta(root, change_id, "blank.md", "---\ntarget: '  '\n---\n\n## MODIFIED: ## Суть\n\nт\n")
+    codes = [d.code for d in C.validate_change(root, change_id)]
+    assert codes == ["change.delta_target_outside_root"] * 2
+
+    link = root / "notes" / "link.md"
+    try:
+        link.symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are not available")
+    _write_delta(root, change_id, "link.md",
+                 "---\ntarget: notes/link.md\n---\n\n## MODIFIED: ## Суть\n\nт\n")
+    codes = [d.code for d in C.validate_change(root, change_id)]
+    assert "change.delta_target_outside_root" in codes
+
+
+def test_plan_apply_keeps_targets_inside_root(change_root):
+    root, change_id = change_root
+    _write_delta(root, change_id, "d.md", DELTA)
+    plan = C.plan_apply(root, change_id)
+    assert plan["applicable"] is True
+    assert [item["path"] for item in plan["files"]] == ["notes/a.md"]
+
+
 def test_validate_warns_on_unresolved_dependency(root):
     record = C.open_change(root, "Зависимое", blocked_by=("change:blokir",))
     C.record_path(root, record["record_id"]).parent.joinpath("deltas").mkdir(exist_ok=True)

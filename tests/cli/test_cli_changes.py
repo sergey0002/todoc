@@ -205,6 +205,27 @@ def test_apply_rejected_delta_changes_nothing(kb):
     assert kb["doc"].read_bytes() == before
 
 
+def test_apply_refuses_delta_target_outside_root(kb):
+    escape = kb["root"].parent / "escape.md"
+    escape.write_text("OUTSIDE", encoding="utf-8")
+    (kb["deltas"] / "evil.md").write_text(
+        "---\ntarget: ../escape.md\n---\n\n## ADDED: X\n\nPWNED\n", encoding="utf-8")
+    before = kb["doc"].read_bytes()
+    result = _run(CliRunner(), ["--root", str(kb["root"]), "change", "apply", kb["id"], "--apply"])
+    assert result.exit_code == 3
+    assert [d["code"] for d in _json(result)["diagnostics"]] == ["change.delta_target_outside_root"]
+    assert escape.read_text(encoding="utf-8") == "OUTSIDE"
+    assert kb["doc"].read_bytes() == before
+
+
+def test_validate_refuses_delta_target_outside_root(kb):
+    (kb["deltas"] / "evil.md").write_text(
+        "---\ntarget: ../../outside.md\n---\n\n## ADDED: X\n\nPWNED\n", encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(kb["root"]), "change", "validate", kb["id"]])
+    assert result.exit_code == 3
+    assert [d["code"] for d in _json(result)["diagnostics"]] == ["change.delta_target_outside_root"]
+
+
 # --- archive / revert --------------------------------------------------------
 
 

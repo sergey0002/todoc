@@ -103,6 +103,23 @@ def deltas_dir(root: Path, change_id: str) -> Path:
     return change_dir(root, change_id) / "deltas"
 
 
+def contained_delta_target(root: Path, target: str) -> Path | None:
+    """Resolve a delta target inside ``root``; ``None`` when it escapes the dataset.
+
+    Deltas are authored data, so ``target`` may be relative, absolute, contain ``..``
+    or point at a symlink leaving the dataset. Every consumer that reads or writes a
+    target must go through this check before touching the filesystem.
+    """
+    if not target or target != target.strip():
+        return None
+    if Path(target).is_absolute() or re.match(r"^[A-Za-z]:", target):
+        return None
+    candidate = root / target
+    if not is_within_root(root, candidate):
+        return None
+    return candidate
+
+
 def record_path(root: Path, change_id: str) -> Path:
     return change_dir(root, change_id) / "change.json"
 
@@ -398,7 +415,11 @@ def validate_change(root: Path, change_id: str, dataset_id: str = "",
             diags.append(_diag(
                 dataset_id, rel, "change.apply_order_ambiguous",
                 f"{len(group)} дельты на {target} без явного order — результат неоднозначен"))
-        target_path = root / target
+        target_path = contained_delta_target(root, target)
+        if target_path is None:
+            diags.append(_diag(dataset_id, rel, "change.delta_target_outside_root",
+                               f"Цель дельты вне DATA_ROOT: {target}"))
+            continue
         if not target_path.is_file():
             diags.append(_diag(dataset_id, rel, "change.delta_target_missing",
                                f"Целевой файл дельты не существует: {target}"))
@@ -557,13 +578,16 @@ def plan_apply(root: Path, change_id: str, dataset_id: str = "",
     current_by_target: dict[str, str] = {}
     for delta in collect_deltas(root, change_id):
         target = delta["target"]
-        path = root / target
+        path = contained_delta_target(root, target)
+        # validate_change already rejected an escaping target; keep the invariant explicit.
+        assert path is not None
         if target not in current_by_target:
             current_by_target[target] = path.read_text(encoding="utf-8")
         result, _errors = apply_ops(current_by_target[target], delta["ops"])
         current_by_target[target] = result
     for target, text in current_by_target.items():
-        path = root / target
+        path = contained_delta_target(root, target)
+        assert path is not None
         files.append({"path": target, "current_hash": file_hash(path),
                       "new_hash": "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest(),
                       "content": text})

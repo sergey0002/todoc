@@ -1,5 +1,6 @@
 {
   "cursor.invalid": "Запросите первую страницу с текущими фильтрами и используйте курсор из её ответа.",
+  "change.delta_target_outside_root": "Укажите target относительно DATA_ROOT без `..` и без абсолютного пути; дельта не может менять файлы вне датасета.",
   "docs.invalid_scope": "Укажите путь относительно DATA_ROOT, например ideas.",
   "docs.multiple_roots": "Укажите один --root для обзора документов.",
   "docs.unknown_type": {
