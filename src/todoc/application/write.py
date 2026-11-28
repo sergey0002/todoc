@@ -230,6 +230,8 @@ def plan_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected
     if bump_updated:
         raw_text, updated_bumped = bump_front_matter_updated(raw_text)
     lines = raw_text.splitlines()
+    hint = ("line numbers refer to the state after previous ops; "
+            f"the current text has {len(lines)} lines")
     for op in ops:
         kind = op.get("op", "replace")
         try:
@@ -239,11 +241,16 @@ def plan_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected
             raise ValidationError("Patch line numbers must be integers.", "edit.invalid_patch") from exc
         if kind in ("replace", None):
             if line_no < 1 or line_no > len(lines):
-                raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
+                raise ValidationError(f"Line out of range: {line_no} ({hint})", "edit.line_out_of_range")
+            expected = op.get("expect")
+            if expected is not None and lines[line_no - 1] != str(expected):
+                raise ValidationError(
+                    f"Line {line_no} does not match expect: {lines[line_no - 1]!r} != {str(expected)!r}",
+                    "edit.expect_mismatch")
             lines[line_no - 1] = str(op.get("text", ""))
         elif kind == "insert_after":
             if line_no < 0 or line_no > len(lines):
-                raise ValidationError(f"Line out of range: {line_no}", "edit.line_out_of_range")
+                raise ValidationError(f"Line out of range: {line_no} ({hint})", "edit.line_out_of_range")
             texts = op.get("text", "")
             if isinstance(texts, str):
                 texts = [texts]
@@ -253,7 +260,7 @@ def plan_edit_ops(root: Path, rel_path: str, ops: list[dict[str, Any]], expected
         elif kind == "delete":
             start = line_no
             if start < 1 or end < start or end > len(lines):
-                raise ValidationError(f"Line out of range: {start}-{end}", "edit.line_out_of_range")
+                raise ValidationError(f"Line out of range: {start}-{end} ({hint})", "edit.line_out_of_range")
             del lines[start - 1:end]
         else:
             raise ValidationError(f"Unknown edit op: {kind}", "edit.op_unknown")

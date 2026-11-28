@@ -6,6 +6,7 @@ import pytest
 
 from todoc.application.registry import RegistryStore
 from todoc.application.storage import IndexStatus
+from todoc.errors import ValidationError
 from todoc.service import DatasetContext
 
 
@@ -884,6 +885,27 @@ def test_write_reports_source_saved_when_history_fails(root, sample_md):
     assert caught.value.code == "write.history_failed"
     assert plan.new_hash in caught.value.message
     assert sample_md.read_text(encoding="utf-8") == plan.new_content
+
+
+def test_edit_ops_report_line_total_and_sequential_numbering(root, sample_md):
+    from todoc.application.write import plan_edit_ops
+
+    with pytest.raises(ValidationError) as caught:
+        plan_edit_ops(root, "notes/design.md", [{"op": "delete", "line": 85, "to": 94}])
+    assert caught.value.code == "edit.line_out_of_range"
+    assert "current text has" in caught.value.message
+    assert "after previous ops" in caught.value.message
+
+
+def test_edit_replace_refuses_expect_mismatch_without_writing(root, sample_md):
+    from todoc.application.write import plan_edit_ops
+
+    before = sample_md.read_bytes()
+    with pytest.raises(ValidationError) as caught:
+        plan_edit_ops(root, "notes/design.md",
+                      [{"line": 1, "text": "# Changed", "expect": "no-such-line"}])
+    assert caught.value.code == "edit.expect_mismatch"
+    assert sample_md.read_bytes() == before
 
 
 def test_parse_cache_detects_corruption_and_conflicting_path(root):

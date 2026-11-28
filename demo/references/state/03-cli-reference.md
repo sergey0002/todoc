@@ -53,6 +53,6 @@ todoc --root demo index rebuild --apply
 todoc --root demo validate --all
 ```
 
-Для команд с `--if-plan-hash` используйте полученный при preview `plan_hash`. Для структурированной правки метаданных `--if-hash` обязателен при применении. `--budget` текстовых проекций считает символы Unicode полезного содержимого. Объём сериализованных метаданных может быть больше. У `docs search --budget N` единица другая — UTF-8 байты сериализованных элементов `data.result.items` без конверта; `data.meta.budget` содержит `limit`, `used_bytes` и `exhausted`.
+Для команд с `--if-plan-hash` используйте полученный при preview `plan_hash`. Для структурированной правки метаданных `--if-hash` обязателен при применении. `docs edit --preview` возвращает `numbered` — итоговые строки с номерами после всех операций, `result_lines` и diff; `op` с полем `expect` отклоняет замену при несовпадении строки (`edit.expect_mismatch`, файл не меняется). `--budget` текстовых проекций считает символы Unicode полезного содержимого. Объём сериализованных метаданных может быть больше. У `docs search --budget N` единица другая — UTF-8 байты сериализованных элементов `data.result.items` без конверта; `data.meta.budget` содержит `limit`, `used_bytes` и `exhausted`.
 
 [Формы документов](05-formats.md) · [Поиск](07-search-and-read.md) · [Рабочий цикл агента](12-agent-operations.md)

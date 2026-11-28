@@ -103,6 +103,19 @@ def test_docs_edit_document_not_found(root, tmp_path):
     assert result.exit_code == 3
 
 
+def test_docs_edit_preview_numbers_the_result(root, sample_md, tmp_path):
+    patch = tmp_path / "patch.json"
+    patch.write_text(json.dumps({"ops": [{"op": "insert_after", "line": 1, "text": "MARKER"}]}))
+    before = sample_md.read_bytes()
+    result = _run(CliRunner(), ["--root", str(root), "docs", "edit", "--id", "doc:notes/design.md",
+                                "--patch-file", str(patch), "--preview", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    data = _json(result)["data"]["result"]
+    assert data["numbered"][1] == {"line": 2, "text": "MARKER"}
+    assert data["result_lines"] == len(data["numbered"])
+    assert sample_md.read_bytes() == before
+
+
 def test_records_create_sets_entity_type(root, tmp_path):
     draft = tmp_path / "draft.json"
     draft.write_text(json.dumps({"record_id": "workout:2026-11-26-01", "date": "2026-11-26"}))

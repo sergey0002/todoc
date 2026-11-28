@@ -324,16 +324,28 @@ def probe_bug_014(ctx: Ctx) -> tuple[str, str]:
     root = ctx.fresh("edit-preview")
     code, body, _ = call(root, "docs", "new", "--type", "note", "--title", "T", "--apply")
     doc_id = result(body).get("id") or "doc:home"
+    path = root / (result(body).get("path") or "")
+    before = path.read_bytes() if path.is_file() else b""
     with tempfile.TemporaryDirectory(prefix="acc-patch-") as patch_dir:
         patch = Path(patch_dir) / "p.json"
-        patch.write_text(json.dumps({"ops": [{"op": "insert_after", "line": 1, "text": "X"}]}),
+        patch.write_text(json.dumps({"ops": [{"op": "insert_after", "line": 1, "text": "MARKER"}]}),
                          encoding="utf-8")
         code, body, _ = call(root, "docs", "edit", "--id", doc_id,
                              "--patch-file", str(patch), "--preview")
-    numbered = result(body).get("numbered")
-    ok = (code == 0 and isinstance(numbered, list) and bool(numbered)
-          and numbered[0].get("line") == 1 and "text" in numbered[0])
-    return (FIXED if ok else OPEN, f"edit preview keys={sorted(result(body))} numbered={type(numbered).__name__}")
+        numbered = result(body).get("numbered")
+        marked = [row for row in numbered or [] if row.get("text") == "MARKER"]
+        numbered_ok = bool(marked) and marked[0].get("line") == 2
+        unchanged = (path.read_bytes() if path.is_file() else b"") == before
+        patch.write_text(json.dumps({"ops": [{"line": 1, "text": "Y", "expect": "no-such-line"}]}),
+                         encoding="utf-8")
+        code2, body2, _ = call(root, "docs", "edit", "--id", doc_id,
+                               "--patch-file", str(patch), "--apply")
+    mismatch_ok = code2 == 3 and "edit.expect_mismatch" in codes(body2)
+    unchanged = unchanged and (path.read_bytes() if path.is_file() else b"") == before
+    ok = code == 0 and numbered_ok and unchanged and mismatch_ok
+    return (FIXED if ok else OPEN,
+            f"numbered_after_insert={numbered_ok} preview_unchanged={unchanged} "
+            f"expect_mismatch={mismatch_ok}")
 
 
 def probe_bug_027(ctx: Ctx) -> tuple[str, str]:

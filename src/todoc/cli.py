@@ -2775,7 +2775,10 @@ def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, 
                                          doc["path"], doc["path"], lineterm=""))
     result = {"id": doc_id, "path": doc["path"], "preview": not apply_, "applied": apply_,
               "ops": ops, "diff": diff, "expected_hash": plan.expected_hash,
-              "new_hash": plan.new_hash, "updated_bumped": updated_bumped}
+              "new_hash": plan.new_hash, "updated_bumped": updated_bumped,
+              "result_lines": len(plan.new_content.splitlines()),
+              "numbered": [{"line": index, "text": text}
+                           for index, text in enumerate(plan.new_content.splitlines(), 1)]}
     emit(Envelope.result({"command": "docs edit", "scope": scope}, result), output)
 
 
