@@ -40,7 +40,7 @@ def test_generated_cli_md_does_not_block_refresh(layout, capsys):
     (src / "cli.md").write_text("# generated\n", encoding="utf-8")
     (src / "01-a.md").write_text("# A\n", encoding="utf-8")
     _copy(dst, "01-a.md")
-    assert refresh.main() == 0
+    assert refresh.main([]) == 0
     assert "refreshed 1 of 1" in capsys.readouterr().out
 
 
@@ -48,11 +48,11 @@ def test_dates_and_second_run_are_stable(layout):
     src, dst = layout
     (src / "01-a.md").write_text("# A\n", encoding="utf-8")
     target = _copy(dst, "01-a.md")
-    assert refresh.main() == 0
+    assert refresh.main([]) == 0
     first = target.read_bytes()
     assert b"created: 2026-11-24" in first
     assert b"updated: 2026-11-27" in first
-    assert refresh.main() == 0
+    assert refresh.main([]) == 0
     assert target.read_bytes() == first
 
 
@@ -66,7 +66,7 @@ def test_link_remap_delink_and_after_plan(layout):
         "[folder](../../demo/ideas) [schema](../../demo/.todoc/document-metadata.schema.json)\n",
         encoding="utf-8")
     target = _copy(dst, "01-a.md")
-    assert refresh.main() == 0
+    assert refresh.main([]) == 0
     body = target.read_text(encoding="utf-8")
     assert "[asset](../../README.md)" in body
     assert "[repo](../README.md)" not in body and "repo" in body
@@ -82,7 +82,7 @@ def test_link_remap_delink_and_after_plan(layout):
 def test_missing_copy_still_fails(layout, capsys):
     src, dst = layout
     (src / "01-a.md").write_text("# A\n", encoding="utf-8")
-    assert refresh.main() == 1
+    assert refresh.main([]) == 1
     assert "no demo copy" in capsys.readouterr().err
 
 
@@ -90,5 +90,18 @@ def test_copy_without_front_matter_is_reported(layout, capsys):
     src, dst = layout
     (src / "01-a.md").write_text("# A\n", encoding="utf-8")
     (dst / "01-a.md").write_text("# no front matter\n", encoding="utf-8")
-    assert refresh.main() == 1
+    assert refresh.main([]) == 1
     assert "no front matter" in capsys.readouterr().err
+
+
+def test_check_reports_drift_without_writing(layout, capsys):
+    src, dst = layout
+    (src / "01-a.md").write_text("# New body\n", encoding="utf-8")
+    target = _copy(dst, "01-a.md")
+    before = target.read_bytes()
+    assert refresh.main(["--check"]) == 1
+    assert "stale" in capsys.readouterr().out
+    assert target.read_bytes() == before
+    assert refresh.main([]) == 0
+    assert refresh.main(["--check"]) == 0
+    assert "up to date" in capsys.readouterr().out

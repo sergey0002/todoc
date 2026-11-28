@@ -123,6 +123,35 @@ def probe_bug_015(ctx: Ctx) -> tuple[str, str]:
     return (FIXED if title == 'a "b" c' else OPEN, f"yaml escape title={title!r}")
 
 
+def probe_bug_016(ctx: Ctx) -> tuple[str, str]:
+    doc = (REPO / "docs" / "state" / "08-records-and-relations.md").read_text(encoding="utf-8")
+    operators = all(token in doc for token in ("$in", "$gte", "$lte", "query.invalid_file"))
+    example = '"entity_type"' in doc and '"filters"' in doc and "volume.value" in doc
+    tags_note = "целиком" in doc and "--tag-in" in doc
+    ok = operators and example and tags_note
+    return (FIXED if ok else OPEN,
+            f"operators={operators} example={example} tags_note={tags_note}")
+
+
+def probe_bug_054(ctx: Ctx) -> tuple[str, str]:
+    architecture = (REPO / "docs" / "state" / "02-architecture.md").read_text(encoding="utf-8")
+    formats = (REPO / "docs" / "state" / "05-formats.md").read_text(encoding="utf-8")
+    search = (REPO / "docs" / "state" / "07-search-and-read.md").read_text(encoding="utf-8")
+    read_only = "не публикуют индекс" in architecture
+    csv_filter = "перед `--rows`" in formats
+    cursor = "next_cursor" in search and "complete" in search
+    ok = read_only and csv_filter and cursor
+    return (FIXED if ok else OPEN,
+            f"read_only={read_only} csv_filter_before_rows={csv_filter} cursor={cursor}")
+
+
+def probe_bug_059(ctx: Ctx) -> tuple[str, str]:
+    proc = subprocess.run([sys.executable, str(REPO / "tools" / "refresh_demo_state.py"), "--check"],
+                          cwd=str(REPO), env=ENV, capture_output=True, text=True)
+    ok = proc.returncode == 0 and "up to date" in proc.stdout
+    return (FIXED if ok else OPEN, proc.stdout.strip() or proc.stderr.strip()[:200])
+
+
 def probe_bug_017(ctx: Ctx) -> tuple[str, str]:
     code, body, _ = call(ctx.live, "docs", "tree", "--limit", "5")
     m = meta(body)
@@ -647,7 +676,7 @@ def probe_registry() -> list[Probe]:
         Probe("BUG-013", "bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md", "any", probe_bug_013),
         Probe("BUG-014", "bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md", "any", probe_bug_014),
         Probe("BUG-015", "bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md", "any", probe_bug_015),
-        Probe("BUG-016", "bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md", "any", manual("docs: compare operators, nested lists and example with application/query.py")),
+        Probe("BUG-016", "bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md", "any", probe_bug_016),
         Probe("BUG-017", "bugs/bug-017-docs-tree-silent-truncation.md", "any", probe_bug_017),
         Probe("BUG-018", "bugs/bug-018-docs-read-full-ignores-budget.md", "any", probe_bug_018),
         Probe("BUG-019", "bugs/bug-019-docs-search-empty-query.md", "any", probe_bug_019),
@@ -686,12 +715,12 @@ def probe_registry() -> list[Probe]:
         Probe("BUG-051", "bugs/bug-051-create-only-concurrent-overwrite.md", "any", probe_bug_051),
         Probe("BUG-052", "bugs/bug-052-index-publish-loses-snapshot.md", "any", probe_bug_052),
         Probe("BUG-053", "bugs/bug-053-contract-tests-missing-nested-leaves.md", "any", probe_bug_053),
-        Probe("BUG-054", "bugs/bug-054-current-docs-search-csv-drift.md", "any", manual("docs: compare pagination, read-only, CSV filter with code")),
+        Probe("BUG-054", "bugs/bug-054-current-docs-search-csv-drift.md", "any", probe_bug_054),
         Probe("BUG-055", "bugs/bug-055-unknown-search-filter-silent-empty.md", "any", probe_bug_055),
         Probe("BUG-056", "bugs/bug-056-no-tag-listing-or-record-filter.md", "any", probe_bug_056),
         Probe("BUG-057", "bugs/bug-057-open-bugs-list-not-discoverable.md", "any", probe_bug_057),
         Probe("BUG-058", "bugs/bug-058-routing-docs-gap.md", "any", probe_bug_058),
-        Probe("BUG-059", "bugs/bug-059-refresh-demo-state-broken.md", "any", manual("tooling: run tools/refresh_demo_state.py on a copy after 3.9")),
+        Probe("BUG-059", "bugs/bug-059-refresh-demo-state-broken.md", "any", probe_bug_059),
         Probe("BUG-060", "bugs/bug-060-status-filter-pipe-rejected.md", "any", probe_bug_060),
         Probe("DESIGN-Q01", "bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md", "any", manual("decision required: records status transition policy")),
         Probe("DESIGN-Q02", "bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md", "any", manual("decision required: review-first cost vs control")),

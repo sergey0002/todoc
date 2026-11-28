@@ -97,7 +97,13 @@ def remap_link(match: re.Match[str]) -> str:
     return f"[{text}]({target}{rest})"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true",
+                        help="report drift without writing; exit 1 when a copy is stale")
+    args = parser.parse_args(argv)
     mirrored = sources()
     missing = sorted(p.name for p in mirrored if not (DST / p.name).is_file())
     if missing:
@@ -141,9 +147,14 @@ def main() -> int:
         ])
         rendered = "\n".join(front_lines) + "\n\n" + new_body.lstrip("\n")
         if rendered != original:
-            target.write_text(rendered, encoding="utf-8")
             changed.append(source.name)
+            if not args.check:
+                target.write_text(rendered, encoding="utf-8")
 
+    if args.check:
+        state = "up to date" if not changed else f"stale: {changed}"
+        print(f"checked {len(mirrored)} copies: {state}")
+        return 0 if not changed else 1
     print(f"refreshed {len(changed)} of {len(mirrored)}: {changed}")
     return 0
 
