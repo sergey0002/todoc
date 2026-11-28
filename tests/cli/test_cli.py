@@ -48,6 +48,15 @@ def test_validate(root, sample_md):
     assert result.exit_code == 0, result.output
 
 
+def test_validate_all_is_compatible_without_the_flag(root, sample_md):
+    runner = CliRunner()
+    plain = _json(_run(runner, ["--root", str(root), "validate", "--output", "json"]))
+    with_flag = _json(_run(runner, ["--root", str(root), "validate", "--all", "--output", "json"]))
+    assert plain["diagnostics"] == with_flag["diagnostics"]
+    assert (plain["data"]["result"]["datasets"][0]["diagnostic_count"]
+            == with_flag["data"]["result"]["datasets"][0]["diagnostic_count"])
+
+
 def test_index_status_rebuild(root, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "index", "rebuild", "--apply", "--output", "json"])

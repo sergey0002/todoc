@@ -177,12 +177,26 @@ def probe_bug_026(ctx: Ctx) -> tuple[str, str]:
             f"doctor environment checks={sorted(ids)} statuses={sorted(map(str, statuses))}")
 
 
+def probe_bug_025(ctx: Ctx) -> tuple[str, str]:
+    idea = (REPO / "demo" / "ideas" / "action-logging.md").read_text(encoding="utf-8")
+    release = (REPO / "demo" / "notes" / "unified-cli-release.md").read_text(encoding="utf-8")
+    forward = "../notes/unified-cli-release.md" in idea and "отложена" in idea
+    backward = "../ideas/action-logging.md" in release
+    return (FIXED if forward and backward else OPEN,
+            f"idea->release={forward} release->idea={backward}")
+
+
 def probe_bug_029(ctx: Ctx) -> tuple[str, str]:
-    code, body, _ = call(ctx.live, "skills", "tree", "--vault", "all", "--limit", "1000")
-    rows = result(body).get("skills") or []
-    vaults = {row.get("vault") for row in rows}
-    ok = code == 0 and {"skills", "skill"} <= vaults
-    return (FIXED if ok else OPEN, f"skills tree --vault all exit={code} vaults={sorted(map(str, vaults))}")
+    doc = (REPO / "docs" / "state" / "17-skills-and-vault.md").read_text(encoding="utf-8")
+    documented = "--vault skills" in doc and "--vault skill" in doc
+    code, body, _ = call(ctx.live, "skills", "tree", "--vault", "skills", "--limit", "1000")
+    main_ok = code == 0 and bool(result(body).get("skills"))
+    code2, body2, _ = call(ctx.live, "skills", "tree", "--vault", "skill", "--limit", "1000")
+    legacy_ok = code2 == 0 and bool(result(body2).get("skills"))
+    vaults = {meta(body).get("scope", {}).get("vault"), meta(body2).get("scope", {}).get("vault")}
+    ok = documented and main_ok and legacy_ok and vaults == {"skills", "skill"}
+    return (FIXED if ok else OPEN,
+            f"documented={documented} skills={main_ok} skill={legacy_ok} vaults={sorted(map(str, vaults))}")
 
 
 def probe_bug_037(ctx: Ctx) -> tuple[str, str]:
@@ -636,7 +650,7 @@ def probe_registry() -> list[Probe]:
         Probe("BUG-021", "bugs/bug-021-usage-errors-without-guidance.md", "any", probe_bug_021),
         Probe("BUG-023", "bugs/bug-023-cli-not-reachable-from-harness.md", "any", probe_bug_023),
         Probe("BUG-024", "bugs/bug-024-skills-noise-no-todocignore.md", "any", probe_bug_024),
-        Probe("BUG-025", "bugs/bug-025-idea-plan-deferral-unlinked.md", "any", manual("docs: action-logging <-> release decision backlinks")),
+        Probe("BUG-025", "bugs/bug-025-idea-plan-deferral-unlinked.md", "any", probe_bug_025),
         Probe("BUG-026", "bugs/bug-026-doctor-environment-checks-hardcoded-pass.md", "any", probe_bug_026),
         Probe("BUG-027", "bugs/bug-027-skills-tree-crash-on-root-skill-md.md", "any", probe_bug_027),
         Probe("BUG-028", "bugs/bug-028-no-runtime-contract-for-windows-wsl-harness.md", "any", probe_bug_028),
