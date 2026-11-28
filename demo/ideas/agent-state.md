@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: done
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, агентский, состояния]
 related: ["[[агентский-стейт--state-json-в-движке--v1---текущий-проект.md]]"]
 ---
@@ -168,3 +168,8 @@ related: ["[[агентский-стейт--state-json-в-движке--v1---т�
 - `.git/config`, `~/.claude.json`, `$HOME/.codex` — паттерн «volatile-стейт движка
   живёт вне рабочего дерева».
 - `.todoc/history/journal.jsonl` — журнал «что было»; стейт — только текущие значения.
+
+## Связь с выпуском единого CLI
+
+Выпущенный CLI сохраняет изоляцию по dataset_id и review-first для записи состояния. Статус реализованного профиля сохранён.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

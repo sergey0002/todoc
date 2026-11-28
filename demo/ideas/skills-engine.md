@@ -4,7 +4,7 @@ title: "Идея: хранилище-движок скилов на todoc (skill
 doc_type: idea
 lang: ru
 status: done
-updated: 2026-11-26
+updated: 2026-11-28
 related: ["[[plan-skills-vault]]"]
 created: 2026-11-26
 tags: [ideas, idea, оглавление, хранилище]
@@ -340,3 +340,8 @@ skills/  (12 skills, 3 sections, 1 muted)
 | Codex CLI + Vercel skills CLI (тиры .agents/skills) | https://codex.danielvaughan.com/2026/05/31/codex-cli-vercel-skills-cli-npx-skills-open-agent-skills-ecosystem/ |
 | Skills.sh Review (packs, установки) | https://vibecoding.app/blog/skills-sh-review |
 | skills CLI обзор (75+ агентов) | https://ai-tldr.dev/tools/skills/ |
+
+## Связь с выпуском единого CLI
+
+Приёмка проверила живое оглавление vault, виды, курсоры, проекции и наследование мьюта. Статус движка сохранён.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

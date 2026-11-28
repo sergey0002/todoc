@@ -19,7 +19,7 @@ description: "Use when the user approves an idea for implementation («make a pl
 ## Procedure
 
 0. Перед новым планом найти существующие по компоненту и симптому через `docs search --type plan --query ...`; читать нужные разделы. Сопоставить требования с задачами. Если они покрыты — дополнить критерии приёмки и дать ссылку, не создавать параллельный backlog. Пробелы включить в задачи владельца; новый план нужен для самостоятельного результата или явно выбранной отдельной поставки.
-   Пример: BUG-022 принадлежит [плану единого CLI](../../../plan/unified-cli-output-implementation.md), З1–З5/З8/З9 и уточнению в разделе 8; исторический metadata-overview не запускать отдельно. Существование плана не означает готовую CLI-команду.
+   Пример: BUG‑022 закрыт в [выпуске единого CLI](../../../notes/unified-cli-release.md). Исследование metadata-overview имеет статус superseded.
 1. Проверка готовности: статус идеи `captured` (`todoc docs status --root KB --id doc:<idea>`) и открытые вопросы закрыты; иначе — стоп и вопрос пользователю «делаем как есть?».
 2. Создание плана: `todoc docs new --apply --root KB --type plan --title "<Название>" --path plan/<slug>.md` → напрямую заполнить 8 секций шаблона; в шапке `Спека:` = id идеи; в fm плана — `status: active` и `derived_from` на файл идеи (якорь `путь@sha256`), затем выполнить `todoc sync --apply --root KB plan/<slug>.md`.
 3. Статус идеи: `todoc docs status --root KB --id doc:<idea> --set planned`.

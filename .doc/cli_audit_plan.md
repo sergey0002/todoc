@@ -6,7 +6,7 @@ scope: "src/todoc, tests, docs/state, demo/plan, demo/ideas; срез 5e86eb7 + 
 sources:
   - .doc/cli_audit.md
   - docs/plan/todoc-master-refactoring-plan.md
-  - demo/plan/unified-cli-output-implementation.md
+  - demo/notes/unified-cli-release.md
   - demo/notes/agent-contract.md
   - demo/ideas/cli-model-guidance-and-hint-catalog.md
   - demo/plan/bmad-wave-planning-skills.md
@@ -20,7 +20,7 @@ sources:
 > документом не разрешена.** Это не второй бэклог и не замена мастер-плана.
 > Порядок этапов задаёт [мастер-план](../docs/plan/todoc-master-refactoring-plan.md)
 > (Э0–Э4), детальный контракт —
-> [unified-план](../demo/plan/unified-cli-output-implementation.md) (З0-S, З1–З9),
+> [unified-план](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md) (З0-S, З1–З9),
 > а [аудит](cli_audit.md) — карту находок. Этот документ — **проверенный слой**:
 > что подтверждается кодом, где формулировки аудита нужно поправить, в каком
 > порядке вносить правки и какими тестами доказывать каждую.

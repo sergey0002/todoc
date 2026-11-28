@@ -8,14 +8,14 @@ sources:
   - docs/state/cli.md
   - docs/plan/todoc-master-refactoring-plan.md
   - demo/notes/agent-contract.md
-  - demo/plan/unified-cli-output-implementation.md
+  - demo/notes/unified-cli-release.md
 ---
 
 # Аудит CLI todoc: что исправить и в каком порядке
 
 > **Статус:** аудит и рекомендации, не второй план исполнения. Порядок задаёт
 > [мастер-план](../docs/plan/todoc-master-refactoring-plan.md), контракт миграции —
-> [unified CLI](../demo/plan/unified-cli-output-implementation.md) (далее unified).
+> [unified CLI](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md) (далее unified).
 > Срез: `5e86eb7` + рабочее дерево, 2026-11-28. Подтверждены запуск `0.1.0`
 > через WSL и рекурсивная регистрация 63 листьев. Остальные доказательства
 > помечены ссылками на код либо сценариями исходного аудита/репортов;
@@ -1124,7 +1124,7 @@ CLI. Отдельно согласовать временные параметр
 - [02-cli-contracts.md](codexaudit/02-cli-contracts.md) — контрактные разрывы CA-001…CA-004.
 - [docs/state/cli.md](../docs/state/cli.md) — текущий справочник 63 команд.
 - [demo/notes/agent-contract.md](../demo/notes/agent-contract.md) — контракт для агента.
-- [demo/plan/unified-cli-output-implementation.md](../demo/plan/unified-cli-output-implementation.md) — план реализации.
+- [demo/plan/unified-cli-output-implementation.md](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md) — план реализации.
 - [AGENTS.md](../AGENTS.md) — железные правила сессии.
 
 ## 8. Идеи, планы и открытые решения
@@ -1139,7 +1139,7 @@ CLI. Отдельно согласовать временные параметр
 
 | Бэклог | Что учесть в CLI сейчас | Что не вводить без отдельного решения |
 |---|---|---|
-| [Unified](../demo/plan/unified-cli-output-implementation.md), [metadata overview](../demo/plan/metadata-overview-and-harness-efficiency.md) | `docs list` из §8 unified, `status` ≠ `parse_status`, проекции и честные страницы. Metadata overview — superseded; второй очереди работ нет. | Не превращать пустой `search` в скрытый list. |
+| [Unified](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md), [metadata overview](../demo/plan/metadata-overview-and-harness-efficiency.md) | `docs list` из §8 unified, `status` ≠ `parse_status`, проекции и честные страницы. Metadata overview — superseded; второй очереди работ нет. | Не превращать пустой `search` в скрытый list. |
 | [Wave 0](../demo/plan/bmad-wave-planning-skills.md), `wave-planning-cli-helpers`, `cli-model-guidance-and-hint-catalog` | Один guidance, один snapshot reader и write contract. Статус, `stale` и batch/bind описывать по условным эффектам и точной области. | Не обещать crash-atomic batch из-за предварительной валидации всех записей; не дублировать P15. |
 | `todocignore`, `toggleable-rules`, `multi-project-workspace`, [archive](../demo/ideas/archive-dir-type.md) | Различать включение в scan, видимость в выдаче, разрешение ссылок и полномочия. Активный project/state не фильтрует и не разрешает запись молча. | Архивный default, трактовка `changes/archive`, toggles, project scope и новый matcher требуют решений. Архив не равен ignore, mute, статусу документа или времени факта. |
 | `type-naming-and-state-dir`, `typed-tree-projection`, `unified-tags-and-tag-graph` и действующий план doc-tag aliases | Сохранять type ID; физическое дерево отдельно от видимой проекции и graph depth; doc/folder/record/history метки отдельно. Doc-tag aliases считать уже доставленной механикой по плану, не повторять миграцию; визуальная проверка в Obsidian ещё открыта. | `tags list`, виртуальные рёбра, новый taxonomy, наследование и новые defaults — отдельный gate (F-20). |

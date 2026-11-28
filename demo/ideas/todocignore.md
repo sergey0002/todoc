@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, todocignore, gitignore, pathspec, scanner, индексация]
 related: ["[[folder-config]]", "[[skills-engine]]", "[[constitution.md]]", "[[agent-brainstorming-and-research-packs]]"]
 ---
@@ -131,3 +131,8 @@ skills/**/evals/
 - [Идея: `.config.json` — самоописание папок](folder-config.md)
 - [Идея: хранилище-движок скилов на `todoc`](skills-engine.md)
 - [Обзор готовых паков скилов и скриптов для мозговых штурмов и ресёрча](../.research/agent-brainstorming-and-research-packs.md)
+
+## Связь с выпуском единого CLI
+
+Общие границы области и отпечаток снимка реализованы. Правила .todocignore и их интерпретатор остаются в объёме идеи.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

@@ -4,7 +4,7 @@ title: "Пакет скилов волнового планирования ид
 doc_type: plan
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 status: active
 wave: 0
 covers: ["doc:ideas/wave-planning-cli-helpers.md", "doc:ideas/cli-model-guidance-and-hint-catalog.md"]
@@ -294,7 +294,7 @@ related: ["[[bmad-v6-wave-planning-skills]]", "[[wave-planning-cli-helpers]]", "
 - Create: `demo/skills/process/bmad/bmad-slice-roadmap/references/worked-example.md`
 
 **Контракт скила:**
-- Зона `High Freedom`: смысловая группировка идей в волны по правилам `Collisions` и `Shared Setup` с обязательным учётом уже существующих мастер- и `AFTER`-планов (`docs/plan/todoc-master-refactoring-plan.md`, `demo/plan/unified-cli-output-implementation.md`, `demo/plan/after/*.after.md` — встраиваться в них и проверять статус по живому коду, а не плодить конкурирующие дубликаты).
+- Зона `High Freedom`: смысловая группировка идей в волны по правилам `Collisions` и `Shared Setup` с обязательным учётом уже существующих мастер- и `AFTER`-планов (`docs/plan/todoc-master-refactoring-plan.md`, `demo/notes/unified-cli-release.md`, `demo/plan/after/*.after.md` — встраиваться в них и проверять статус по живому коду, а не плодить конкурирующие дубликаты).
 - Зона `Medium/Low Freedom`: обязательное оформление **каждой волны строго по дословному двухслойному стандарту п. 4.3** (говорящий заголовок + 4 тезиса простыми словами для занятого человека без контекста + техпаспорт ниже), заполненный образец в `references/worked-example.md` для слабой модели и финальная самопроверка `todoc plan portfolio` (`orphan_ideas == []`, `wave_cards_lint` без пропусков).
 
 - [ ] **Шаг 1: создать `SKILL.md`, `references/slicing-rules.md` и эталонный `references/worked-example.md`**

@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, types, naming, snake-case, dir-type, state, таксономия]
 related: ["[[constitution.md]]", "[[documentation-system]]", "[[agent-state]]", "[[entity-to-folder]]", "[[docs-move]]"]
 ---
@@ -104,3 +104,8 @@ TYPE_ID_MAX = 40
 - [Идея: агентский стейт — `state.json` вне данных (отличие сессионного стейта от предметной папки `state/`)](agent-state.md)
 - [Идея: `todoc folderize` — преобразование сущности в папку-домен (вложенные `plan/` и `state/`)](entity-to-folder.md)
 - [Идея: `todoc docs move` — транзакционный перенос документов (переезд `references/state/` → `state/`)](docs-move.md)
+
+## Связь с выпуском единого CLI
+
+Сохранены разные классы типов, существующие идентификаторы и отдельное XDG-состояние. Переименование типов остаётся в объёме идеи.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

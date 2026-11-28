@@ -4,7 +4,7 @@ title: "Идея: .config.json — самоописание папок (заго
 doc_type: idea
 lang: ru
 status: done
-updated: 2026-11-26
+updated: 2026-11-28
 related: ["[[folder-config-implementation]]", "[[теги-документов-как-aliases-поиска--tags-updated-related-в-front-matter]]"]
 created: 2026-11-26
 tags: [ideas, idea, самоописание, заголовок]
@@ -350,3 +350,8 @@ CLI (`state set/get/list/unset`), fallback-цепочка скоупа (явны
 | Спецификация SKILL.md | https://openagentskills.dev/docs/specification |
 | skills CLI (Vercel) — экосистема пакетов | https://github.com/vercel-labs/skills |
 | JSON Schema (валидация конфигов, как у записей) | https://json-schema.org |
+
+## Связь с выпуском единого CLI
+
+Заголовки, описание, порядок и алиасы папок по-прежнему используются в навигации. Локальный конфиг входит в отпечаток снимка.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

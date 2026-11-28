@@ -4,7 +4,7 @@ title: "Идея: CLI-команды волнового планирования
 doc_type: idea
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 status: planned
 tags: [idea, cli, planning, roadmap, staleness, skills, планирование]
 related: ["[[skills-engine]]", "[[plan-lifecycle-skills]]", "[[trace-traversal]]", "[[entity-to-folder]]", "[[multi-project-workspace]]", "[[bmad-v6-wave-planning-skills]]", "[[bmad-wave-planning-skills]]"]
@@ -74,3 +74,8 @@ Read-only команда `todoc plan portfolio --root KB [--project <slug>]` з�
 ## Открытые вопросы
 
 - Опциональные поля волны (`roadmap`, `wave`, `covers`, `depends_on_waves`, `files_touched`) размещаются прямо во front matter существующего `doc_type: plan` без заведения отдельного `doc_type: wave_plan` — да, валидируются как необязательные типизированные поля.
+
+## Связь с выпущенным CLI
+
+Общие статусы, диагностика и review-first операции выпущены. Команды планирования волн остаются в своей итерации.
+[Результаты выпуска](../notes/unified-cli-release.md).

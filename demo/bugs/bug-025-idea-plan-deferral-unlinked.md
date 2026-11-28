@@ -101,5 +101,9 @@ related: ["[[agent-state]]", "[[constitution.md]]", "[[bug-012-...]]"]
 
 Поиск перед созданием (2026-11-28): `--type bug-report --query "action-logging"` — совпадений нет.
 Связанные: идея [`ideas/action-logging.md`](../ideas/action-logging.md),
-план [`plan/unified-cli-output-implementation.md`](../plan/unified-cli-output-implementation.md),
+история выпуска [`notes/unified-cli-release.md`](../notes/unified-cli-release.md),
 BUG-022 (нет обзорной выборки по статусу — из-за чего статус читается по одному документу).
+
+2026-11-28. Отложенный объём action-logging указан в самой идее.
+Исторический план доступен через [сводку выпуска](../notes/unified-cli-release.md).
+Отдельное поле deferred_by и обязательная схема отсрочки остаются в объёме этого репорта.

@@ -1,368 +1,93 @@
-# 11. Известные проблемы
+# 11. Реестр известных дефектов
 
-Каждый пункт проверен запуском команды 2026-11-25; приведено воспроизведение. Полный исторический
-список находок — в [аудите реализации](../plan/audit-implementation.md). Что измерено и закрыто
-в этой итерации — в [15-benchmark.md](15-benchmark.md).
+Ниже статусы из `docs list --type bug-report` на момент обновления документации.
+Даты, доказательства и условия закрытия хранятся в репортах. BUG‑022 закрыт
+после проверки общего обзора и пагинации.
 
-## Критичные (P0)
+```bash
+todoc --root demo docs list --type bug-report --fields id,path,title,status
+todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress' --status-missing
+```
 
-Открытых P0 нет. Последний (`record_id` с двоеточием) закрыт 2026-11-25 — см. «Исправлено» ниже.
-
-## Важные (P1)
-
-### P1-1. Закрыт 2026-11-25 — индекс пересобирался на каждую команду чтения
-
-Все читающие команды шли через `rebuild_index()`. Было: `docs search` 1511 мс, `docs read`
-1059 мс, `records list` 1060 мс на 256 документах при `status` 150 мс.
-
-Закрыто введением единственной точки инвалидации `ensure_index()`: снимок переиспользуется,
-пока `corpus_digest` (SHA-256 по парам `(rel_path, content_hash)` плюс `config_digest`) не
-изменился. `stats.json` хранит `hash/mtime/size`, поэтому нетронутые файлы не перечитываются.
-Стало по бенчмарку: `docs search` 624 мс, `docs read` 168 мс, `records list` 160 мс.
-
-### P1-2. Закрыт 2026-11-25 — поколения индекса не удалялись
-
-Каждая пересборка добавляла каталог `generations/<12 hex>/`, поэтому размер `.todoc/index/`
-рос с каждой командой чтения: в демо накопилось 94 поколения и 27 МБ при 2,4 МБ документов.
-
-Закрыто переходом на один снимок `current/`, который перезаписывается на месте; прежняя
-раскладка `generations/` удаляется при первой публикации. Стало: 337 КБ, и тот же размер
-после серии из 5 чтений и 5 пересборок.
-
-### P1-3. Закрыт 2026-11-25 — кэш парсинга только писался
-
-Файлы в `.todoc/cache/parse/` создавались, но на скорость не влияли: `service.py` читал
-запись ровно для того, чтобы решить, не записать ли её, и больше к ней не возвращался.
-
-Теперь кэш сквозной и читается там, где происходит разбор:
-
-| Было | Стало |
+| Репорт | Статус в датасете |
 |---|---|
-| ключ = `dataset_id + path + hash + version`, запись по пути не найти | ключ = только путь; хеш и версия разбора лежат **внутри** записи и сверяются при чтении |
-| `validate_dataset` парсил Markdown, а `_check_markdown_links` читал и парсил тот же файл **второй раз** | разбор передаётся в проверку ссылок параметром `doc` — второй раз файл не читается |
-| записи копились и никогда не удалялись | `invalidate_parse_cache(root, path)` вызывается при каждой записи в DATA_ROOT (`apply_write_plan`, `apply_fix`, `apply_edit_ops`, `change apply`, `change revert`) |
-
-Промахом считается всё, что не даёт разбор, идентичный повторному: нет записи, не совпал
-хеш содержимого, другая версия разбора (`PARSER_VERSION`), битый JSON, конверт не-словарь
-или разбор чужой формы (`doc_from_payload` бросает исключение). Во всех случаях файл
-разбирается заново, поэтому кэш не может выдать вчерашнюю диагностику. Неудавшаяся запись
-кэша не fatal: кэш производный и пересобираемый.
-
-Измерено на демо-датасете (90 Markdown-файлов), `validate --all`:
-
-| Кэш | Медиана |
-|---|---|
-| холодный (каталог кэша удалён перед прогоном) | 0.671 с |
-| тёплый | 0.212 с |
-
-**Ускорение 3.17×.** Проверено тестами: при пригодном кэше `parse_markdown` не вызывается
-вовсе (spy-подмена), при изменённом содержимом — вызывается ровно один раз, а запись в файл
-через `docs edit` удаляет запись кэша.
-
-### P1-4. Закрыт 2026-11-25 — мёртвые флаги
-
-| Флаг | Было | Стало |
-|---|---|---|
-| `doctor --scope` | игнорировался: `--scope nonsense` выполнял все 3 проверки | отбирает группу `dataset` \| `environment` \| `all`; неизвестное значение — `usage.error` (exit 2) |
-| `records create --if-hash-new` | принимался, не использовался | **удалён**: гарантию «только создание» команда даёт безусловно (`record.duplicate_id` / `record.target_exists`, exit 5), а флаг намекал, что её нужно включать |
-
-Проверено: `doctor --scope environment` возвращает ровно `["python"]`, `--scope dataset` —
-`["config", "index"]`, `--scope nonsense` — exit 2; `records create --if-hash-new` — exit 2;
-занятый путь даёт `record.target_exists` ещё в preview, файл при этом не тронут.
-
-`docs new --template` больше не мёртвый: флаг принимает id типа документа или путь
-к файлу шаблона и реально подставляет содержимое (см. `04-config-and-types.md`).
-
-### P1-5. Закрыт 2026-11-25 — `docs read`: `--rows` применялся до `--where`
-
-`--rows 3 --where doc_type=guide` вернул 0 строк, `--rows 75 --where doc_type=guide` — 3:
-окно вырезалось из файла, а условие применялось к уже отрезанным строкам.
-
-Порядок исправлен: сначала отбор, потом окно. Ответ дополнен полями `matched` (сколько строк
-подошло под условие) и `truncated`, чтобы «взяли три из четырёх» было видно без пересчёта.
-Проверено: на 8 строках `--where status=fail --rows 3` отдаёт 3 подходящие строки при
-`matched: 4`, `truncated: true`, `total: 8`.
-
-### P1-6. Закрыт 2026-11-25 — `status` показывал нули до первой пересборки
-
-`status` читает опубликованное поколение; сразу после `init` — `generation_id: null`,
-`documents: 0`. Ноль читался как «в датасете ничего нет», хотя документов не было измерено.
-
-Теперь до первой пересборки `index_built: false`, а `documents`/`records` — `null`, и конверт
-несёт `next_actions` с `todoc index rebuild`. После пересборки — числа, как раньше.
-
-### P1-7. Закрыт 2026-11-25 — не было ни CI, ни файла лицензии
-
-Было: нет `.github/workflows`, нет `LICENSE`, а `pyproject.toml` объявлял
-`license = { text = "MIT" }` — форму, которая устарела и перестаёт поддерживаться
-**2027-02-18**. Заявленная лицензия не была приложена к репозиторию.
-
-Стало:
-
-- `LICENSE` (MIT) в корне; заявленная лицензия теперь приложена, а не только названа.
-- `pyproject.toml`: SPDX-форма по PEP 639 — `license = "MIT"` и `license-files = ["LICENSE"]`,
-  `build-system.requires` поднят до `setuptools>=77`. Проверено сборкой: wheel содержит
-  `todoc-0.1.0.dist-info/licenses/LICENSE`, в метаданных `License-Expression: MIT` и
-  `License-File: LICENSE`, предупреждений об устаревании нет.
-- `.github/workflows/tests.yml`: pytest, покрытие с `--fail-under=100` (гейт, а не отчёт),
-  linkcheck и `validate --all` на демо — на Python 3.11 и 3.12.
-
-Остаётся верным: контрактные тесты K47/K48 — сквозные и параметризованы по всему перечню
-команд, поэтому CI проверяет каждую команду, а не выборочные.
-
-### P1-8. Закрыт 2026-11-25 — у трёх JSON-диагностик не было позиции
-
-`json.duplicate_key`, `json.invalid_constant`, `json.too_deep` не несли `line`/`column`:
-`object_pairs_hook` и `parse_constant` в стандартном `json` позицию не получают — оба
-вызываются уже с разобранными значениями. Это был единственный незакрытый критерий
-бенчмарка: K7 = 0.55.
-
-Решение без новой зависимости: проход по тексту, который находит смещения нужных токенов.
-Сканер намеренно **не парсер** — он не решает, корректен ли JSON, и потому не может изменить
-семантику разбора; на враждебном вводе он останавливается, а не падает. Позиции:
-`duplicate_key` — второе вхождение ключа внутри того же объекта, `invalid_constant` — токен
-константы, `too_deep` — скобка, на которой лимит впервые превышен.
-
-Заодно позиции получили диагностики отношений (`relation.unknown_type`,
-`relation.dangling_target`, `relation.missing_target`, `relation.malformed`): у них был
-точный `pointer`, но не было строки, потому что проверка отношений не получала текст записи.
-Теперь получает и указывает строку ключа — по тому же соглашению, что и
-`record.schema_violation`.
-
-Проверено на засеянном корпусе бенчмарка: доля диагностик с номером строки **1.00**
-(11 из 11; до правки было 6 из 11 — три JSON-кода и две диагностики отношений).
-Зависимость вроде `jsonscanner`/`ijson` не понадобилась — P2 (переносимость) не пострадал.
-
-### P1-9. Любой `.json` внутри DATA_ROOT считается записью — предложено решение, ждёт выбора
-
-Проверено: файл `stray-input.json`, положенный в корень датасета, попадает в индекс как запись,
-и последующий `records create` с тем же `record_id` даёт `record.duplicate_id`.
-
-Механика понятна из `_validate_records`: записью считается **любой** отсканированный `.json`,
-в котором есть ключ `record_id`, — ни каталог, ни тип при этом не проверяются. Поэтому входной
-файл, случайно оставленный внутри базы, неотличим от записи.
-
-**Как обходят сейчас (работает, ничего не ломает):** входные и временные файлы держат вне
-DATA_ROOT — бенчмарк делает именно так, `records create --input-file` принимает путь снаружи.
-Это ограничение процесса, а не свойства инструмента, поэтому оно и осталось дефектом.
-
-Варианты решения — они не эквивалентны по цене и по совместимости:
-
-| Вариант | Что делает | Цена | Совместимость |
-|---|---|---|---|
-| **A. `records/` как единственная область записей** | запись вне `records/` — диагностика, а не запись | просто | **ломает** существующие базы, где записи лежат иначе |
-| **B. Явные правила игнорирования в `dataset.json`** | список масок (`"ignore": ["tmp/**"]`), сканер их пропускает | средняя | не ломает: список по умолчанию пуст |
-| **C. Диагноза «запись вне объявленного пути»** | `path_template` типа уже известен; запись не там — `warning` | малая | не ломает: предупреждение, не отказ |
-
-**Рекомендация: C, затем B.** C закрывает реальную боль за малую цену и ничего не ломает:
-агент сразу видит, что файл попал не туда, вместо загадочного `record.duplicate_id`. B даёт
-явный выход для осознанных исключений. A не рекомендую без переноса данных: он молча перестанет видеть
-записи в уже существующих базах, а это нарушение P1 (файлы — источник истины).
-
-Решение требует выбора, поэтому не реализовано: вариант A меняет наблюдаемое поведение
-существующих датасетов, и выбирать его за пользователя нельзя.
-
-### P1-10. Закрыт 2026-11-25 — `fix --apply` писал путь от корня, а не от файла
-
-`suggested_fixes[].replacement` брался из индекса `by_basename`, где пути отсчитываются от
-DATA_ROOT, тогда как Markdown-ссылка резолвится от каталога файла: фикс оставлял ссылку
-битой. Исправлено функцией `_link_replacement()` — путь пересчитывается относительно
-каталога файла (`posixpath.relpath`), а для wikilink остаётся stem. Попутно закрыт соседний
-дефект: `fix --apply` на wikilink падал в `fix.cannot_apply`, потому что `old_target`
-выводился только из формы `](…)`. Подробности и воспроизведение — в таблице «Исправлено».
-
-### P1-11. Закрыт 2026-11-25 — в типе объявлялась формула, которую ядро не вычисляло
-
-`records aggregate` всегда возвращал `sum(<metric>)`, а `metric_fields.<field>.formula`
-в описателе типа не читался вовсе. Проверено было так: замена `formula` на
-`reps * weight_kg` в `type.json` вывод не меняла — оставалось `sum(value)`.
-
-Решение принято не «реализовать вычисление формулы», а **исправить спецификацию**: ядро
-детерминировано (P5) и не исполняет выражений из DATA_ROOT (P3, P10), поэтому вычисляемого
-поля в описателе быть не должно. Теперь:
-
-| Было | Стало |
-|---|---|
-| `metric_fields.<f>.formula` — объявлялось, игнорировалось | `metric_fields.<f>.prompt` — текст о метрике, доходит до ответа |
-| под-ключи `metric_fields` не проверялись | разрешены только `unit` и `prompt`; остальное → `config.unknown_field` |
-| ответ `formula` молча выдавал `sum(x)` | тот же `formula`, но теперь он честно описывает выполненную операцию, и рядом `prompt` |
-
-Проверено: `formula` в `type.json` больше не проходит молча — `check-config` даёт
-`config.unknown_field` и перечисляет допустимые под-ключи; объявленный `prompt` приходит
-в ответ `records aggregate` неизменным; не-словарь вместо описателя метрики агрегацию
-не роняет. Демо-тип `metric` переведён на `prompt`.
-
-Конституция приведена в соответствие: S7 больше не обещает «сумму `reps × weight_kg`»,
-FR-8.2 уточнён — формула в ответе описывает фактически выполненную операцию. Производная
-метрика остаётся сохранённым полем записи или арифметикой вызывающей стороны.
-
-Единицы не пострадали: они берутся из значения записи и проверяются по группам
-(`group_units`), смешение единиц внутри одной группы по-прежнему даёт `query.unit_mismatch`.
-
-### P1-12. `history.require_change_for_multi_file` не реализован
-
-План (§17.4) предусматривает флаг, требующий вести многофайловую правку через изменение.
-Сейчас его нет, и причина содержательная: **пути многофайловой записи в ядре не существует**.
-`apply_write_plan`, `apply_fix` и `apply_edit_ops` пишут ровно один файл; `change apply` —
-единственная операция, задевающая несколько файлов, и она уже идёт через изменение.
-
-Флаг был бы проверкой, у которой нечего проверять: его пришлось бы навесить на несуществующий
-код. Реализация появится вместе с появлением многофайловой записи вне изменений — тогда флаг
-станет содержательным ограничением, а не украшением конфигурации.
-
-Воспроизведение: `todoc init` создаёт `dataset.json`, в котором раздела `history` нет вовсе
-(проверено на пустом датасете), и ни одна команда не принимает такой ключ.
-
-### P1-13. Folder-local `.todoc.json` не читается
-
-План (§5.1) обещает локальные правила папки с приоритетом выше датасетных. В коде имени
-`.todoc.json` касается только сканер — и то чтобы **пропустить** файл
-(`adapters/filesystem/scanner.py:96`); чтения и применения таких правил нет.
-
-Воспроизведение (проверено 2026-11-25): положить в `notes/.todoc.json` правило, назначающее
-`doc_type: adr` по front matter, и выполнить `explain-path notes/t2.md` — ответ
-`doc_type: unknown`, `rule_source: default`. Локальное правило проигнорировано.
-
-### P1-14. Явное объявление `doc_type` в front matter игнорируется без правила
-
-Конституция ставит явное объявление выше правил датасета. В резолвере (`resolve_type`) есть
-только два источника: совпавшее правило и зарезервированное имя каталога. Прямого чтения
-front matter нет — оно работает лишь постольку, поскольку дефолтные правила содержат
-`glossary-by-front-matter`.
-
-Воспроизведение (проверено): документ с `doc_type: glossary-entry` получает тип
-(`rule_source: rule:glossary-by-front-matter`), а с `doc_type: adr` — `unknown` /
-`rule_source: default`. Разница только в наличии дефолтного правила.
-
-### P1-15. `validate` не группирует и не ограничивает выдачу
-
-Правило CLI (§15.1.19) требует итогов по severity/category, порога показа и
-`total`/`shown`/`truncated`. Сейчас `data.datasets[]` — плоский список всех диагностик:
-на большой базе ответ нечитаем и не выгружается по частям.
-
-Воспроизведение: `validate --all --output json` на датасете с десятками находок возвращает
-весь список целиком; ключей `total`/`shown`/`truncated` в ответе нет (проверено).
-
-### P1-16. Нет выгрузки отчёта и выбора полей
-
-Контракт §8.1 предусматривает глобальный `--out`/`--report-file` и `--details`/`--fields`.
-Есть только `types guide --out` (с containment-проверкой). Большой отчёт `validate` нельзя
-выгрузить в файл, а проекцию полей получить нельзя.
-
-## Незначительные (P2)
-
-Закрыты в этой итерации:
-
-- Пустые каталоги-заглушки `adapters/indexes/`, `adapters/cache/`, `adapters/search/` удалены.
-  `ports/` оставлен осознанно: в нём лежит действующий протокол истории
-  (`ports/history.py`, используется `adapters/history/backends.py`), а не пустая заглушка.
-- `RESERVED_ALIASES` удалён. Псевдоним каталога законен только через явную настройку правила
-  каталога, поэтому отдельный список зарезервированных псевдонимов не участвовал ни в одном
-  решении — ни разрешить, ни запретить он ничего не мог.
-- Фрагмент поиска строится по наиболее релевантному окну: ранжирование по числу различных
-  терминов запроса, затем по общему числу вхождений, затем по позиции. Совпадение в оглавлении
-  больше не вытесняет содержательное совпадение ниже по документу.
-- `init_dataset(root, dataset_id=…)` и `init --dataset-id` принимают явный идентификатор —
-  демо-датасеты и фикстуры стали воспроизводимыми. Значение обрезается от пробелов; пустое
-  отклоняется как `config.invalid_schema`.
-
-Остаются открытыми:
-
-- `SKILL.md` в репозитории есть, но авто-ремонта навыков (`ok skills`) нет.
-- **Obsidian-профиля нет**: из Этапа 7 реализованы `SKILL.md`, `types guide` и references,
-  а профиль — нет. `.obsidian` встречается только в списке исключений сканера
-  (`HARD_EXCLUDE_DIRS`), ключа `profiles` в `dataset.json` нет.
-- **Порты E1–E10 кодом не описаны**: в `ports/` лежит только `history.py`. Точки расширения
-  остаются архитектурным соглашением, а не проверяемым контрактом.
-- **Нет блокировки датасета**: одновременная запись двух процессов ничем не координируется.
-  Атомарность одной записи есть (`atomic_write`), межпроцессной очереди нет. `history gc`
-  при этом реализован.
-- `records aggregate`: `--metric` принимает имя поля, а не именованную метрику из описателя,
-  `--group-by` — одно поле, `date.month` не работает. Формула→`prompt` закрыто (P1-11),
-  остальное расхождение с §8.1 остаётся.
-- Нет MCP-адаптера, синхронизации и UI — measured-разрыв с `open-knowledge`
-  (см. [15-benchmark.md §4](15-benchmark.md)). MCP отложен осознанно: это надстройка поверх
-  CLI, которая может и не появиться вовсе.
-
-## Исправлено в этой итерации (проверено бенчмарком)
-
-| Было | Стало | Критерий |
-|---|---|---|
-| `id` диагностик через `hash()` — разный в каждом процессе | `stable_id()` = SHA-256 от `path + code + message` | K13 |
-| `types guide --out /tmp/...` писал вне DATA_ROOT, exit 0 | `access.outside_data_root`, exit 4, файл не создан | K16 |
-| `docs new --dir ../../outside` — сырой `PermissionError` | тот же containment, конверт, exit 4 | тест CLI |
-| `--cursor` не продолжал выдачу (0 из 42) | `offset` применяется до среза, `truncated` от смещения | K24 |
-| `--cursor abc`, `--line-range abc` → traceback, exit 1, пустой stdout | `usage.invalid_cursor` / `usage.invalid_line_range`, exit 3, конверт | K26 |
-| Ошибки текстом в stderr, stdout пуст | `_emit_error()`: конверт `ok: false` + диагностика + `next_actions` | K2 |
-| `check`/`validate`: `ok: true` при exit 3, диагностики только в `data` | `ok` согласован с кодом выхода, диагностики в конверте | K4 |
-| `docs read --section`: фиксированные 41 строка, залезало в соседний раздел | граница по следующему заголовку, ≤ 40 строк, `truncated`, breadcrumb | K18 |
-| `heading_path` в поиске = первые 3 заголовка документа | путь к заголовку, содержащему совпадение | K22 |
-| Номера строк сниппетов считались по синтетическому тексту (сдвиг на 2) | provenance по исходному файлу | K22 |
-| `records create` не применял JSON Schema (значение вне `enum` записывалось) | `record.schema_violation`, exit 3, файл не создаётся | K10 |
-| Ссылки из регулярных выражений давали ложные `markdown.link.target_missing` | токены парсера: code fence и инлайн-код исключены | K6 |
-| `RecursionError` на глубоко вложенном JSON | итеративная глубина → `json.too_deep`, exit 3 | K25 |
-| `docs edit --patch-file` не той формы → `AttributeError` и traceback | `edit.invalid_patch`, exit 3, конверт | тест CLI |
-| Front matter с незакавыченным `key: A: B` не читался внешними инструментами | диагностика `markdown.front_matter.yaml_unsafe` + правило кавычек | K8 |
-| `fix --apply` писал `guides/target.md` в `notes/n.md` — файл оставался битым (P1-10) | `_link_replacement()`: путь от каталога файла (`../guides/target.md`), wikilink остаётся stem | тест CLI |
-| `fix --apply` на wikilink-диагностике → `fix.cannot_apply` | `old_target` выводится и из `[[target]]`, а не только из `](target)` | тест CLI |
-| `record_id` с двоеточием давал имя файла, которое Windows не создаёт (P0-1) | `portable_name()` санитизует `<>:"/\|?*`, управляющие символы, зарезервированные имена (CON, NUL, COM1–9, LPT1–9) и точки с пробелами по краям | тесты unit |
-| `/` внутри `record_id` создавал несуществующий подкаталог | тот же `portable_name()` — слэш заменяется, вложенность не появляется | тесты unit |
-| `slug` для `note:2026:11:25` становился `25` (делилось по последнему `:`) | `split(":", 1)` — отделяется только префикс типа | тесты unit |
-
-## Приоритет исправлений
-
-Набор перепроверен по коду 2026-11-25, включая находки аудита, у которых раньше не было
-статуса. Порядок — по тому, что ломает работу сегодня, затем по цене.
-
-1. **P1-9 — выбрать вариант решения.** Любая `.json` с ключом `record_id` внутри DATA_ROOT
-   считается записью, поэтому посторонний входной файл блокирует `records create` тем же
-   идентификатором. Варианты и рекомендация (C, затем B) записаны в разделе P1-9 выше.
-   Реализация ждёт выбора: вариант A меняет наблюдаемое поведение существующих баз,
-   и решать это за пользователя нельзя.
-2. **P1-14 — явный `doc_type` без правила.** Самое дешёвое из открытых: конституция ставит
-   явное объявление выше правил, а резолвер его не читает. Правка локальна (`resolve_type`).
-3. **P1-13 — folder-local `.todoc.json`.** Обещано планом, не реализовано вовсе. Дороже
-   предыдущего: нужно читать файл, сливать правила и соблюдать приоритеты.
-4. **P1-15, P1-16 — выдача `validate` и выгрузка отчёта.** Группировка, `total`/`shown`/
-   `truncated`, `--report-file`, `--fields`. Это контракт §8.1 и §15.1.19: на большой базе
-   текущий плоский ответ нечитаем.
-5. **P2 — `ok skills`: авто-ремонт навыков.** `SKILL.md` есть, но расхождение с фактическим CLI
-   никто не проверяет. Внешних зависимостей не требует.
-6. **P1-12 — `history.require_change_for_multi_file` (отложено осознанно).** В ядре нет
-   многофайловой записи вне изменений, поэтому флагу нечего проверять. Вернётся в очередь
-   вместе с появлением такой записи.
-7. **P2 — остальное.** Порты E1–E10 кодом, блокировка датасета, именованные метрики в
-   `records aggregate`, Obsidian-профиль, MCP/синхронизация/UI. На корректность текущего
-   поведения не влияют; подробности в списке P2 выше и в
-   [16-leftovers-report.md](16-leftovers-report.md).
-
-Закрыты 2026-11-25: P0-1, P1-1, P1-2, P1-3, P1-7, P1-8, P1-10, P1-11 и первые четыре пункта P2
-(см. «Исправлено» и отметки выше). Полный постатейный статус находок аудита —
-в [аудите реализации](../plan/audit-implementation.md), раздел «Статус находок».
-
-## Связанные разделы
-
-- [03-cli-reference.md](03-cli-reference.md) — ожидаемое поведение команд.
-- [12-agent-operations.md](12-agent-operations.md) — как обходить проблемы сейчас.
-- [15-benchmark.md](15-benchmark.md) — измеренные результаты и план улучшений.
-
-## Обновление 2026-11-26
-
-Реестр агентских фрикций перенесён в датасет (`demo/bugs/`, doc_type bug-report,
-document-записи в реестре `bugs-agent-friction`) и продолжается там; здесь — сводка open:
-
-| ID | Суть | fm |
-|---|---|---|
-| [BUG-011](../../demo/bugs/bug-011-dreyf-derived-from-pri-smene-statusa-tela-ishodnika-trebuet-ruchnogo-re-ankoringa.md) | дрейф derived_from при смене исходника → ручной re-anchor (без готового anchor в diagnostics) | open/minor |
-| [BUG-012](../../demo/bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md) | history-ревизии загрязняют git-статус (очистка перед каждым коммитом) | open/minor |
-| [BUG-013](../../demo/bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | неоднородные id и output-контракты (`docs new` без id; `{}` вместо ошибки) | open/minor |
-| [BUG-014](../../demo/bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | `docs edit --preview` без нумерации; `line_out_of_range` без контекста; молчаливый replace | open/minor |
-| [BUG-015](../../demo/bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md) | YAML-lite fm: `\"`-escape разбирается как буквальные backslash-ы без warning | open/minor |
-| [BUG-016](../../demo/bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | фильтры `records query` (`$in`/`$gte`) не документированы | open/docs |
-| [DESIGN-Q01](../../demo/bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md) | guard терминальных статусов — процедурный (скил), движок молчит — дизайн-вопрос | open/docs |
-| [DESIGN-Q02](../../demo/bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md) | цена review-first двойного вызова — дизайн-вопрос | open/docs |
-
-Из MVP-реестра статус не менялся: P1-9/12/13/15/16 и P2 открыты. Инцидент гейта:
-CI `--fail-under=100` был красным с PR #74 (волны 25.11 оставили 25 инструкций/19 веток
-без покрытия) — восстановлен 26.11 добором `tests/cli/test_cli_coverage_gaps.py`
-(см. [10-testing-and-quality.md](10-testing-and-quality.md)).
+| [BUG-001: Явный doc_type без fm-правила резолвится в unknown](../../demo/bugs/bug-001--явный-doc_type-без-fm-правила-резолвится-в-unknown.md) | fixed |
+| [BUG-002: change open создаёт файлы с doc_type note без правила — резолвится в unknown](../../demo/bugs/bug-002--change-open-создаёт-файлы-с-doc_type-note-без-правила---резолвится-в-unknown.md) | fixed |
+| [BUG-003: Счётчики демо в README разошлись с фактом](../../demo/bugs/bug-003--счётчики-демо-в-readme-разошлись-с-фактом.md) | fixed |
+| [BUG-004: docs edit не умеет вставку и удаление строк](../../demo/bugs/bug-004--docs-edit-не-умеет-вставку-и-удаление-строк.md) | fixed |
+| [BUG-005: docs read --section игнорирует --budget](../../demo/bugs/bug-005--docs-read---section-игнорирует---budget.md) | fixed |
+| [BUG-006: docs new создаёт кириллические имена файлов из кириллического заголовка](../../demo/bugs/bug-006--docs-new-создаёт-кириллические-имена-файлов-из-кириллического-заголовка.md) | fixed |
+| [BUG-007: linkcheck из DoD планов не существует как команда CLI](../../demo/bugs/bug-007--linkcheck-command-missing.md) | fixed |
+| [BUG-008: skills tree показывает счётчик только собственных скилов раздела](../../demo/bugs/bug-008--skills-tree-section-count-own-only.md) | fixed |
+| [BUG-009: docs suggest нормирует score к максимуму — единственный кандидат всегда 1.0](../../demo/bugs/bug-009--suggest-score-normalized-to-max.md) | fixed |
+| [BUG-010: диагностика конфигов без location при unicode-escape ключе](../../demo/bugs/bug-010--config-location-unicode-escape.md) | fixed |
+| [BUG-011: дрейф derived_from при смене статуса/тела исходника требует ручного ре-анкоринга](../../demo/bugs/bug-011-dreyf-derived-from-pri-smene-statusa-tela-ishodnika-trebuet-ruchnogo-re-ankoringa.md) | open |
+| [BUG-012: history-ревизии мутирующих команд загрязняют git-статус](../../demo/bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md) | fixed |
+| [BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep](../../demo/bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | open |
+| [BUG-014: docs edit --preview не показывает нумерацию результата](../../demo/bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | open |
+| [BUG-015: YAML-lite front matter не обрабатывает backslash-escape кавычек](../../demo/bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md) | open |
+| [BUG-016: фильтры records query не документированы в справках](../../demo/bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | open |
+| [BUG-017: docs tree молча усекает дерево до 50 папок и 50 документов без truncated](../../demo/bugs/bug-017-docs-tree-silent-truncation.md) | open |
+| [BUG-018: docs read без --section игнорирует --budget](../../demo/bugs/bug-018-docs-read-full-ignores-budget.md) | open |
+| [BUG-019: docs search с пустым --query возвращает ok:true и total 0](../../demo/bugs/bug-019-docs-search-empty-query.md) | open |
+| [BUG-020: records list по doc_type возвращает пустой успех вместо диагностики неймспейса](../../demo/bugs/bug-020-records-list-wrong-namespace.md) | open |
+| [BUG-021: usage-ошибки CLI не содержат suggested_fixes и guidance](../../demo/bugs/bug-021-usage-errors-without-guidance.md) | open |
+| [BUG-022: нет обзорной выборки по типу документа](../../demo/bugs/bug-022-no-type-overview-query.md) | fixed |
+| [BUG-023: CLI недоступен из харнеса — нет venv и entrypoint](../../demo/bugs/bug-023-cli-not-reachable-from-harness.md) | open |
+| [BUG-024: индекс демо зашумлён 51 unknown-документом скилов, .todocignore отсутствует](../../demo/bugs/bug-024-skills-noise-no-todocignore.md) | open |
+| [BUG-025: решение плана об отложенной идее не связано с самой идеей](../../demo/bugs/bug-025-idea-plan-deferral-unlinked.md) | open |
+| [BUG-026: doctor --scope environment рапортует pass без проверки окружения](../../demo/bugs/bug-026-doctor-environment-checks-hardcoded-pass.md) | open |
+| [BUG-027: skills tree падает traceback на vault с SKILL.md в корне](../../demo/bugs/bug-027-skills-tree-crash-on-root-skill-md.md) | open |
+| [BUG-028: нет runtime-контракта для Windows/WSL-харнесса — пути и кодировка](../../demo/bugs/bug-028-no-runtime-contract-for-windows-wsl-harness.md) | open |
+| [BUG-029: два хранилища скилов без единой команды обзора](../../demo/bugs/bug-029-two-skill-stores-no-unified-listing.md) | open |
+| [BUG-030: UnicodeEncodeError на Windows при выводе JSON/table с не-ASCII символами](../../demo/bugs/bug-030-unicode-encode-error-windows-stdout.md) | open |
+| [BUG-031: Тест test_open_reports_path_and_status падает на Windows из-за разделителей путей](../../demo/bugs/bug-031-windows-path-separator-test-failure.md) | open |
+| [BUG-032: CLI возвращает Windows-пути с backslash в JSON вместо POSIX](../../demo/bugs/bug-032-cli-returns-windows-paths-with-backslash.md) | open |
+| [BUG-033: History revert не сохраняет line endings (CRLF на Windows)](../../demo/bugs/bug-033-history-revert-line-endings-windows.md) | open |
+| [BUG-034: change apply пишет за пределы DATA_ROOT по target дельты](../../demo/bugs/bug-034-change-apply-target-outside-root.md) | open |
+| [BUG-034: Тесты истории падают на Windows из-за chmod и line endings](../../demo/bugs/bug-034-history-tests-windows-chmod-line-endings.md) | open |
+| [BUG-035: history show/diff/blame читают файлы вне DATA_ROOT по --path](../../demo/bugs/bug-035-history-path-outside-root.md) | open |
+| [BUG-035: DUPLICATE of BUG-027: skills tree падает при наличии SKILL.md в корне vault](../../demo/bugs/bug-035-skills-tree-crash-root-skill-md.md) | duplicate |
+| [BUG-036: skills import --into выходит за пределы DATA_ROOT](../../demo/bugs/bug-036-skills-import-outside-root.md) | open |
+| [BUG-037: глобальный --output игнорируется подкомандами](../../demo/bugs/bug-037-global-output-ignored.md) | open |
+| [BUG-038: records read --view с неизвестным именем молча возвращает всю запись](../../demo/bugs/bug-038-records-read-unknown-view.md) | open |
+| [BUG-039: records aggregate без --type молча выбирает тип workout](../../demo/bugs/bug-039-records-aggregate-hidden-default.md) | open |
+| [BUG-040: skills read падает traceback на некорректном --line-range и принимает --budget -1](../../demo/bugs/bug-040-skills-read-invalid-range.md) | open |
+| [BUG-041: records list --until/--relation фильтруют после limit — total и truncated врут](../../demo/bugs/bug-041-records-list-post-limit-filters.md) | open |
+| [BUG-042: records query падает traceback на некорректном QuerySpec](../../demo/bugs/bug-042-records-query-invalid-spec.md) | open |
+| [BUG-043: docs read --line-range вне файла возвращает пустой успех](../../demo/bugs/bug-043-docs-read-line-range-out-of-bounds.md) | open |
+| [BUG-044: status отдаёт next_actions с ключами action/reason вместо argv/purpose](../../demo/bugs/bug-044-status-next-actions-contract.md) | open |
+| [BUG-045: docs search --budget не ограничивает ответ — считается только текст сниппета](../../demo/bugs/bug-045-docs-search-budget-not-honest.md) | open |
+| [BUG-046: fix --apply заменяет первое вхождение цели в тексте, а не сломанную ссылку](../../demo/bugs/bug-046-fix-applies-wrong-occurrence.md) | open |
+| [BUG-047: Неверная форма target отношения обрушает валидацию](../../demo/bugs/bug-047-malformed-relation-target.md) | open |
+| [BUG-048: Поиск падает на файле с невалидным UTF-8](../../demo/bugs/bug-048-invalid-utf8-search-crash.md) | open |
+| [BUG-049: Preview правки одобряет неисполнимый патч](../../demo/bugs/bug-049-edit-preview-invalid-ops.md) | open |
+| [BUG-050: Нулевой limit зацикливает курсор поиска](../../demo/bugs/bug-050-zero-limit-search-cursor.md) | open |
+| [BUG-051: Конкурентное создание нарушает гарантию create-only](../../demo/bugs/bug-051-create-only-concurrent-overwrite.md) | open |
+| [BUG-052: Сбой rename при публикации уничтожает предыдущий снимок индекса](../../demo/bugs/bug-052-index-publish-loses-snapshot.md) | open |
+| [BUG-053: Контрактные тесты пропускают вложенные команды flow](../../demo/bugs/bug-053-contract-tests-missing-nested-leaves.md) | open |
+| [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](../../demo/bugs/bug-054-current-docs-search-csv-drift.md) | open |
+| [BUG-055: Неизвестный --type/--within в docs search даёт тихий пустой результат](../../demo/bugs/bug-055-unknown-search-filter-silent-empty.md) | open |
+| [BUG-056: Нет CLI-команды для списка тегов и фильтра записей по тегу](../../demo/bugs/bug-056-no-tag-listing-or-record-filter.md) | open |
+| [DESIGN-Q01: терминальный статус записи — guard процедурный, движок молчит](../../demo/bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md) | open |
+| [DESIGN-Q02: review-first двойной вызов — стоимость для агента против контроля](../../demo/bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md) | open |
+| [BUG-001: Явный doc_type без fm-правила резолвится в unknown](../../demo/records/documents/bug-001-fm-doc-type-unknown.json) | поле отсутствует |
+| [BUG-002: change open создаёт файлы с doc_type note без правила — резолвится в unknown](../../demo/records/documents/bug-002-change-open-note-unknown.json) | поле отсутствует |
+| [BUG-003: Счётчики демо в README разошлись с фактом](../../demo/records/documents/bug-003-readme-counters-stale.json) | поле отсутствует |
+| [BUG-004: docs edit не умеет вставку и удаление строк](../../demo/records/documents/bug-004-docs-edit-line-ops.json) | поле отсутствует |
+| [BUG-005: docs read --section игнорирует --budget](../../demo/records/documents/bug-005-section-ignores-budget.json) | поле отсутствует |
+| [BUG-006: docs new создаёт кириллические имена файлов из кириллического заголовка](../../demo/records/documents/bug-006-cyrillic-slug-docs-new.json) | поле отсутствует |
+| [BUG-007: linkcheck из DoD планов не существует как команда CLI:friction, token_overrun:1500](../../demo/records/documents/bug-007-linkcheck-command-missing.json) | поле отсутствует |
+| [BUG-008: skills tree показывает счётчик только собственных скилов раздела:friction:400](../../demo/records/documents/bug-008-skills-tree-section-count-own-only.json) | поле отсутствует |
+| [BUG-009: docs suggest нормирует score к максимуму — единственный кандидат всегда 1.0:friction:300](../../demo/records/documents/bug-009-suggest-score-normalized-to-max.json) | поле отсутствует |
+| [BUG-010: диагностика конфигов без location при unicode-escape ключе:friction:300](../../demo/records/documents/bug-010-config-location-unicode-escape.json) | поле отсутствует |
+| [BUG-011: дрейф derived_from при смене статуса/тела исходника требует ручного ре-анкоринга](../../demo/records/documents/bug-011-derived-from-drift-reanchoring.json) | поле отсутствует |
+| [BUG-012: history-ревизии мутирующих команд загрязняют git-статус](../../demo/records/documents/bug-012-history-journal-git-pollution.json) | поле отсутствует |
+| [BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep](../../demo/records/documents/bug-013-id-resolve-output-contracts.json) | поле отсутствует |
+| [BUG-014: docs edit --preview не показывает нумерацию результата](../../demo/records/documents/bug-014-edit-preview-no-line-numbers.json) | поле отсутствует |
+| [BUG-015: YAML-lite front matter не обрабатывает backslash-escape кавычек](../../demo/records/documents/bug-015-yaml-lite-quote-escape.json) | поле отсутствует |
+| [BUG-016: фильтры records query не документированы в справках](../../demo/records/documents/bug-016-query-filters-undocumented.json) | поле отсутствует |
+| [DESIGN-Q01: терминальный статус записи — guard процедурный, движок молчит (дизайн-вопрос)](../../demo/records/documents/design-q01-terminal-status-guard.json) | поле отсутствует |
+| [DESIGN-Q02: review-first двойной вызов — стоимость для агента против контроля (дизайн-вопрос)](../../demo/records/documents/design-q02-review-first-cost.json) | поле отсутствует |
+
+[Запись диагностик](06-validation-and-diagnostics.md) · [Связанные работы](16-leftovers-report.md)

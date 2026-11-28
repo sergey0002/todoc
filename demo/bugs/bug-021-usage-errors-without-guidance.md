@@ -4,7 +4,7 @@ title: "BUG-021: usage-ошибки CLI не содержат suggested_fixes и
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-021
 status: open
 severity: minor
@@ -119,3 +119,7 @@ Usage: python -m todoc explain-path [OPTIONS] PATH
 - Поиск перед созданием (2026-11-27): `--type bug-report --query doctor` — 0;
   `--query explain-path` — только упоминания в BUG-001/002 (там про `unknown`,
   не про пустые подсказки).
+
+2026-11-28. Конверт v2 уже содержит guidance и ссылку на справку.
+Отдельная точная подсказка для неверного позиционного PATH и корня explain-path остаётся в объёме репорта.
+[Сводка выпуска](../notes/unified-cli-release.md).

@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, temporal, bitemporal, records, query, timeline, валидация]
 related: ["[[constitution.md]]", "[[entity-catalog]]", "[[documentation-system]]"]
 ---
@@ -133,3 +133,8 @@ def visible_at(
 - [Конституция `todoc` (би-темпоральные связи и детерминизм P5)](../plan/constitution.md)
 - [Идея: справочник сущностей системы и граф связей](entity-catalog.md)
 - [Идея: система документирования кодовой базы (версионирование правил через `supersedes`)](documentation-system.md)
+
+## Связь с выпуском единого CLI
+
+Сохранены темпоральные факты, provenance и лента. Дополнительные часы знания и их политика остаются в объёме идеи.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

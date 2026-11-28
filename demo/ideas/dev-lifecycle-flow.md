@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 tags: [ideas, idea, agent-flow, folderize, lifecycle, plan, audit, tasks]
 related: ["[[agent-flows]]", "[[entity-to-folder]]", "[[direct-edit-and-git-sync]]", "[[type-naming-and-state-dir]]", "[[wave-planning-cli-helpers]]", "[[cli-model-guidance-and-hint-catalog]]", "[[constitution.md]]"]
 ---
@@ -129,3 +129,8 @@ flowchart TD
 - [Идея: CLI-команды волнового планирования (`todoc stale anchor/reanchor` и `todoc plan portfolio`)](wave-planning-cli-helpers.md)
 - [Идея: самодокументируемое поле `guidance` для моделей (`P15`)](cli-model-guidance-and-hint-catalog.md)
 - [Конституция `todoc`](../plan/constitution.md)
+
+## Связь с выпущенным CLI
+
+Обзор планов и идей, навигация по связям доступны. Автоматизированный флоу разработки сохраняет отдельную приёмку.
+[Результаты выпуска](../notes/unified-cli-release.md).

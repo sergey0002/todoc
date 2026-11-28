@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 tags: [ideas, idea, agent-flow, flow, quiz, harness, skills, cli]
 related: ["[[dev-lifecycle-flow]]", "[[skills-engine]]", "[[toggleable-rules]]", "[[multi-project-workspace]]", "[[cli-model-guidance-and-hint-catalog]]", "[[decision-tree-formats]]", "[[entity-catalog]]", "[[constitution.md]]"]
 ---
@@ -144,3 +144,8 @@ todoc flows render --root KB --id agent_flow:triz [--write flows/triz.md]
 - [Идея: самодокументируемое поле `guidance` для моделей (`P15`)](cli-model-guidance-and-hint-catalog.md)
 - [Идея: справочник сущностей и витрины `flow` (`entity-catalog`)](entity-catalog.md)
 - [Конституция `todoc` (`P4` разделение измерений, `P11` CLI и Skill, `P15` `guidance`)](../plan/constitution.md)
+
+## Связь с выпущенным CLI
+
+Доступны витрины и обход записей flow. Тип agent_flow и запуск агентных флоу остаются открытыми.
+[Результаты выпуска](../notes/unified-cli-release.md).

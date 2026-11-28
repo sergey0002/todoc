@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, projects, workspace, harness, state, cli, микросервисы]
 related: ["[[agent-state]]", "[[folder-config]]", "[[skills-engine]]", "[[toggleable-rules]]", "[[typed-tree-projection]]", "[[sqlite-storage-drivers]]", "[[unified-tags-and-tag-graph]]", "[[docs-move]]", "[[entity-to-folder]]", "[[type-naming-and-state-dir]]"]
 ---
@@ -249,3 +249,8 @@ related: ["[[agent-state]]", "[[folder-config]]", "[[skills-engine]]", "[[toggle
 - [Идея: `todoc docs move` — транзакционный перенос документа](docs-move.md)
 - [Идея: `todoc folderize` — преобразование сущности в папку-домен](entity-to-folder.md)
 - [Идея: стандарт именования типов (`snake_case`) и папка `state` (`AS-IS`)](type-naming-and-state-dir.md)
+
+## Связь с выпущенным CLI
+
+CLI использует явные корни, scope и курсоры, привязанные к снимку. Проектная адресация и workspace остаются открытыми.
+[Результаты выпуска](../notes/unified-cli-release.md).

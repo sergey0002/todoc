@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, folderize, folder, config, move, domain, иерархия]
 related: ["[[folder-config]]", "[[docs-move]]", "[[agent-state]]", "[[skills-engine]]", "[[constitution.md]]"]
 ---
@@ -181,3 +181,8 @@ ideas/
 - [Идея: агентский стейт — `state.json` и скоуп текущего проекта](agent-state.md)
 - [Идея: хранилище-движок скилов на `todoc` (паттерн «скил = папка»)](skills-engine.md)
 - [Конституция `todoc` (прогрессивное раскрытие и правила типов)](../plan/constitution.md)
+
+## Связь с выпуском единого CLI
+
+Выборки сохраняют пути и identity, деревья показывают родителей. Folderize и перенаправление существующих объектов остаются открытыми.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

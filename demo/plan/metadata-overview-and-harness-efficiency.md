@@ -8,14 +8,12 @@ updated: 2026-11-28
 status: superseded
 derived_from: ["bugs/bug-022-no-type-overview-query.md@sha256:518608bdc1cbfb9b422f0035114fafc6f5dd43cb1a060dde21611cc0b6db071a"]
 tags: [plan, cli, metadata, status, harness, performance]
-related: ["[[bug-022-no-type-overview-query]]", "[[unified-cli-output-implementation]]", "[[bmad-wave-planning-skills]]"]
+related: ["[[bug-022-no-type-overview-query]]", "[[unified-cli-release]]", "[[bmad-wave-planning-skills]]"]
 ---
 
-> **Объединён с основным планом по запросу пользователя 2026-11-28.**
-> Единственный план исполнения — [Единый самодокументируемый CLI](unified-cli-output-implementation.md),
-> раздел 8 «Уточнение 2026-11-28: BUG-022 исполняется в этом плане».
-> Документ сохранён для истории исследования; задачи З1–З7 ниже не исполняются отдельно.
-> При расхождении контрактов действует основной план.
+> **Историческое исследование.** Реализация объединена с единым CLI.
+> Приёмка и ссылка на закрытый план в Git находятся в [сводке выпуска](../notes/unified-cli-release.md).
+> При работе используйте [актуальный CLI](../references/state/03-cli-reference.md).
 
 
 # Обзор знаний за один запрос: метаданные, статусы и экономный маршрут агента
@@ -24,7 +22,7 @@ related: ["[[bug-022-no-type-overview-query]]", "[[unified-cli-output-implementa
 > список со статусами и источниками за один запрос данных после discovery.
 > Ошибка первой команды не превращается в двадцать одинаковых ошибок.
 > Основание — BUG-022; планирование запрошено 2026-11-28.
-> Здесь описана будущая реализация. Команды docs list пока не существуют.
+> На момент исследования команды docs list не было. Текущий выпуск содержит обзор.
 
 **Цель:** устранить N отдельных чтений документов для обзора типа и доказать стоимость сценария на воспроизводимой проверке CLI и маршрута агента.
 **Спека:** [BUG-022](../bugs/bug-022-no-type-overview-query.md), особенно «Повторный эпизод 2026-11-28».
@@ -93,7 +91,7 @@ todoc docs list --root demo --type idea --fields id,path,title,status --limit 10
 | [BUG-021](../bugs/bug-021-usage-errors-without-guidance.md) | Ошибки ведут на общий help, нет конкретного исправления | З5 локальная guidance |
 | [BUG-028](../bugs/bug-028-no-runtime-contract-for-windows-wsl-harness.md) | Не определён единый запуск PowerShell/WSL | З6 argv и проверка реальной среды |
 | [Идея единого CLI](../ideas/unified-cli-output.md), «Принципы», «Поля, ограничения и фильтры» | Все поля по умолчанию; явная проекция; отбор до лимита | Не скрывать поля ради метрики; --fields и общий pipeline |
-| [План единого CLI](unified-cli-output-implementation.md), §4, З0-S, З2–З5, З9 | Уже владеет общей архитектурой views/capabilities/read-only/миграции | Этот план — ограниченный инкремент З3/З5/З9, а не второй универсальный CLI |
+| [План единого CLI](../notes/unified-cli-release.md), §4, З0-S, З2–З5, З9 | Уже владеет общей архитектурой views/capabilities/read-only/миграции | Этот план — ограниченный инкремент З3/З5/З9, а не второй универсальный CLI |
 | [Guidance/i18n](../ideas/cli-model-guidance-and-hint-catalog.md), «Предложение» | Коды отдельно от текстов; compact при успехе | З5 использует один каталог и envelope |
 | [План волн](bmad-wave-planning-skills.md), З2–З3 | Уже планирует guidance и несколько id у docs status | Пакетный status не заменяет фильтр типа; ядро guidance не реализовывать дважды |
 | [Теги](../ideas/unified-tags-and-tag-graph.md), «Принципы» | Таксономия отличается от history tag | Пока только существующие fm tags; будущие has_tag не выдумывать |

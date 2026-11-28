@@ -5,7 +5,7 @@
 [interop-exports-dmn-asl-rasa](../../demo/plan/interop-exports-dmn-asl-rasa.md)
 (fm done, PR #85/#86); задачи `task:interop-formats-revision`,
 `task:interop-converters-cli` (fm done). Модуль: `application/interop.py`
-(322 строки, 100% покрытие), CLI `interop export`. Вне скоупа (§2 плана):
+и CLI `interop export`. Вне скоупа (§2 плана):
 импорт (обратные конвертеры), runtime-исполнение экспортов, чужие датасеты.
 
 ## Принцип
@@ -28,8 +28,8 @@
 
 `todoc interop export --kind dmn|asl|rasa --id RECORD_ID [--write exports/…md]`
 
-- без `--write`: артефакт печатается в stdout (`data.artifact`);
-- с `--write`: markdown-документ `doc_type: export` (fm `derived_from`, теги
+- без `--write`: артефакт печатается в stdout (`data.result.artifact`);
+- с `--write` без `--apply`: предпросмотр и `plan_hash`. С `--write` и `--apply`: Markdown-документ `doc_type: export` (fm `derived_from`, теги
   `[export, interop, <kind>]`, артефакт в fenced-блоке) — путь **только внутри
   `exports/`** (`interop.write_outside_exports`), контainment проверяется как везде
   (`access.outside_data_root`);
@@ -44,8 +44,7 @@
 doc_type `export` (`demo/.todoc/doc_types/export/`) + правило `fm-export`
 (doc_types 30→31). Витрины демо в `demo/exports/`: `asl-order-placement.md`
 (машина из 8 состояний), `dmn-{no-funds,gateway-down,account-blocked}-v1.md`,
-`rasa-glossary.md` (10 интентов). Каждая перегенерация — та же команда с тем же
-`--write` (CAS), история ревизий — `todoc log`.
+`rasa-glossary.md` (10 интентов). Для перегенерации используйте тот же `--write` с новым preview и `--apply`. История ревизий доступна через `todoc log`.
 
 ## Связанные разделы
 

@@ -4,7 +4,7 @@ title: "Идея: самодокументируемое поле guidance дл�
 doc_type: idea
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 status: planned
 tags: [idea, cli, guidance, self-documenting, skills, i18n, подсказки]
 related: ["[[constitution]]", "[[note-agent-contract]]", "[[unified-cli-output]]", "[[wave-planning-cli-helpers]]", "[[skills-engine]]", "[[bmad-wave-planning-skills]]"]
@@ -85,3 +85,8 @@ related: ["[[constitution]]", "[[note-agent-contract]]", "[[unified-cli-output]]
 ## Открытые вопросы
 
 - Какой формат сделать основным в пакете, а какой — обменным: компактный `JSON` (`src/todoc/resources/guidance/<profile>.json`) — основной zero-dependency рантайм, `CSV` — табличный экспорт/импорт для массовой вычитки человеком (закрыто).
+
+## Связь с выпущенным CLI
+
+Конверт v2 и русский каталог выпущены. Переключение профилей и другие языки остаются открытыми.
+[Результаты выпуска](../notes/unified-cli-release.md).

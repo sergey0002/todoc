@@ -143,3 +143,8 @@ todoc tags set --root KB --id folder:ideas --tags "backlog|roadmap" --mode add -
 - [Идея: справочник сущностей и единый граф связей (`u-graph`)](entity-catalog.md)
 - [Идея: `todoc folderize` — преобразование сущности в папку-домен](entity-to-folder.md)
 - [Конституция `todoc` (прогрессивное раскрытие и единые фильтры поиска, FR-5.6–5.7)](../plan/constitution.md)
+
+## Связь с выпущенным CLI
+
+Фильтры по тегам документов и записей выпущены. Каталог и граф тегов остаются открытыми.
+[Результаты выпуска](../notes/unified-cli-release.md).

@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, rules, harness, skills, flows, cli, правила]
 related: ["[[skills-engine]]", "[[typed-tree-projection]]", "[[type-naming-and-state-dir]]", "[[unified-tags-and-tag-graph]]", "[[sqlite-storage-drivers]]", "[[entity-catalog]]"]
 ---
@@ -143,3 +143,8 @@ todoc tree --root KB --within projects/shop --doc-type "rules|flow_doc|skill"
 - [Идея: сквозная система тегов (`todoc tags` и `--tag-in`)](unified-tags-and-tag-graph.md)
 - [Идея: переключаемые драйверы хранения (`index.sqlite` и `history.sqlite`)](sqlite-storage-drivers.md)
 - [Идея: справочник сущностей и витрины `flow`](entity-catalog.md)
+
+## Связь с выпущенным CLI
+
+Оглавление скилов поддерживает mute. Включение и отключение правил харнеса остаётся открытым.
+[Результаты выпуска](../notes/unified-cli-release.md).

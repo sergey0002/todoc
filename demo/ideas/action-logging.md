@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, logging, trace, debug, cli, observability, отладка]
 related: ["[[agent-state]]", "[[constitution.md]]", "[[bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status]]"]
 ---
@@ -121,3 +121,8 @@ related: ["[[agent-state]]", "[[constitution.md]]", "[[bug-012-history-revizii-m
 - [Идея: агентский стейт — `state.json` вне данных (`~/.local/state/todoc/`)](agent-state.md)
 - [BUG-012: ревизии мутирующих команд в `.todoc/history/` загрязняют `git status`](../bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md)
 - [Конституция `todoc` (§8: тонкий CLI, детерминированный конверт ответа и коды выхода)](../plan/constitution.md)
+
+## Связь с выпуском единого CLI
+
+Чистый stdout и отсутствие записи при read и preview подтверждены. Операционная трассировка остаётся отдельной идеей.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

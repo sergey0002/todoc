@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, tree, hierarchy, cli, skills, navigation, иерархия]
 related: ["[[folder-config]]", "[[skills-engine]]", "[[entity-to-folder]]", "[[type-naming-and-state-dir]]", "[[unified-tags-and-tag-graph]]"]
 ---
@@ -183,3 +183,8 @@ todoc tree --root KB   [--within <dir> | --lineage-for <dir>]   [--dir-type "typ
 - [Идея: `todoc folderize` — преобразование сущности в папку-домен](entity-to-folder.md)
 - [Идея: стандарт именования типов (`snake_case`) и тип папки `state`](type-naming-and-state-dir.md)
 - [Идея: сквозная система тегов и фильтр `--tag-in`](unified-tags-and-tag-graph.md)
+
+## Связь с выпуском единого CLI
+
+Обычное дерево и плоская страница сохраняют полные пути, глубину и контекст предков. Типизированное сжатое дерево и lineage остаются в объёме идеи.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

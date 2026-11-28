@@ -1,6 +1,6 @@
 ---
 created: 2026-11-24
-updated: 2026-11-26
+updated: 2026-11-28
 id: doc:state-testing
 title: "Состояние: тесты и качество"
 doc_type: reference
@@ -8,118 +8,29 @@ lang: ru
 source: docs/state/10-testing-and-quality.md
 copied: true
 ---
-# 10. Тесты и качество
 
-## Текущие цифры (проверено прогоном 2026-11-26)
+# 10. Тестирование и приёмка
 
-| Показатель | Значение |
-|---|---|
-| Тестов | 1280 проходят |
-| Тестовых файлов | 54 — 36 unit + 18 CLI (+ `conftest.py`) |
-| Строк в `tests/` | 13 088 |
-| Покрытие инструкций | 6291 / 6291 → 100% |
-| Покрытие веток | 2354 / 2354 → 100% |
-| Пропущено | 18 (все — `tests/cli/test_cli_contract.py`) |
+На объединённом дереве `2c0085a` прошли 1699 тестов. Покрытие составило 8724 строки и 3242 ветви без пропусков. Проверка выполнена в WSL на Python 3.14.4. Обзор команд и токенизация проверены отдельными сценариями. [Выпуск и приёмка](../../notes/unified-cli-release.md)
 
-Все 18 пропусков имеют одну причину: параметризованная проверка K48 («отказ — это конверт»)
-применима только к команде, которая завершилась неуспехом. Из 63 листовых команд 45 в пустом
-датасете отдают отказ и проверяются на форму конверта, а 18 завершаются успешно — там
-проверять нечего, и тест честно это говорит вместо ложного «прошёл». Новые команды попадают
-в обе проверки автоматически, без правки теста: перечень команд вычитывается из CLI.
-
-**Инцидент гейта 26.11:** волны entity-catalog/skills-vault (25.11) оставили непокрытыми
-25 инструкций/19 веток (`skills`, `write`, `cli` — читаемость SKILL.md, budget-truncate,
-attach/import, `docs links` краевые случаи, overwrite flow render, `docs status` без fm,
-delete-диапазоны `apply_edit_ops`) — гейт CI `--fail-under=100` был красным с PR #74.
-Восстановлен доборочным файлом `tests/cli/test_cli_coverage_gaps.py` + 2 unit-теста
-скана скилов: 6291/2354, 0 пропусков, 1280 зелёных.
-
-Измерение качества формализовано в бенчмарке: 30 критериев, текущий балл 30.0/30 —
-см. [15-benchmark.md](15-benchmark.md) и `bench/criteria.md`.
-
-## Как запускать
+## Проверки перед коммитом
 
 ```bash
-# тесты
-PYTHONPATH=src python3 -m pytest tests
-
-# покрытие (branch-режим включён в pyproject.toml)
-PYTHONPATH=src python3 -m coverage run -m pytest tests
-PYTHONPATH=src python3 -m coverage report -m
-
-# установка и живой CLI
-pip install -e .
-todoc --version
+PYTHONPATH=src .venv/bin/python -m coverage run --branch --source=src/todoc -m pytest -q
+.venv/bin/python -m coverage report --fail-under=100
+PYTHONPATH=src .venv/bin/python -m todoc --root demo validate --all
+PYTHONPATH=src .venv/bin/python tools/render_cli_reference.py --check
+.venv/bin/python tools/linkcheck.py
+git diff --check
 ```
 
-Те же гейты выполняет CI (`.github/workflows/tests.yml`, Python 3.11 и 3.12): `pytest`,
-`coverage report --fail-under=100`, `tools/linkcheck.py` и `validate --all` на демо-датасете.
-Покрытие здесь — порог сборки, а не отчёт: падение ниже 100 % останавливает прогон.
+Для изменённых исходников обязателен полный pytest с покрытием 100% строк и ветвей. Валидация демо должна вернуть ноль диагностик. В выводе linkcheck нужна строка `broken 0`. Актуальность генерируемого справочника проверяет `--check`.
 
-Конфигурация в `pyproject.toml`: `testpaths = ["tests"]`, `addopts = "-q"`,
-`[tool.coverage.run] branch = true`, `source = ["src/todoc"]`.
+## Что проверяют тесты
 
-## Версии окружения
+- `tests/cli/test_cli_contract.py` — дерево Click, конверт и справка, ошибки и форматы.
+- `test_unified_docs.py`, `test_unified_lists.py`, `test_unified_relations.py` и `test_unified_e2e.py` в `tests/cli/` — метаданные, страницы, чтение, фильтрация, связи, preview и история.
+- `tests/unit/test_storage_contracts.py` — встроенные и in-memory реализации, отказ записи и чтения, смена источника и конкурентная публикация.
+- Сценарии используют изолированные каталоги. Бенчмарк копирует демо перед проверками.
 
-| Пакет | Версия |
-|---|---|
-| Python | 3.11.2 |
-| click | 8.5.1 |
-| jsonschema | 4.26.0 |
-| markdown-it-py | 4.3.0 |
-| pytest | 9.2.0 |
-| coverage | 7.17.5 |
-
-## Состав тестов
-
-| Каталог | Что покрывает |
-|---|---|
-| `tests/unit/` | домен, конфиг, сканер, адаптеры форматов, валидатор, поиск, запросы, запись, реестр, envelope |
-| `tests/cli/` | все команды через `CliRunner`, включая коды выхода и форму конверта |
-| `tests/integration/` | сквозной сценарий: init → check → search → read |
-| `tests/unit/test_history.py` | журнал, снимки, `content_at`, диффы, план отката, `gc`, лимиты |
-| `tests/unit/test_changes.py` | жизненный цикл изменения, дельты, `validate`/`verify`, атомарность |
-| `tests/unit/test_context.py` | сборка контекста, бюджет байт, усечение диффов |
-| `tests/cli/test_cli_history.py` | команды истории через CLI, включая `observed` и предупреждения |
-| `tests/cli/test_cli_changes.py` | команды изменений через CLI: K42 (один вызов) и K43 (бюджет) |
-| `tests/unit/test_temporal.py` | K40 (точные интервалы), K41 (инвалидация), лента |
-| `tests/cli/test_cli_temporal.py` | `timeline`, `records query --as-of`, коды `temporal.*` |
-| `tests/cli/test_cli_contract.py` | K47 и K48 параметризованы по всему перечню команд |
-| `tests/unit/test_formats_hardened.py` | укреплённые адаптеры: токены ссылок, строгий JSON, схемы записей, отношения |
-
-`test_cli_contract.py` вычитывает перечень команд из самого `todoc.cli.cli`, а не держит его
-списком: команда, добавленная позже, попадает в проверку автоматически, а
-`test_every_leaf_command_is_covered` запрещает списку сузиться. Этот файл запускает команды
-через `subprocess`, поэтому он **проверяет контракт, а не даёт покрытие** — цифры покрытия
-несут тесты, идущие в процессе.
-
-Отдельные тесты фиксируют поведение, найденное при аудите: ссылки внутри code fence не считаются
-ссылками, reference-style ссылки находятся, враждебная вложенность JSON не роняет процесс,
-нечёткая подсказка не предлагается при постороннем имени файла.
-
-## Что покрытие НЕ гарантирует
-
-100% покрытие не означает отсутствие дефектов: тесты работают в процессе через `CliRunner`,
-поэтому часть контракта (реальный stdout/stderr, коды выхода из `main()`, поведение на большом
-датасете) проверяется только ручными прогонами. Именно так были найдены проблемы из
-[11-known-issues.md](11-known-issues.md).
-
-Практическое правило: любой новый дефект получает **сначала** тест-воспроизведение, потом исправление.
-
-## Ручная проверка (smoke)
-
-```bash
-todoc init --root /tmp/kb --output json
-todoc check --root /tmp/kb
-todoc docs new --root /tmp/kb --title "Design" --dir notes
-todoc docs search --root /tmp/kb --query "design"
-todoc validate --root /tmp/kb --all
-```
-
-Дополнительно демо-датасет в репозитории служит живым smoke-тестом:
-`todoc validate --root demo --all` обязан возвращать ноль диагностик.
-
-## Связанные разделы
-
-- [02-architecture.md](02-architecture.md) — что именно покрывают модули.
-- [11-known-issues.md](11-known-issues.md) — что тесты пока не ловят.
+[Воспроизводимый бенчмарк](15-benchmark.md) · [Точный синтаксис команд](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md)

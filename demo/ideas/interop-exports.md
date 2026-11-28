@@ -4,7 +4,7 @@ title: "Идея: интероп-экспорты — DMN, ASL, Rasa"
 doc_type: idea
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 status: done
 tags: [ideas, idea, интероп, экспорт, dmn, asl, rasa]
 ---
@@ -35,3 +35,8 @@ tags: [ideas, idea, интероп, экспорт, dmn, asl, rasa]
 
 - Формат якоря derived_from экспорта: файл или запись?
 - Куда складывать экспорты: `exports/` или `derived/`?
+
+## Связь с выпуском единого CLI
+
+Сохранены ASL, DMN и Rasa, ссылки на исходники и защита производных файлов. Для записи предусмотрен явный apply.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

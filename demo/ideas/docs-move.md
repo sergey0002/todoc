@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: captured
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, move, refactor, links, relations, cli, перенос]
 related: ["[[entity-catalog]]", "[[folder-config]]", "[[agent-state]]", "[[todocignore]]", "[[constitution.md]]"]
 ---
@@ -161,3 +161,8 @@ todoc docs move --root KB --from inbox/draft.md --to notes/ --apply --if-hash sh
 - [BUG-006: `docs new` создаёт кириллические имена файлов](../bugs/bug-006--docs-new-создаёт-кириллические-имена-файлов-из-кириллического-заголовка.md)
 - [BUG-007: `docs links` — инвентаризация локальных ссылок](../bugs/bug-007--linkcheck-command-missing.md)
 - [BUG-011: дрейф `derived_from` требует ручного ре-анкоринга](../bugs/bug-011-dreyf-derived-from-pri-smene-statusa-tela-ishodnika-trebuet-ruchnogo-re-ankoringa.md)
+
+## Связь с выпуском единого CLI
+
+В выдаче сохраняются ID и физический путь. Перенос документа, переписывание ссылок и re-anchor остаются в объёме идеи.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

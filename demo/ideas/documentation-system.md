@@ -5,7 +5,7 @@ doc_type: idea
 lang: ru
 status: done
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [ideas, idea, документирования, типизированные]
 related: ["[[документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md]]"]
 ---
@@ -520,3 +520,8 @@ Spec Kit:
 | OpenSpec vs Spec Kit (lightweight vs full) | https://codemyspec.com/blog/openspec-vs-spec-kit |
 | OpenSpec vs Spec Kit vs BMAD | https://aicodingpatterns.com/en/patterns/openspec-vs-spec-kit-vs-bmad/ |
 | OpenSpec Review (звёзды/установки) | https://andrew.ooo/posts/openspec-spec-driven-development-review/ |
+
+## Связь с выпуском единого CLI
+
+Переделка CLI сохраняет типовой профиль, схемы, стартовые промпты и проверяемую запись. Статус профиля сохранён.
+[Сводка выпуска единого CLI](../notes/unified-cli-release.md).

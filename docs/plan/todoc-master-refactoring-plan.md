@@ -14,8 +14,8 @@
 1. Этот мастер-план — порядок и границы этапов.
 2. [Архитектурное предложение](../research/cli-architecture-refactoring.md) —
    целевые слои, SOLID, порты, безопасность и подробный handoff.
-3. [План unified CLI](../../demo/plan/unified-cli-output-implementation.md) —
-   детальные требования, З0-S, З1–З9, 28 регрессий, аудит master и benchmark.
+3. [План unified CLI](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md) —
+   исторические требования и аудит. Выпуск завершён, см. [итоги](../../demo/notes/unified-cli-release.md).
 4. [Идею unified CLI](../../demo/ideas/unified-cli-output.md) — предметные цели
    единого интерфейса.
 
@@ -366,7 +366,7 @@ v2-тестов. Полный набор и branch coverage запущены, н
 - [ ] Прогнать K1–K30 с согласованными уточнениями K3 и K19. По K19 лимит
   измеряется в символах полезного текста, метаданные исключены. K30 сохраняет
   исходные требования базового релиза. Подробности проверки и изменения по
-  соседним идеям — в §0.8–§0.9 [плана CLI](../../demo/plan/unified-cli-output-implementation.md).
+  соседним идеям — в §0.8–§0.9 [плана CLI](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md).
   Для нового прогона использовать отдельный `--results-dir` и зафиксировать
   исходный снимок. Старый результат 30/30 относится к историческому прогону.
 - [ ] Отдельно записать versions, запуски, все skips, ошибки, покрытие,
@@ -466,7 +466,7 @@ v2-тестов. Полный набор и branch coverage запущены, н
 Проверка FTS5 не зависит от переноса истории. Контракт Э2 фиксируется на
 реальных сценариях JSON/JSONL. Публичная система плагинов откладывается
 до появления второго адаптера. Детали границы закреплены в §0.10
-[плана единого CLI](../../demo/plan/unified-cli-output-implementation.md).
+[плана единого CLI](https://github.com/sergey0002/todoc/blob/2c0085a0440f06148e9edc574e274c686e5b0259/demo/plan/unified-cli-output-implementation.md).
 
 ### Э10.1. SQLite index/cache
 

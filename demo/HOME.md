@@ -22,7 +22,7 @@ tags: [moc, содержимого, датасета]
 - [Конкурентный анализ](plan/competitive-analysis.md) — ландшафт и C01–C60.
 - [Аудит реализации](plan/audit-implementation.md) — что найдено в коде MVP.
 
-### Планы (статусы от 26.11.2026)
+### Планы и выпуски
 
 - [Документирование софта: типовой профиль](plan/документирование-софта--типовой-профиль---типы--стартовые-промпты--скилы.md) — **исполнена волна 1** (задачи 1–7: dir_types flows/reports/specs/changes, entity flow/rule/incident/release/task-snapshot/change, doc_types flow-doc/spec-doc/task-report/release-note + промпты, relation belongs_to/affects/fixes/blocked_by, пилот «оформление заказа», 5 скилов документирования) **и волна 2** (задачи 8–10: api-endpoint/domain-event/bounded-context/slo/dependency + depends_on, api-contract/runbook/postmortem + contracts/ops, событийный срез пилота). Он же gate задач 6/8 [entity-catalog](plan/entity-catalog-implementation.md) — gate закрыт (З6/З8 исполнены). fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
 - [Конфиг папок](plan/folder-config-implementation.md) — **исполнен** (38/38): `folder.*`, `folder_meta`, `docs suggest`, буст search. fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
@@ -33,8 +33,8 @@ tags: [moc, содержимого, датасета]
 - [Хранилище-движок скилов: skills tree, валидация, мьют, импорт, диспетчер](plan/skills-vault-implementation.md) — vault по стандарту Agent Skills (11 демо-скилов), `todoc skills tree/read`, коды `skills.*`, мьют `!`, офлайн-импорт + диспетчер-скил `todoc` (`skills attach`) — одна точка входа для любого агента; закрывает открытые вопросы идеи [skills-engine](ideas/skills-engine.md). **Исполнен 25.11.2026** (7 задач; проба пакета obra/superpowers: 15/15 одной командой). fm **done** (закрыт по явной фразе пользователя, 2026-11-26).
 - [Интероп-экспорты: DMN, ASL, Rasa](plan/interop-exports-dmn-asl-rasa.md) — **исполнен** (Задачи 1–2, DoD 3/3; **done**): конвертеры `interop export` реализованы, витрины демо экспортированы в `exports/` (ASL-машина флоу, 3 DMN-таблицы, Rasa-глоссарий на 10 интентов); 2 задачи-записи open (пересмотр форматов, CLI-конвертеры из других витрин).
 - [Пакет скилов волнового планирования без переделок (`BMAD v6/v7` + `GSD` + `Spec Kit` + `OpenSpec`) и CLI-механика волн](plan/bmad-wave-planning-skills.md) — **активен** (`status: active`, 9 задач): `doc_type: roadmap`, CLI-команды `todoc stale anchor/reanchor`, `todoc plan portfolio/bind`, секционный `docs edit` и 6 скилов `process/bmad/*` со связкой из `todoc-plan`.
-- [Самодокументируемый CLI: единые виды вывода и фильтры — план реализации](plan/unified-cli-output-implementation.md) — целевой контракт `--view flat|tree|graph`, read-only чистота выборок и модульный CLI.
-- [Обзор знаний за один запрос: исследование BUG-022](plan/metadata-overview-and-harness-efficiency.md) — **объединён с основным планом** 2026-11-28 (`superseded`), сохранён для истории; отдельного исполнения нет. Требования и проверки перенесены в [единый CLI](plan/unified-cli-output-implementation.md), З1–З5/З8/З9 и уточнение в разделе 8.
+- [Единый CLI: выпуск и приёмка](notes/unified-cli-release.md) — метаданные, фильтры, виды вывода и порты хранения.
+- [Исследование BUG‑022](plan/metadata-overview-and-harness-efficiency.md) — исторический материал со статусом superseded. [Результаты приёмки](notes/unified-cli-release.md).
 - [Прямое редактирование файлов, команда финализации `todoc sync` и отказ от обязательного `docs edit` в правилах и промптах](plan/direct-edit-and-sync.md) — **исполнен** (Задачи 1–5, DoD 7/7; fm **done**, закрыт по явному подтверждению пользователя, 2026-11-26): ядро `sync_files` и команда `todoc sync`, защита автособираемых витрин (`"generated": true` + `guidance` `P15`), скрытие `.todoc/history/` из Git (`BUG-012` → `fixed`) и перевод всех правил, скилов и 56 типов на прямую правку + `todoc sync`.
 
 ### Хранилище скилов (`skills/`)
