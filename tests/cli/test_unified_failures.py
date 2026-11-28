@@ -74,6 +74,7 @@ def test_separators_only_todoc_root_is_missing(monkeypatch):
     monkeypatch.setenv("TODOC_ROOT", os.pathsep)
     result = CliRunner().invoke(cli, ["docs", "list"])
     assert diagnostic_code(result) == "usage.missing_root"
+    assert result.exit_code == 2
 
 
 def test_duplicate_record_and_document_identity_are_rejected(root, sample_md, sample_record):

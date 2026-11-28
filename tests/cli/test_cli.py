@@ -295,4 +295,5 @@ def test_multi_root(root, tmp_path):
 def test_missing_root():
     runner = CliRunner()
     result = _run(runner, ["check", "--output", "json"])
-    assert result.exit_code == 3
+    assert result.exit_code == 2
+    assert result.exception.code == "usage.missing_root"

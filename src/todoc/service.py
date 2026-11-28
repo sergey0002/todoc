@@ -16,7 +16,7 @@ from todoc.application.validator import build_mentions, stable_id, validate_data
 from todoc.composition import default_history_store, default_index, default_parse_cache
 from todoc.config import load_dataset, load_rules
 from todoc.domain.models import Document, Folder
-from todoc.errors import IncompleteError, TodocError, ValidationError
+from todoc.errors import EXIT_USAGE, IncompleteError, TodocError, ValidationError
 from todoc.typing_system.descriptors import TypeRegistry
 from todoc.typing_system.resolver import RESERVED_DIR_TYPES, resolve_type
 
@@ -307,4 +307,4 @@ def resolve_roots(roots: tuple[str, ...]) -> list[Path]:
     paths = [Path(p) for p in (env or "").split(os.pathsep) if p]
     if paths:
         return paths
-    raise ValidationError("No --root given and TODOC_ROOT is not set", "usage.missing_root")
+    raise TodocError("No --root given and TODOC_ROOT is not set", EXIT_USAGE, "usage.missing_root")
