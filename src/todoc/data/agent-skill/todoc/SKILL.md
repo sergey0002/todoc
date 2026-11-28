@@ -32,3 +32,7 @@ metadata:
 
 - Воспроизведённая команда из SKILL.md дала ожидаемый результат.
 - Ответ на вопрос из KB содержит источник (путь/ID и секция), перепроверяемый той же командой.
+
+## Safe document moves
+
+Use `todoc docs move --root <PATH> --from <old.md> --to <new.md>` instead of a manual rename. Inspect preview and apply with `--apply --if-plan-hash <plan_hash>`; a modified corpus needs a fresh preview. `--keep-id` preserves identity; `--pin-type` fixes the inferred type. Move already finalizes its files: do not run a second sync. To undo, preview `todoc revert --root <PATH> --change <change_id>`, then apply with its own hash. Never repeat an apply blindly after exit 6: `committed=true` means sources were saved; rebuild the index. v1 rejects affected unsupported link forms, existing validation errors, active deltas and SKILL.md moves. Multi-file rollback is not crash-atomic.

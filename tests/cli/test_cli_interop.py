@@ -303,3 +303,22 @@ def test_generated_export_preview_is_read_only_and_stale_hash_is_rejected(tmp_pa
     denied = _run(runner, [*args, "--apply", "--if-plan-hash", "stale"])
     assert denied.exception.code == "write.hash_mismatch"
     assert not (tmp_path / "exports").exists()
+
+
+def test_generated_view_move_preserves_regenerated_payload(tmp_path):
+    """A generated export may move, but its fenced artifact is not rewritten."""
+    from todoc.application.move import plan_move, apply_move
+    from todoc.service import DatasetContext
+    runner=_init_interop(tmp_path)
+    (tmp_path/'exports/archive').mkdir(parents=True)
+    args=['interop','export','--root',str(tmp_path),'--kind','asl','--id','flow:checkout']
+    first=_json(_run(runner,args))['data']['result']['artifact']
+    r=_run(runner,args+['--write','exports/generated.md','--apply'])
+    assert r.exit_code==0,r.output
+    ctx=DatasetContext(tmp_path)
+    p=plan_move(ctx,source='exports/generated.md',target='exports/archive/generated.md')
+    apply_move(ctx,p,if_plan_hash=p.plan_hash)
+    r=_run(runner,args+['--write','exports/archive/generated.md','--apply'])
+    assert r.exit_code==0,r.output
+    assert _json(_run(runner,args))['data']['result']['artifact']==first
+    assert first.strip() in (tmp_path/'exports/archive/generated.md').read_text()

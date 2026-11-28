@@ -79,6 +79,12 @@ def fragment_hash(root: Path, dep: dict[str, Any]) -> tuple[str | None, str]:
         text = target.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None, "unreadable"
+    return fragment_hash_text(text, dep)
+
+
+def fragment_hash_text(text: str, dep: dict[str, Any]) -> tuple[str | None, str]:
+    """Same fragment semantics without filesystem access (virtual moves)."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     pointer = dep.get("pointer")
     if pointer is not None:
         value, errors = parse_json(text)
@@ -156,7 +162,7 @@ def _ack_hashes(owner: dict[str, Any]) -> set[str]:
 
 
 def check_owner(dataset_id: str, owner_path: str, owner: dict[str, Any], root: Path,
-                line: int | None = None) -> list[Diagnostic]:
+                line: int | None = None, *, fragment_reader: Any = None) -> list[Diagnostic]:
     """Compare every dependency of one owner against the live corpus."""
     acked = _ack_hashes(owner)
     acked_at = owner.get(ACK_AT)
@@ -164,7 +170,7 @@ def check_owner(dataset_id: str, owner_path: str, owner: dict[str, Any], root: P
     for dep in dependencies_of(owner):
         rel = str(dep.get("path"))
         expected = str(dep.get("hash") or "")
-        actual, status = fragment_hash(root, dep)
+        actual, status = (fragment_reader or fragment_hash)(root, dep)
         anchor = format_anchor(dep)
         if status == "missing":
             diagnostics.append(Diagnostic(

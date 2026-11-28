@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/05-formats.md
 copied: true
-tags: [references, reference, состояние, адаптеры]
 ---
 
 # 05. Форматы источников

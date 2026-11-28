@@ -7,11 +7,11 @@
 
 | Показатель | Значение |
 |---|---|
-| Команд CLI | 67 листовых (29 верхнего уровня, 10 групп) |
-| Тестов | 1821 |
+| Команд CLI | 69 листовых (включая скрытый alias `docs mv`) (29 верхнего уровня, 10 групп) |
+| Тестов | 1923 |
 | Покрытие | 100% — 8971 инструкций, 3376 ветвей |
 | Зависимости | `click`, `jsonschema`, `markdown-it-py` |
-| Демо-датасет | [`demo/`](demo/README.md): 524 документов, 205 записей, 0 диагностик |
+| Демо-датасет | [`demo/`](demo/README.md): 529 документов, 205 записей, 0 диагностик |
 
 ## Установка
 
@@ -114,6 +114,7 @@ todoc skills import --apply --root demo --src <папка/репо> --into <ра
 
 | Команда | Назначение |
 |---|---|
+| `docs move (--from PATH\|--id ID) --to TARGET [--apply --if-plan-hash H]` | перенос одного Markdown с автоправкой связей; default preview; `revert --change ID` с отдельным preview/hash |
 | `docs new --title T [--dir D\|--path P] [--type T] [--template T\|FILE]` | создать документ из шаблона типа (create-only) |
 | `docs search --query Q [--type T] [--limit N] [--within P] [--budget B]` | лексический поиск с фрагментами; слова из конфига папки-предка дают буст +2 |
 | `docs read --id ID[#раздел] [--section S\|--anchor A\|--line-range N-M\|--pointer P\|--columns C --rows R --where K=V]` | чтение с проекцией; fragment в id — синоним `--section` (конфликт — usage.error) |
@@ -246,7 +247,7 @@ SKILL.md              точка входа Agent Skill
 README.md             этот файл
 pyproject.toml        пакет, зависимости, console entry point
 src/todoc/            код: cli, application, domain, ports, adapters, typing_system, output
-tests/                1821 тестов: unit, cli, integration (покрытие 100%)
+tests/                1923 тестов: unit, cli, integration (покрытие 100%)
 docs/
 ├── README.md         индекс всей документации
 ├── installation.md   установка, проверка, первый датасет
@@ -305,7 +306,7 @@ python3 bench/run_benchmark.py --venv /tmp/comp    # + конкуренты (obs
 ```
 
 Текущий результат: **30.0 из 30**, F1 детекции дефектов 1.00, MRR поиска 1.00,
-1821 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
+1923 тестов и покрытие 100%. Критерии — [`bench/criteria.md`](bench/criteria.md),
 результаты — [`bench/results/benchmark.md`](bench/results/benchmark.md),
 разбор и план улучшений — [`docs/state/15-benchmark.md`](docs/state/15-benchmark.md).
 

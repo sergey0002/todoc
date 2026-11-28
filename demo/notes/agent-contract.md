@@ -122,3 +122,7 @@ SKILL.md = скил; опционально `references/` и `scripts/`). Под
 
 - [Гайд: CLI для агентов](../guides/cli-for-agents.md).
 - [Гайд: MCP для агентов](../guides/mcp-for-agents.md).
+
+## Перенос документов
+
+Перенос/переименование Markdown выполняй через `todoc docs move --root demo --from old.md --to notes/new.md`: preview → `--apply --if-plan-hash H`. Ручной rename + sync не переписывает связи. Сам move финализирует свои файлы; дополнительный sync не нужен. Обратный ход: `todoc revert --root demo --change move:ID`, затем `--apply --if-plan-hash H` из этого preview. Последующие чужие правки не затираются. Exit 6 требует прочитать `committed`/`recovery_required`: committed=true означает сохранённые данные и необходимость восстановления индекса, а не разрешение повторить перенос. Скоуп v1 и отказ на недоказуемых span — в справке CLI.

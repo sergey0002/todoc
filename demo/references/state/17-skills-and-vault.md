@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/17-skills-and-vault.md
 copied: true
-tags: [references, reference, скилы, vault]
 ---
 
 # 17. Скилы и хранилище

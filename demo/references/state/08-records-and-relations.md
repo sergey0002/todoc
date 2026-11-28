@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/08-records-and-relations.md
 copied: true
-tags: [references, reference, отношения, состояние]
 ---
 
 # 08. Записи, отношения и история фактов

@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/15-benchmark.md
 copied: true
-tags: [references, reference, конкурентами, состояние]
 ---
 
 # 15. Бенчмарк качества

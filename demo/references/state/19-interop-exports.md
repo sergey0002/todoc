@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/19-interop-exports.md
 copied: true
-tags: [references, reference, interop, exports]
 ---
 
 # 19. Интероп-экспорты: DMN 1.3, ASL, Rasa NLU

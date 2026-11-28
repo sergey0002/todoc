@@ -20,6 +20,9 @@ from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
 
+# Shared projection/cache version; bump when parsing semantics change.
+PARSER_VERSION = "todoc-0.2.0-move-links2"
+
 _MD = MarkdownIt("commonmark")  # shared parser instance (parse is stateless per call)
 _MD_OUTLINE = MarkdownIt("commonmark").disable("inline")
 
@@ -261,7 +264,8 @@ def _locate_columns(
         if href.startswith(_EXTERNAL_PREFIXES):
             links.append(Link(text=text, target=href, line=line, column=column, end_column=end_column))
             continue
-        target, _, fragment = unquote(href).partition("#")
+        target, _, fragment = href.partition("#")
+        target, fragment = unquote(target), unquote(fragment)
         links.append(Link(text=text, target=target, line=line, column=column,
                           end_column=end_column, fragment=fragment))
     return links
@@ -338,15 +342,16 @@ def parse_markdown(text: str, *, include_links: bool = True) -> MarkdownDoc:
                        text=text, warnings=fm_warnings)
 
 
-def resolve_link_target(source_path: str, target: str) -> str | None:
+def resolve_link_target(source_path: str, target: str, *, parsed: bool = False) -> str | None:
     """Normalize a link target to a root-relative path (pure, no filesystem).
 
     Returns None for external URLs, mailto, anchor-only and empty targets.
-    Fragments (``#section``) are stripped; ``.``/``..`` are resolved lexically.
+    Set ``parsed=True`` for a decoded Link.target (fragment already separate).
+    Otherwise fragments (``#section``) are stripped; ``.``/``..`` are resolved lexically.
     """
-    if target.startswith(_EXTERNAL_PREFIXES + ("#",)):
+    if target.startswith(_EXTERNAL_PREFIXES) or (not parsed and target.startswith("#")):
         return None
-    target_path = target.split("#")[0]
+    target_path = target if parsed else target.split("#")[0]
     if not target_path:
         return None
     parent_dir = PurePosixPath(source_path).parent
@@ -368,7 +373,7 @@ def build_backlink_index(documents: dict[str, MarkdownDoc]) -> dict[str, list[st
     index: dict[str, set[str]] = {}
     for source_path, doc in documents.items():
         for link in doc.links:
-            target = resolve_link_target(source_path, link.target)
+            target = resolve_link_target(source_path, link.target, parsed=True)
             if target:
                 index.setdefault(target, set()).add(source_path)
     return {target: sorted(sources) for target, sources in sorted(index.items())}
@@ -464,3 +469,54 @@ def doc_from_payload(payload: dict[str, Any]) -> MarkdownDoc:
                        headings=headings, links=links, text="",
                        errors=list(payload["errors"]),
                        warnings=[(int(row[0]), str(row[1])) for row in payload["warnings"]])
+
+
+@dataclass(frozen=True)
+class LinkEditSpan:
+    """Proven destination offsets in the original text, never display columns."""
+
+    link: Link
+    destination_start: int | None
+    destination_end: int | None
+    syntax: str
+
+
+def editable_link_spans(text: str) -> list[LinkEditSpan]:
+    """Locate a deliberately small, verified subset; ambiguous forms fail closed.
+
+    Candidate spans are accepted only when their semantic multiset exactly matches
+    the parser's links on that line. In particular a reference cannot steal the
+    span of an inline link, and code examples never participate in correlation.
+    """
+    doc = parse_markdown(text)
+    _, body, start, _ = _parse_front_matter(text.lstrip('\ufeff'))
+    regions = _code_regions(_MD.parse(body), start)
+    candidates: dict[tuple, list[tuple[int, int]]] = {}
+    offset = 0
+    for lineno, line in enumerate(text.splitlines(keepends=True), 1):
+        if lineno >= start and not _in_regions(lineno, regions):
+            code = _inline_code_spans(line)
+            for pattern, wiki in ((_INLINE_LINK_RE, False), (_WIKILINK_RE, True)):
+                for match in pattern.finditer(line):
+                    if any(a <= match.start() < b for a, b in code) or '<' in line or '\\' in line:
+                        continue
+                    parsed = parse_markdown(match.group()).links
+                    if len(parsed) != 1:
+                        continue
+                    link = parsed[0]
+                    key = (lineno, link.text, link.target, link.fragment, wiki)
+                    group = 1 if wiki else 2
+                    candidates.setdefault(key, []).append((offset + match.start(group), offset + match.end(group)))
+        offset += len(line)
+    groups: dict[tuple, list[Link]] = {}
+    for link in doc.links:
+        key = (link.line, link.text, link.target, link.fragment, link.is_wikilink)
+        groups.setdefault(key, []).append(link)
+    result = []
+    for key, links in groups.items():
+        spans = candidates.get(key, [])
+        proven = len(spans) == len(links)
+        for index, link in enumerate(links):
+            a, b = spans[index] if proven else (None, None)
+            result.append(LinkEditSpan(link, a, b, 'wiki' if link.is_wikilink else 'inline'))
+    return result

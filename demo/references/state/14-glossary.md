@@ -7,7 +7,6 @@ doc_type: reference
 lang: ru
 source: docs/state/14-glossary.md
 copied: true
-tags: [references, reference, глоссарий, состояние]
 ---
 
 # 14. Глоссарий

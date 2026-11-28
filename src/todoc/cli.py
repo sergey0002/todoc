@@ -1130,20 +1130,29 @@ def timeline_cmd(roots: tuple[str, ...], output: str, no_input: bool, as_of: str
 
 
 @cli.command("revert", cls=UnifiedCommand)
-@click.argument("rev")
+@click.argument("rev", required=False)
 @click.option("--root", "roots", multiple=True)
 @click.option("--output", type=click.Choice(["json", "table", "markdown"]), default="json", show_default=True)
 @click.option("--no-input", is_flag=True)
-@click.option("--path", required=True)
+@click.option("--path")
+@click.option("--change")
+@click.option("--if-plan-hash")
 @click.option("--preview", is_flag=True)
 @click.option("--apply", "apply_revert", is_flag=True)
 @click.option("--expected-hash", default=None)
 def revert_cmd(rev: str, roots: tuple[str, ...], output: str, no_input: bool, path: str,
-               preview: bool, apply_revert: bool, expected_hash: str | None) -> None:
+               preview: bool, apply_revert: bool, expected_hash: str | None, change: str | None, if_plan_hash: str | None) -> None:
     """Откат файла к ревизии. Без --apply — только план (review-first)."""
     if preview and apply_revert:
         raise TodocError("--apply cannot be combined with --preview.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "history")
+    if change is not None:
+        if rev is not None or path is not None or expected_hash is not None:
+            raise TodocError('--change excludes REV/--path/--expected-hash.', EXIT_USAGE, 'usage.error')
+        _revert_move(ctx, change, apply_revert, if_plan_hash, roots, output)
+        return
+    if rev is None or path is None or if_plan_hash is not None:
+        raise TodocError('Choose REV --path or --change.', EXIT_USAGE, 'usage.error')
     path = normalize_scope(path)
     _contained_out(ctx.root, path)
     recorder = ctx.history_recorder()
@@ -2417,7 +2426,7 @@ def docs_links(roots: tuple[str, ...], output: str, no_input: bool, limit: int, 
                     kind = "wikilink"
                     exists = link.target in record_ids or bool(_wikilink_candidates(link.target, by_basename))
                 else:
-                    target = resolve_link_target(source, link.target)
+                    target = resolve_link_target(source, link.target, parsed=True)
                     if target is None:
                         continue
                     kind = "md"
@@ -4085,6 +4094,94 @@ def state_unset(roots: tuple[str, ...], output: str, no_input: bool, key: str,
                                "plan_hash": plan_hash, "applied": apply_}, output,
                          next_actions=[{"argv": _root_argv(roots) + ["state", "list"],
                                         "purpose": "Оставшиеся переменные"}] if removed else None)
+
+
+def _move_failure(exc: TodocError, command: str, output: str, roots: tuple[str, ...]) -> None:
+    result = getattr(exc, 'result', {'applied': False, 'committed': False})
+    response = Envelope.result({'command': command, 'scope': None}, result,
+                               diagnostics=[{'code': exc.code, 'severity': 'error', 'message': exc.message,
+                                             'path': '', 'location': {}, 'evidence': '', 'suggested_fixes': []}])
+    if result.get('committed'):
+        response.next_actions = [{'argv': _root_argv(roots) + ['index', 'rebuild', '--apply'],
+                                  'purpose': 'Пересобрать индекс; данные уже сохранены'}]
+    emit(response, output)
+    raise click.exceptions.Exit(exc.exit_code)
+
+
+@docs.command('move', cls=UnifiedCommand)
+@click.option('--root', 'roots', multiple=True)
+@click.option('--output', type=click.Choice(['json', 'table', 'markdown']), default='json')
+@click.option('--no-input', is_flag=True)
+@click.option('--from', 'source')
+@click.option('--id', 'doc_id')
+@click.option('--to', 'target', required=True)
+@click.option('--preview', is_flag=True)
+@click.option('--apply', 'apply_', is_flag=True)
+@click.option('--if-plan-hash')
+@click.option('--if-hash')
+@click.option('--keep-id', is_flag=True)
+@click.option('--pin-type', is_flag=True)
+@click.option('--verbose', is_flag=True)
+def docs_move(roots, output, no_input, source, doc_id, target, preview, apply_,
+              if_plan_hash, if_hash, keep_id, pin_type, verbose):
+    """Preview or apply a single Markdown move with automatic link rewrites."""
+    from todoc.application.move import plan_move, apply_move, digest
+    try:
+        _check_action_flags(preview, apply_)
+        if apply_ and not if_plan_hash:
+            raise TodocError('Apply requires --if-plan-hash from preview.', EXIT_USAGE, 'usage.error')
+        ctx = _single_context(roots, 'docs')
+        plan = plan_move(ctx, source=source, doc_id=doc_id, target=target, keep_id=keep_id, pin_type=pin_type)
+        result = {'preview': not apply_, 'applied': False, 'plan_hash': plan.plan_hash,
+                  'source': plan.source, 'target': plan.target, 'old_id': plan.old_id, 'new_id': plan.new_id,
+                  'old_type': plan.old_type, 'new_type': plan.new_type, 'rewrites': plan.rewrites,
+                  'files_total': len(plan.files), 'files_returned': min(20, len(plan.files)),
+                  'files_truncated': len(plan.files) > 20,
+                  'files': [{'path': f.path, 'before_hash': digest(f.before), 'after_hash': digest(f.after)} for f in plan.files[:20]],
+                  'new_stale': list(plan.new_stale)}
+        if verbose:
+            import difflib
+            result['diff'] = ''.join(''.join(difflib.unified_diff(
+                (f.before or b'').decode('utf-8').splitlines(keepends=True),
+                (f.after or b'').decode('utf-8').splitlines(keepends=True),
+                fromfile=f.path, tofile=f.path)) for f in plan.files)
+        if apply_:
+            result.update(apply_move(ctx, plan, if_plan_hash=if_plan_hash, if_hash=if_hash))
+        response = Envelope.result({'command': 'docs move', 'scope': {'dataset_id': ctx.dataset_id}}, result,
+                                   diagnostics=list(plan.diagnostics))
+        if apply_:
+            response.next_actions = [
+                {'argv': _root_argv(roots) + ['docs', 'read', '--id', plan.new_id], 'purpose': 'Прочитать перенесённый документ'},
+                {'argv': _root_argv(roots) + ['revert', '--change', result['change_id']], 'purpose': 'Показать план отката'},
+                {'argv': _root_argv(roots) + ['validate', '--all'], 'purpose': 'Проверить весь датасет'}]
+        else:
+            args = ['docs', 'move', '--from', plan.source, '--to', plan.target, '--apply', '--if-plan-hash', plan.plan_hash]
+            args += (['--keep-id'] if keep_id else []) + (['--pin-type'] if pin_type else [])
+            response.next_actions = [{'argv': _root_argv(roots) + args, 'purpose': 'Применить проверенный перенос'}]
+        emit(response, output)
+    except TodocError as exc:
+        _move_failure(exc, 'docs move', output, roots)
+
+
+docs.add_command(UnifiedCommand('mv', callback=docs_move.callback, params=docs_move.params,
+                               hidden=True, help=docs_move.help))
+
+
+def _revert_move(ctx, change, apply_, if_plan_hash, roots, output):
+    from todoc.application.history import plan_revert_event, revert_event
+    try:
+        if apply_:
+            result = revert_event(ctx, change, if_plan_hash=if_plan_hash)
+        else:
+            result = plan_revert_event(ctx, change)
+            result.pop('_files')
+        response = Envelope.result({'command': 'revert', 'scope': {'dataset_id': ctx.dataset_id}}, result)
+        if not apply_:
+            response.next_actions = [{'argv': _root_argv(roots) + ['revert', '--change', change, '--apply',
+                                      '--if-plan-hash', result['plan_hash']], 'purpose': 'Применить безопасный откат'}]
+        emit(response, output)
+    except TodocError as exc:
+        _move_failure(exc, 'revert', output, roots)
 
 
 def _emit_unified_error(ctx: click.Context, code: str, message: str, exit_code: int) -> None:

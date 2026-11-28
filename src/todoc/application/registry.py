@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from todoc.adapters.formats.markdown import PARSER_VERSION
 from todoc.adapters.filesystem.locks import directory_lock
 from todoc.adapters.filesystem.scanner import atomic_write, file_hash
 from todoc.application.fingerprint import _config_digest, corpus_digest
@@ -233,7 +234,6 @@ def _mtime_ns(path: Path) -> int:
 
 #: Версия разбора. Поднимается при любом изменении того, как файл превращается в
 #: структуру: запись кэша чужой версии — промах, а не источник правды.
-PARSER_VERSION = "todoc-0.2.0-metadata1"
 
 
 def parse_cache_key(path: str) -> str:

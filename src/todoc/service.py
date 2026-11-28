@@ -58,7 +58,8 @@ class DatasetContext:
 
     def scan_and_validate(self, scanned: tuple[Any, Any] | None = None, *,
                           write_cache: bool = True, check_content: bool = True,
-                          verify_sources: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+                          verify_sources: bool = False, overlay: dict[str, bytes] | None = None,
+                          deleted: set[str] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         """Returns (folders, documents, records, relations, diagnostics) as dicts.
 
         ``scanned`` lets a caller that already walked the tree (to compute the corpus
@@ -67,10 +68,11 @@ class DatasetContext:
         if scanned is None:
             scanned = self.scan()
         scanned_folders, scanned_files = scanned
+        scanned_files = [f for f in scanned_files if f.rel_path not in (deleted or set())]
         diags, doc_info = validate_dataset(self.root, self.dataset, scanned_files, self.dir_rules, self.doc_rules,
                                            registry=self.registry_types, write_cache=write_cache,
                                            parse_cache=self.parse_cache, check_content=check_content,
-                                           verify_sources=verify_sources)
+                                           verify_sources=verify_sources, overlay=overlay, deleted=deleted)
 
         folders: list[dict[str, Any]] = []
         for folder in scanned_folders:
@@ -147,13 +149,14 @@ class DatasetContext:
 
     def build_mentions(self, scanned: tuple[Any, Any], records: list[dict[str, Any]],
                        folders: list[dict[str, Any]], documents: list[dict[str, Any]], *,
-                       verify_sources: bool = False
+                       verify_sources: bool = False, overlay: dict[str, bytes] | None = None,
+                       deleted: set[str] | None = None
                        ) -> list[dict[str, Any]]:
         """Индекс упоминаний md → цели (план entity-catalog З2). Derived, rebuildable."""
         scanned_folders, scanned_files = scanned
-        all_paths = {f.rel_path for f in scanned_files}
+        all_paths = {f.rel_path for f in scanned_files if f.rel_path not in (deleted or set())}
         return build_mentions(self.root, scanned_files, records, all_paths, parse_cache=self.parse_cache,
-                              verify_sources=verify_sources)
+                              verify_sources=verify_sources, overlay=overlay, deleted=deleted)
 
     def history_recorder(self, change_id: str | None = None) -> HistoryRecorder:
         """Рекодер с бэкендом из конфигурации; деградация в embedded видна в `degraded`."""

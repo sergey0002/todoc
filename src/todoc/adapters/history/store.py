@@ -104,8 +104,14 @@ class FileHistoryStore:
         atomic_write(self._checked_path(self.refs_path()), json.dumps(refs, indent=2, ensure_ascii=False) + "\n")
 
     def append_event(self, event: dict[str, Any]) -> str:
-        self._checked_path(journal.journal_path(self.root))
-        return journal.append_event(self.root, event)
+        # Atomic logical append: after a publication exception no event is visible.
+        # Cooperating writers hold transaction(); preserve every old byte verbatim.
+        path = self._checked_path(journal.journal_path(self.root))
+        prefix = path.read_bytes() if path.exists() else b""
+        payload = {k: v for k, v in event.items() if k != "rev"}
+        line = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        atomic_write(path, prefix + (line + "\n").encode("utf-8"))
+        return journal.event_rev(line)
 
     def event_bytes(self, event: dict[str, Any]) -> int:
         return journal.events_bytes([event])
