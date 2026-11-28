@@ -23,7 +23,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-010: диагностика конфигов без location при unicode-escape ключе](../../demo/bugs/bug-010--config-location-unicode-escape.md) | fixed |
 | [BUG-011: дрейф derived_from при смене статуса/тела исходника требует ручного ре-анкоринга](../../demo/bugs/bug-011-dreyf-derived-from-pri-smene-statusa-tela-ishodnika-trebuet-ruchnogo-re-ankoringa.md) | open |
 | [BUG-012: history-ревизии мутирующих команд загрязняют git-статус](../../demo/bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md) | fixed |
-| [BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep](../../demo/bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | open |
+| [BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep](../../demo/bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | fixed |
 | [BUG-014: docs edit --preview не показывает нумерацию результата](../../demo/bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | open |
 | [BUG-015: YAML-lite front matter не обрабатывает backslash-escape кавычек](../../demo/bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md) | fixed |
 | [BUG-016: фильтры records query не документированы в справках](../../demo/bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | open |

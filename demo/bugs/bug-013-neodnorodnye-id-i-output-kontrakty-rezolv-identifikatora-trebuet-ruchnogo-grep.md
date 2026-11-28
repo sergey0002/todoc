@@ -4,9 +4,9 @@ title: "BUG-013: неоднородные id и output-контракты — р
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 bug_id: BUG-013
-status: open
+status: fixed
 severity: minor
 agent_impact: friction, token_overrun
 tokens_extra_est: 1500
@@ -82,3 +82,5 @@ $ grep -m1 '^id:' demo/bugs/bug-011-*.md         # резолв fm-id — вне
 ## Заметки
 
 - Связан с BUG-006 (транслит-слаги) — id наследует путь вместо семантики.
+
+- 2026-11-28: `fixed` — коммит `ab84bfb`. `docs new --apply` возвращает `id` и `record_id` (null без зеркала); `docs read --id` принимает id записи и разрешает его через `source_path` (`resolved_from`), неизвестный id остаётся `docs.not_found`; контракт error-envelope (`ok: false` в stdout и stderr) зафиксирован в `docs/state/03-cli-reference.md`. Проверка: `tools/bug_acceptance.py --only BUG-013` → `fixed`. Тесты: `tests/cli/test_unified_docs.py::test_docs_new_returns_canonical_id`, `test_docs_read_resolves_record_id_via_source_path`.
