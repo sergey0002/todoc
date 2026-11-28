@@ -4,7 +4,7 @@ title: "BUG-059: tools/refresh_demo_state.py не запускается и ра
 doc_type: bug-report
 lang: ru
 bug_id: BUG-059
-status: open
+status: fixed
 severity: minor
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 4000
@@ -112,3 +112,5 @@ state tool"` — совпадений нет. Связанные: BUG-058 (пр�
 demo-копий), BUG-007 (`docs links` вместо linkcheck), BUG-024 (шум скилов в
 индексе). Инструмент возвращён к HEAD; правки demo-копий 03/07 сделаны вручную
 и проверены `validate` (0 диагностик).
+
+- 2026-11-28: `fixed` — коммит `8c79559`. Preflight больше не требует demo-копию сгенерированного `cli.md`; `created`/`updated` копии сохраняются; повторный запуск не меняет ни одного байта (`refreshed 0 of 20`); ссылки без документной цели (`cli.md`, `../guides`, `../../src`, папки, `.todoc`-схема) де-линкуются, поэтому `validate` и `linkcheck` чистые. Тесты: `tests/unit/test_refresh_demo_state.py`.

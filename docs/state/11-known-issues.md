@@ -71,7 +71,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-056: Нет CLI-команды для списка тегов и фильтра записей по тегу](../../demo/bugs/bug-056-no-tag-listing-or-record-filter.md) | open |
 | [BUG-057: Обзор открытых баг-репортов не получается одной командой](../../demo/bugs/bug-057-open-bugs-list-not-discoverable.md) | open |
 | [BUG-058: Инструкции и маршрутизация скилов не выводят на обзор статусов](../../demo/bugs/bug-058-routing-docs-gap.md) | open |
-| [BUG-059: tools/refresh_demo_state.py не запускается и расходится с demo-копиями](../../demo/bugs/bug-059-refresh-demo-state-broken.md) | open |
+| [BUG-059: tools/refresh_demo_state.py не запускается и расходится с demo-копиями](../../demo/bugs/bug-059-refresh-demo-state-broken.md) | fixed |
 | [BUG-060: docs list --status не принимает альтернативы через pipe](../../demo/bugs/bug-060-status-filter-pipe-rejected.md) | fixed |
 | [BUG-064: usage.missing_root отдаёт exit 3 вместо обещанных 2](../../demo/bugs/bug-064-missing-root-exit-code.md) | fixed |
 | [BUG-065: change_id без валидации грамматики](../../demo/bugs/bug-065-change-id-grammar.md) | fixed |
