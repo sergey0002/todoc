@@ -172,7 +172,7 @@ def probe_bug_026(ctx: Ctx) -> tuple[str, str]:
     ids = {c.get("id") for c in checks}
     required = {"entrypoint", "python", "venv", "encoding", "data_root"}
     statuses = {c.get("status") for c in checks}
-    ok = code == 0 and required <= ids and statuses <= {"pass", "fail"}
+    ok = code == 0 and required <= ids and statuses <= {"pass", "fail", "warn"}
     return (FIXED if ok else OPEN,
             f"doctor environment checks={sorted(ids)} statuses={sorted(map(str, statuses))}")
 

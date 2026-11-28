@@ -382,7 +382,8 @@ def test_doctor_scope_selects_check_group(root):
     assert result.exit_code == 0, result.output
     data = _json(result)["data"]["result"]["datasets"][0]
     assert data["scope"] == "environment"
-    assert [c["id"] for c in data["checks"]] == ["python"]
+    assert [c["id"] for c in data["checks"]] == ["entrypoint", "python", "venv", "encoding", "data_root"]
+    assert {c["status"] for c in data["checks"]} <= {"pass", "fail", "warn"}
 
     dataset = _json(_run(runner, ["--root", str(root), "doctor", "--scope", "dataset",
                                   "--output", "json"]))["data"]["result"]["datasets"][0]
@@ -390,7 +391,50 @@ def test_doctor_scope_selects_check_group(root):
 
     everything = _json(_run(runner, ["--root", str(root), "doctor", "--scope", "all",
                                      "--output", "json"]))["data"]["result"]["datasets"][0]
-    assert everything["checks_total"] == 3
+    assert everything["checks_total"] == 7
+
+
+def test_doctor_environment_works_without_root(monkeypatch):
+    monkeypatch.delenv("TODOC_ROOT", raising=False)
+    result = _run(CliRunner(), ["doctor", "--scope", "environment", "--output", "json"])
+    assert result.exit_code == 0, result.output
+    data = _json(result)["data"]["result"]["datasets"][0]
+    statuses = {c["id"]: c["status"] for c in data["checks"]}
+    assert statuses["data_root"] == "fail"
+    assert statuses["python"] == "pass"
+
+
+def test_doctor_reports_missing_data_root(tmp_path):
+    missing = tmp_path / "absent"
+    data = _json(_run(CliRunner(), ["--root", str(missing), "doctor", "--scope", "environment",
+                                    "--output", "json"]))["data"]["result"]["datasets"][0]
+    statuses = {c["id"]: c["status"] for c in data["checks"]}
+    assert statuses["data_root"] == "fail"
+    assert "does not exist" in {c["id"]: c["message"] for c in data["checks"]}["data_root"]
+
+
+def test_doctor_check_python_only_in_dataset_mode(root):
+    data = _json(_run(CliRunner(), ["--root", str(root), "doctor", "--check", "python",
+                                    "--output", "json"]))["data"]["result"]["datasets"][0]
+    assert [c["id"] for c in data["checks"]] == ["python"]
+
+
+def test_doctor_dataset_mode_with_partial_environment_selection(root):
+    data = _json(_run(CliRunner(), ["--root", str(root), "doctor", "--check", "config,python",
+                                    "--scope", "all", "--output", "json"]))["data"]["result"]["datasets"][0]
+    assert [c["id"] for c in data["checks"]] == ["config", "python"]
+
+
+def test_doctor_encoding_failure_is_reported(monkeypatch, root):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr("todoc.cli.sys", SimpleNamespace(
+        stdout=SimpleNamespace(encoding="cp1251"), version_info=sys.version_info,
+        prefix=sys.prefix, base_prefix=sys.base_prefix))
+    data = _json(_run(CliRunner(), ["--root", str(root), "doctor", "--scope", "environment",
+                                    "--output", "json"]))["data"]["result"]["datasets"][0]
+    statuses = {c["id"]: c["status"] for c in data["checks"]}
+    assert statuses["encoding"] == "fail"
 
 
 def test_doctor_unknown_scope_is_usage_error(root):

@@ -3803,16 +3803,32 @@ def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | Non
         raise TodocError(f"Unknown check scope: {scope!r}.", EXIT_USAGE, "usage.error")
     wanted = {part.strip() for part in check.split(",")} if check else set(DOCTOR_SCOPES["all"])
     if not wanted.issubset(DOCTOR_SCOPES["all"]):
-        raise TodocError("--check expects config, index or python.", EXIT_USAGE, "usage.error")
+        raise TodocError("--check expects " + ", ".join(DOCTOR_SCOPES["all"]) + ".",
+                         EXIT_USAGE, "usage.error")
     selected = wanted.intersection(DOCTOR_SCOPES[scope or "all"])
-    contexts = [_single_context(roots, "doctor")] if apply_ or if_plan_hash is not None else _contexts(roots)
+    if (apply_ or if_plan_hash is not None) and "index" not in selected:
+        raise TodocError("Repair requires selecting the index check.", EXIT_USAGE, "usage.error")
+    environment_only = bool(selected) and selected <= set(ENVIRONMENT_CHECKS)
+    contexts = [] if environment_only else (
+        [_single_context(roots, "doctor")] if apply_ or if_plan_hash is not None else _contexts(roots))
     reports = []
+    if environment_only:
+        checks = [item for item in _environment_checks(roots) if item[0] in selected]
+        checks.sort(key=lambda item: ENVIRONMENT_CHECKS.index(item[0]))
+        reports.append({"dataset_id": "", "root": "", "scope": scope or "all",
+                        "checks_total": len(checks),
+                        "passed": sum(status == "pass" for _, status, _ in checks),
+                        "checks": [{"id": cid, "status": status, "message": message}
+                                   for cid, status, message in checks],
+                        "fix_mode": fix_, "repair": None})
     for ctx in contexts:
-        checks = []
+        checks: list[tuple[str, str, str]] = []
         if "config" in selected:
-            checks.append(("config", True, "Dataset config loads."))
+            checks.append(("config", "pass", "Dataset config loads."))
         if "python" in selected:
-            checks.append(("python", True, f"Python {sys.version.split()[0]}."))
+            for cid, status, message in _environment_checks((str(ctx.root),)):
+                if cid in selected:
+                    checks.append((cid, status, message))
         repair = None
         if "index" in selected:
             status = ctx.index_status()
@@ -3830,14 +3846,15 @@ def doctor(roots: tuple[str, ...], output: str, no_input: bool, check: str | Non
                     ctx.rebuild_index(force=True, observe=False)
                     state = "valid"
                     repair["applied"] = True
-            checks.append(("index", state == "valid", f"Published index state: {state}."))
-        elif apply_ or if_plan_hash is not None:
-            raise TodocError("Repair requires selecting the index check.", EXIT_USAGE, "usage.error")
+            checks.append(("index", "pass" if state == "valid" else "fail",
+                           f"Published index state: {state}."))
         checks.sort(key=lambda item: DOCTOR_SCOPES["all"].index(item[0]))
         reports.append({"dataset_id": ctx.dataset_id, "root": str(ctx.root), "scope": scope or "all",
-                        "checks_total": len(checks), "passed": sum(ok for _, ok, _ in checks),
-                        "checks": [{"id": cid, "status": "pass" if ok else "fail", "message": message}
-                                   for cid, ok, message in checks], "fix_mode": fix_, "repair": repair})
+                        "checks_total": len(checks),
+                        "passed": sum(status == "pass" for _, status, _ in checks),
+                        "checks": [{"id": cid, "status": status, "message": message}
+                                   for cid, status, message in checks],
+                        "fix_mode": fix_, "repair": repair})
     _emit_result({"datasets": reports}, output, [], False)
 
 
@@ -3865,8 +3882,44 @@ def status(roots: tuple[str, ...], output: str, no_input: bool) -> None:
     emit(response, output)
 
 
-DOCTOR_SCOPES = {"dataset": ("config", "index"), "environment": ("python",),
-                 "all": ("config", "index", "python")}
+ENVIRONMENT_CHECKS = ("entrypoint", "python", "venv", "encoding", "data_root")
+DOCTOR_SCOPES = {"dataset": ("config", "index"), "environment": ENVIRONMENT_CHECKS,
+                 "all": ("config", "index", *ENVIRONMENT_CHECKS)}
+
+
+def _environment_checks(roots: tuple[str, ...]) -> list[tuple[str, str, str]]:
+    """Real environment probes; ``warn`` marks an optional preference, not a failure."""
+    import importlib.util
+
+    checks: list[tuple[str, str, str]] = []
+    script = shutil.which("todoc")
+    module_ok = importlib.util.find_spec("todoc") is not None
+    checks.append(("entrypoint", "pass" if script or module_ok else "fail",
+                   f"console script: {script}" if script else
+                   ("python -m todoc" if module_ok else "todoc is not importable")))
+    version = ".".join(str(part) for part in sys.version_info[:3])
+    checks.append(("python", "pass" if sys.version_info >= (3, 11) else "fail",
+                   f"Python {version} (requires 3.11+)"))
+    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    checks.append(("venv", "pass" if in_venv else "warn",
+                   f"interpreter prefix: {sys.prefix}" + ("" if in_venv else " (system, allowed)")))
+    encoding = sys.stdout.encoding or ""
+    normalized = encoding.lower().replace("-", "").replace("_", "")
+    checks.append(("encoding", "pass" if "utf8" in normalized else "fail",
+                   f"stdout encoding: {encoding or 'unknown'} (needs UTF-8)"))
+    try:
+        resolved = resolve_roots(_effective_roots(roots))
+    except TodocError:
+        resolved = []
+    existing = [path for path in resolved if path.is_dir()]
+    if not resolved:
+        checks.append(("data_root", "fail", "no --root and TODOC_ROOT is not set"))
+    elif len(existing) == len(resolved):
+        checks.append(("data_root", "pass", "DATA_ROOT: " + ", ".join(str(p) for p in resolved)))
+    else:
+        missing = [str(p) for p in resolved if p not in existing]
+        checks.append(("data_root", "fail", "DATA_ROOT does not exist: " + ", ".join(missing)))
+    return checks
 
 
 def _emit_error(code: str, message: str, exit_code: int, output: str = "json",
