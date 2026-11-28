@@ -31,6 +31,7 @@
   "usage.error": "Проверьте синтаксис в справке команды.",
   "staleness.dependency_outside_root": "Укажите в derived_from путь относительно DATA_ROOT; зависимости вне датасета не поддерживаются.",
   "usage.invalid_id": "Идентификатор изменения имеет вид change:<id>, где <id> — латиница, цифры, точка, дефис или подчёркивание. Пути, `..` и абсолютные пути недопустимы.",
+  "usage.path_not_found": "Путь относителен DATA_ROOT и должен указывать на существующую папку датасета; проверьте путь через docs tree.",
   "usage.missing_root": "Передайте --root с путём к датасету.",
   "query.namespace_mismatch": {
     "hint": "Для doc_type используйте docs search. Список объявленных типов даёт types list.",

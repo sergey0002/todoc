@@ -41,6 +41,13 @@ def _list(root: Path, *args: str):
     return result.exit_code, body
 
 
+def _search(root: Path, *args: str):
+    result = CliRunner().invoke(cli, ["docs", "search", "--root", str(root), *args])
+    body = json.loads(result.stdout)
+    Draft202012Validator(V2_SCHEMA).validate(body)
+    return result.exit_code, body
+
+
 def _snapshot(root: Path) -> dict[str, bytes]:
     return {file.relative_to(root).as_posix(): file.read_bytes()
             for file in root.rglob("*") if file.is_file()}
@@ -592,3 +599,48 @@ def test_docs_list_rejects_unknown_type_and_status(root, args, expected):
     assert body["diagnostics"][0]["code"] == expected
     assert body["guidance"]["items"][0]["code"] == expected
     assert body["next_actions"][0]["argv"] == ["todoc", "docs", "list", "--help"]
+
+
+def test_docs_list_status_accepts_pipe_and_repeated_flags(root):
+    _fixture(root)
+    pipe_code, pipe = _list(root, "--status", "captured|planned", "--fields", "id", "--limit", "100")
+    repeat_code, repeat = _list(root, "--status", "captured", "--status", "planned",
+                                "--fields", "id", "--limit", "100")
+    assert pipe_code == 0 and repeat_code == 0
+    pipe_ids = [row["id"] for row in pipe["data"]["result"]["items"]]
+    repeat_ids = [row["id"] for row in repeat["data"]["result"]["items"]]
+    assert pipe_ids and pipe_ids == repeat_ids
+    assert pipe["data"]["meta"]["total"] == repeat["data"]["meta"]["total"] > 0
+    only = _list(root, "--status", "planned", "--fields", "id", "--limit", "100")[1]
+    assert {row["id"] for row in only["data"]["result"]["items"]} < set(pipe_ids)
+    bad = _list(root, "--status", "captured|ghost", "--fields", "id")[1]
+    assert bad["diagnostics"][0]["code"] == "docs.unknown_status"
+
+
+@pytest.mark.parametrize(("args", "expected"), [
+    (("--type", "ghost"), "docs.unknown_type"),
+    (("--within", "no/such/dir"), "usage.path_not_found"),
+    (("--within", "ideas|plan"), "usage.path_not_found"),
+])
+def test_search_rejects_unknown_type_and_missing_scope(root, args, expected):
+    _fixture(root)
+    code, body = _search(root, "--query", "идея", *args, "--limit", "1")
+    assert code == 2
+    assert body["diagnostics"][0]["code"] == expected
+    assert body["guidance"]["items"][0]["code"] == expected
+
+
+def test_search_keeps_or_and_repeated_type_flags(root):
+    _fixture(root)
+    code, body = _search(root, "--query", "идея", "--type", "idea|note", "--limit", "100")
+    assert code == 0 and body["data"]["meta"]["total"] > 0
+    repeated = _search(root, "--query", "идея", "--type", "idea", "--type", "note", "--limit", "100")[1]
+    assert repeated["data"]["meta"]["total"] == body["data"]["meta"]["total"]
+
+
+def test_search_existing_folder_without_matches_is_clean(root):
+    _fixture(root)
+    (root / "empty").mkdir()
+    code, body = _search(root, "--query", "идея", "--within", "empty", "--limit", "5")
+    assert code == 0
+    assert body["data"]["meta"]["total"] == 0 and body["diagnostics"] == []

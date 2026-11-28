@@ -263,8 +263,13 @@ def probe_bug_050(ctx: Ctx) -> tuple[str, str]:
 
 def probe_bug_055(ctx: Ctx) -> tuple[str, str]:
     code, body, _ = call(ctx.live, "docs", "search", "--type", "ghost", "--limit", "2")
-    ok = code == 2 and "docs.unknown_type" in codes(body)
-    return (FIXED if ok else OPEN, f"search --type ghost exit={code} codes={codes(body)}")
+    type_ok = code == 2 and "docs.unknown_type" in codes(body)
+    code2, body2, _ = call(ctx.live, "docs", "search", "--query", "x", "--within",
+                            "no/such/dir", "--limit", "2")
+    scope_ok = code2 == 2 and "usage.path_not_found" in codes(body2)
+    return (FIXED if type_ok and scope_ok else OPEN,
+            f"unknown type exit={code} codes={codes(body)}; missing scope exit={code2} "
+            f"codes={codes(body2)}")
 
 
 def probe_bug_056(ctx: Ctx) -> tuple[str, str]:

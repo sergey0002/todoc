@@ -1832,6 +1832,7 @@ def docs_list(roots: tuple[str, ...], output: str, no_input: bool,
         if include is None:
             fields = tuple(field for field in fields if field != "attributes")
         doc_types = split_values(types)
+        statuses = split_values(statuses)
         any_tags = split_values(part.casefold() for part in tag_in)
         all_tags = split_values(part.casefold() for part in tag_all)
         resolved = resolve_roots(_effective_roots(roots))
@@ -2048,6 +2049,15 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, types: tupl
         ctx = DatasetContext(resolved[0])
         meta["scope"] = {"dataset_id": ctx.dataset_id, "within": scope}
         payload = ctx.read_index(sections=())
+        known_types = set(ctx.registry_types.doc_types) | {"unknown"}
+        known_types.update(doc["doc_type"] for doc in payload["documents"])
+        unknown_types = sorted(set(doc_types) - known_types)
+        if unknown_types:
+            raise TodocError(
+                f"Unknown document types: {', '.join(unknown_types)}. See types list.",
+                EXIT_USAGE, "docs.unknown_type")
+        if scope not in ("", ".") and not (ctx.root / scope).is_dir():
+            raise TodocError(f"Path not found in dataset: {scope}", EXIT_USAGE, "usage.path_not_found")
         if failures := _document_read_failures(payload, scope):
             emit(Envelope.collection(meta, [], diagnostics=failures), output)
             raise click.exceptions.Exit(EXIT_INCOMPLETE)
