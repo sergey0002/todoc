@@ -79,6 +79,34 @@ def test_explain_path_missing(root):
     assert result.exit_code == 3
 
 
+def test_explain_path_root_prefixed_suggests_a_working_argv(root, sample_md):
+    runner = CliRunner()
+    wrong = f"{root.name}/notes/design.md"
+    result = runner.invoke(cli, ["--root", str(root), "explain-path", wrong, "--output", "json"])
+    assert result.exit_code == 3
+    body = json.loads(result.stdout)
+    assert "notes/design.md" in body["diagnostics"][0]["message"]
+    retry = body["next_actions"][0]["argv"]
+    assert retry[-1] == "notes/design.md"
+    assert runner.invoke(cli, retry[1:]).exit_code == 0
+
+
+def test_explain_path_missing_points_at_tree(root):
+    result = CliRunner().invoke(cli, ["--root", str(root), "explain-path", "nope.md", "--output", "json"])
+    assert result.exit_code == 3
+    actions = json.loads(result.stdout)["next_actions"]
+    assert actions[0]["argv"][-4:] == ["docs", "tree", "--limit", "20"]
+
+
+def test_explain_path_root_prefixed_but_absent_has_no_retry(root):
+    result = CliRunner().invoke(cli, ["--root", str(root), "explain-path",
+                                      f"{root.name}/nope.md", "--output", "json"])
+    assert result.exit_code == 3
+    body = json.loads(result.stdout)
+    assert "DATA_ROOT" not in body["diagnostics"][0]["message"]
+    assert body["next_actions"][0]["argv"][-4:] == ["docs", "tree", "--limit", "20"]
+
+
 def test_docs_new_search_read(root, sample_md):
     runner = CliRunner()
     result = _run(runner, ["--root", str(root), "docs", "new", "--apply", "--title", "Release decision", "--dir", "inbox", "--template", "note", "--output", "json"])

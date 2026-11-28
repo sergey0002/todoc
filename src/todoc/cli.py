@@ -1631,7 +1631,34 @@ def explain_path(path: str, roots: tuple[str, ...], output: str, no_input: bool)
                           **_ancestor_fields(path)},
                          output)
                 return
-    raise ValidationError(f"Path not found in dataset: {path}", "explain.path_not_found")
+    _explain_not_found(roots, path, output)
+
+
+def _explain_not_found(roots: tuple[str, ...], path: str, output: str) -> None:
+    """Missing path is a usage-style dead end: point at a working argv, not just an error."""
+    resolved = resolve_roots(_effective_roots(roots))
+    candidates = []
+    for root in resolved:
+        prefix = f"{root.name}/"
+        if path.startswith(prefix) and (root / path[len(prefix):]).exists():
+            candidates.append(path[len(prefix):])
+    message = f"Path not found in dataset: {path}"
+    if candidates:
+        message += f". The path is relative to DATA_ROOT; try {candidates[0]!r}"
+    actions = []
+    if candidates:
+        actions.append({"argv": [*_root_argv(roots), "explain-path", candidates[0]],
+                        "purpose": "Повторить с путём относительно DATA_ROOT"})
+    actions.append({"argv": [*_root_argv(roots), "docs", "tree", "--limit", "20"],
+                    "purpose": "Посмотреть существующие пути"})
+    envelope = Envelope.result(
+        {"command": "explain-path", "scope": {"roots": [str(root) for root in resolved]}}, {},
+        diagnostics=[{"dataset_id": "", "id": stable_id("explain.path_not_found", path),
+                      "code": "explain.path_not_found", "severity": "error", "path": path,
+                      "location": {}, "evidence": "", "message": message, "suggested_fixes": []}])
+    envelope.next_actions = actions
+    emit(envelope, output)
+    sys.exit(EXIT_VALIDATION)
 
 
 @cli.group()

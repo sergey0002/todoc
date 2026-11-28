@@ -152,10 +152,15 @@ def probe_bug_020(ctx: Ctx) -> tuple[str, str]:
 
 
 def probe_bug_021(ctx: Ctx) -> tuple[str, str]:
-    code, body, _ = call(ctx.live, "explain-path", "demo/skill/doc-spec-write/SKILL.md")
+    code, body, _ = call(ctx.live, "explain-path", "demo/skill/SKILL.md")
     diag = ((body or {}).get("diagnostics") or [{}])[0]
-    ok = code != 0 and bool(diag.get("suggested_fixes"))
-    return (FIXED if ok else OPEN, f"path_not_found exit={code} suggested_fixes={diag.get('suggested_fixes')}")
+    actions = (body or {}).get("next_actions") or []
+    retry = actions[0]["argv"] if actions else []
+    retry_ok = bool(retry) and retry[-1] == "skill/SKILL.md"
+    code2, body2, _ = call_args([*retry[1:]]) if retry_ok else (None, None, "")
+    ok = (code == 3 and "DATA_ROOT" in diag.get("message", "") and retry_ok and code2 == 0)
+    return (FIXED if ok else OPEN,
+            f"exit={code} retry={retry} retry_exit={code2}")
 
 
 def probe_bug_024(ctx: Ctx) -> tuple[str, str]:
