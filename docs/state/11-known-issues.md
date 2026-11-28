@@ -30,7 +30,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-017: docs tree молча усекает дерево до 50 папок и 50 документов без truncated](../../demo/bugs/bug-017-docs-tree-silent-truncation.md) | open |
 | [BUG-018: docs read без --section игнорирует --budget](../../demo/bugs/bug-018-docs-read-full-ignores-budget.md) | open |
 | [BUG-019: docs search с пустым --query возвращает ok:true и total 0](../../demo/bugs/bug-019-docs-search-empty-query.md) | open |
-| [BUG-020: records list по doc_type возвращает пустой успех вместо диагностики неймспейса](../../demo/bugs/bug-020-records-list-wrong-namespace.md) | open |
+| [BUG-020: records list по doc_type возвращает пустой успех вместо диагностики неймспейса](../../demo/bugs/bug-020-records-list-wrong-namespace.md) | in_progress |
 | [BUG-021: usage-ошибки CLI не содержат suggested_fixes и guidance](../../demo/bugs/bug-021-usage-errors-without-guidance.md) | open |
 | [BUG-022: нет обзорной выборки по типу документа](../../demo/bugs/bug-022-no-type-overview-query.md) | fixed |
 | [BUG-023: CLI недоступен из харнеса — нет venv и entrypoint](../../demo/bugs/bug-023-cli-not-reachable-from-harness.md) | open |
@@ -49,13 +49,13 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-035: history show/diff/blame читают файлы вне DATA_ROOT по --path](../../demo/bugs/bug-035-history-path-outside-root.md) | open |
 | [BUG-035: DUPLICATE of BUG-027: skills tree падает при наличии SKILL.md в корне vault](../../demo/bugs/bug-035-skills-tree-crash-root-skill-md.md) | duplicate |
 | [BUG-036: skills import --into выходит за пределы DATA_ROOT](../../demo/bugs/bug-036-skills-import-outside-root.md) | open |
-| [BUG-037: глобальный --output игнорируется подкомандами](../../demo/bugs/bug-037-global-output-ignored.md) | open |
+| [BUG-037: глобальный --output игнорируется подкомандами](../../demo/bugs/bug-037-global-output-ignored.md) | in_progress |
 | [BUG-038: records read --view с неизвестным именем молча возвращает всю запись](../../demo/bugs/bug-038-records-read-unknown-view.md) | open |
 | [BUG-039: records aggregate без --type молча выбирает тип workout](../../demo/bugs/bug-039-records-aggregate-hidden-default.md) | open |
 | [BUG-040: skills read падает traceback на некорректном --line-range и принимает --budget -1](../../demo/bugs/bug-040-skills-read-invalid-range.md) | open |
 | [BUG-041: records list --until/--relation фильтруют после limit — total и truncated врут](../../demo/bugs/bug-041-records-list-post-limit-filters.md) | open |
-| [BUG-042: records query падает traceback на некорректном QuerySpec](../../demo/bugs/bug-042-records-query-invalid-spec.md) | open |
-| [BUG-043: docs read --line-range вне файла возвращает пустой успех](../../demo/bugs/bug-043-docs-read-line-range-out-of-bounds.md) | open |
+| [BUG-042: records query падает traceback на некорректном QuerySpec](../../demo/bugs/bug-042-records-query-invalid-spec.md) | in_progress |
+| [BUG-043: docs read --line-range вне файла возвращает пустой успех](../../demo/bugs/bug-043-docs-read-line-range-out-of-bounds.md) | in_progress |
 | [BUG-044: status отдаёт next_actions с ключами action/reason вместо argv/purpose](../../demo/bugs/bug-044-status-next-actions-contract.md) | open |
 | [BUG-045: docs search --budget не ограничивает ответ — считается только текст сниппета](../../demo/bugs/bug-045-docs-search-budget-not-honest.md) | open |
 | [BUG-046: fix --apply заменяет первое вхождение цели в тексте, а не сломанную ссылку](../../demo/bugs/bug-046-fix-applies-wrong-occurrence.md) | open |
@@ -69,6 +69,10 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](../../demo/bugs/bug-054-current-docs-search-csv-drift.md) | open |
 | [BUG-055: Неизвестный --type/--within в docs search даёт тихий пустой результат](../../demo/bugs/bug-055-unknown-search-filter-silent-empty.md) | open |
 | [BUG-056: Нет CLI-команды для списка тегов и фильтра записей по тегу](../../demo/bugs/bug-056-no-tag-listing-or-record-filter.md) | open |
+| [BUG-057: Обзор открытых баг-репортов не получается одной командой](../../demo/bugs/bug-057-open-bugs-list-not-discoverable.md) | open |
+| [BUG-058: Инструкции и маршрутизация скилов не выводят на обзор статусов](../../demo/bugs/bug-058-routing-docs-gap.md) | open |
+| [BUG-059: tools/refresh_demo_state.py не запускается и расходится с demo-копиями](../../demo/bugs/bug-059-refresh-demo-state-broken.md) | open |
+| [BUG-060: docs list --status не принимает альтернативы через pipe](../../demo/bugs/bug-060-status-filter-pipe-rejected.md) | open |
 | [DESIGN-Q01: терминальный статус записи — guard процедурный, движок молчит](../../demo/bugs/design-q01-terminalnyy-status-zapisi-guard-procedurnyy-dvizhok-molchit.md) | open |
 | [DESIGN-Q02: review-first двойной вызов — стоимость для агента против контроля](../../demo/bugs/design-q02-review-first-dvoynoy-vyzov-stoimost-dlya-agenta-protiv-kontrolya.md) | open |
 | [BUG-001: Явный doc_type без fm-правила резолвится в unknown](../../demo/records/documents/bug-001-fm-doc-type-unknown.json) | поле отсутствует |

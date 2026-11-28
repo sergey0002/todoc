@@ -4,7 +4,7 @@ title: README демо-датасета todoc
 doc_type: demo-readme
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 tags: [demo-readme, датасета, readme]
 ---
 
@@ -26,7 +26,8 @@ tags: [demo-readme, датасета, readme]
 | `architecture/` | `architecture` (reserved) | Слои, поток данных, модель данных |
 | `glossary/` | `glossary` (reserved) | Определения терминов |
 | `guides/` | `guides` | Гайды с постулатами и чек-листами |
-| `references/` | `references` | Справка по подсистемам, включая `state/` — документацию состояния |
+| `references/` | `references` | Справка по подсистемам |
+| `references/state/` | `state` | Снимок фактического состояния (AS-IS): только реализованное и действующее |
 | `competitors/` | `competitors` | Карточки конкурентов и Agent Skills |
 | `records/` | `records` | Типизированные JSON-записи |
 | `notes/` | `notes` | Заметки со свободными связями |
@@ -40,7 +41,7 @@ tags: [demo-readme, датасета, readme]
 ```bash
 todoc validate --root demo --all          # ожидается 0 диагностик
 todoc check --root demo                    # сводка по датасету
-todoc types list --root demo               # 24 dir_types, 30 doc_types, 25 entity_types, 18 relation_types
+todoc types list --root demo               # 25 dir_types, 31 doc_types, 25 entity_types, 18 relation_types
 todoc docs tree --root demo --max-depth 2  # дерево папок с типами
 todoc docs search --root demo --query "портабельность" --limit 3
 todoc docs read --root demo --id "doc:constitution#Принципы"   # fragment в id = --section

@@ -22,6 +22,8 @@ JSON-запись содержит `record_id` и `entity_type`. Тип сущн
 | QuerySpec | `records query --query-file FILE` использует `entity_type`, `filters` и `limit`. Фильтры записи поддерживают `$in`, `$gte` и `$lte`. Дополнительно применяются общие фильтры метаданных |
 | Метрики | `records aggregate --type T --metric FIELD` суммирует числовое поле, поддерживает группировку и проверяет совместимость единиц в каждой группе |
 
+`records list` и `records query` проверяют `entity_type` до чтения индекса: известный тип без записей даёт пустой успех, неизвестный — `query.unknown_type`, тип из другого пространства имён — `query.namespace_mismatch`. QuerySpec принимает `schema_version: 1`, `name`, `entity_type`, `filters`, `limit` и `sort_hint`; неизвестные ключи, операторы и версия дают `query.invalid_file`.
+
 Структурированная правка использует массив `metadata` с операциями `set`, `remove`, `add_item` и `remove_item`. Ключ идентификации и обязательные поля защищены контрактом. Для применения передайте хеш предпросмотра.
 
 ## Связи и время
@@ -30,4 +32,4 @@ JSON-запись содержит `record_id` и `entity_type`. Тип сущн
 
 `--as-of` в `records query` ограничивает факты временем правды. Интервал закрывается по `valid_to` или `superseded_at`, открывается по `valid_from`. `timeline` объединяет события журнала и темпоральные факты. `records undo-relation` восстанавливает отношение по сохранённой истории, с проверкой `--if-hash` при применении.
 
-[Точный синтаксис](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md) · [История и индексы](09-storage-and-index.md)
+Точный синтаксис · [История и индексы](09-storage-and-index.md)

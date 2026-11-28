@@ -91,7 +91,7 @@
 ### todoc
 
 ```text
-Usage: todoc [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc [OPTIONS] COMMAND [ARGS]...
 
   todoc — portable typed knowledge substrate (validator + bounded search/read).
 
@@ -158,7 +158,7 @@ Options:
 ### change
 
 ```text
-Usage: todoc change [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc change [OPTIONS] COMMAND [ARGS]...
 
   Записи изменений: жизненный цикл, проверка применимости, bundle-применение.
 
@@ -383,7 +383,7 @@ Options:
 ### docs
 
 ```text
-Usage: todoc docs [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc docs [OPTIONS] COMMAND [ARGS]...
 
   Document operations.
 
@@ -428,7 +428,7 @@ Options:
 ### docs flow
 
 ```text
-Usage: todoc docs flow [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc docs flow [OPTIONS] COMMAND [ARGS]...
 
   Витрина и навигатор дерева решений флоу (entity-catalog T1/T2).
 
@@ -521,6 +521,7 @@ Options:
   --filter-fields                 List declared and observed metadata fields in this scope.
   --status TEXT
   --status-missing
+  --origin [document|record]      Authored documents or JSON mirrors under records/.
   --fields TEXT
   --exclude-fields TEXT
   --fields-help
@@ -591,8 +592,8 @@ Options:
   --no-input
   --type TEXT                     Effective document type; separate alternatives by |.
   --query TEXT
-  --budget INTEGER RANGE          Maximum number of Unicode characters across result snippets.
-                                  [x>=1]
+  --budget INTEGER RANGE          Maximum UTF-8 bytes of the serialized result items (envelope
+                                  excluded).  [x>=1]
   --limit INTEGER RANGE           [1<=x<=1000]
   --within TEXT
   --cursor TEXT
@@ -730,7 +731,7 @@ Options:
 ### history
 
 ```text
-Usage: todoc history [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc history [OPTIONS] COMMAND [ARGS]...
 
   Обслуживание истории: сборка мусора, миграция, бэкап.
 
@@ -803,7 +804,7 @@ Options:
 ### index
 
 ```text
-Usage: todoc index [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc index [OPTIONS] COMMAND [ARGS]...
 
   Index status/rebuild (derived, rebuildable).
 
@@ -870,7 +871,7 @@ Options:
 ### interop
 
 ```text
-Usage: todoc interop [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc interop [OPTIONS] COMMAND [ARGS]...
 
   Экспорт витрин во внешние форматы (DMN 1.3 / ASL / Rasa NLU YML).
 
@@ -938,7 +939,7 @@ Options:
 ### records
 
 ```text
-Usage: todoc records [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc records [OPTIONS] COMMAND [ARGS]...
 
   Typed records operations.
 
@@ -1130,7 +1131,7 @@ Options:
 ### relations
 
 ```text
-Usage: todoc relations [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc relations [OPTIONS] COMMAND [ARGS]...
 
   Typed relations.
 
@@ -1237,7 +1238,7 @@ Options:
 ### skills
 
 ```text
-Usage: todoc skills [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc skills [OPTIONS] COMMAND [ARGS]...
 
   Skills vault (open Agent Skills standard): tree/read/attach/import.
 
@@ -1368,7 +1369,7 @@ Options:
 ### state
 
 ```text
-Usage: todoc state [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc state [OPTIONS] COMMAND [ARGS]...
 
   Агентский стейт сессии (v1): state.json вне данных, XDG_STATE_HOME.
 
@@ -1531,7 +1532,7 @@ Options:
 ### types
 
 ```text
-Usage: todoc types [OPTIONS] [COMMAND] [ARGS]...
+Usage: todoc types [OPTIONS] COMMAND [ARGS]...
 
   Type catalog.
 

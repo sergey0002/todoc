@@ -145,6 +145,17 @@
       "priority": 100
     },
     {
+      "id": "demo-dir-state",
+      "match": {
+        "kind": "directory",
+        "glob": "**/state"
+      },
+      "assign": {
+        "dir_type": "state"
+      },
+      "priority": 100
+    },
+    {
       "id": "demo-dir-skill",
       "match": {
         "kind": "directory",

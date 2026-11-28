@@ -5,9 +5,9 @@ doc_type: agent-skill
 lang: ru
 updated: 2026-11-28
 name: todoc-docs
-description: "Ищет и читает knowledge base датасета todoc через CLI: bounded search/read по конвенции. Use when answering from the KB."
+description: "Ищет, перечисляет и читает knowledge base датасета todoc через CLI: обзор документов по типу и статусу (docs list), bounded search/read. Use when answering from the KB or listing documents by type/status."
 created: 2026-11-26
-tags: [skill, agent-skill, датасета, чтение]
+tags: [skill, agent-skill, датасета, чтение, обзор, статус]
 ---
 
 # Скил: поиск и чтение KB датасета через CLI
@@ -18,21 +18,35 @@ tags: [skill, agent-skill, датасета, чтение]
 
 ## Procedure
 
-1. Для списка идей по статусу начни с `todoc docs list --root demo --type idea --fields id,path,title,status --limit 100`. Используй `data.result.items`, проверь `data.meta.complete` и дочитай страницы по `next_cursor`. Пустой статус укажи отдельно. HOME открывай для навигации по незнакомой области.
+1. Для обзора «что открыто / что не закрыто» по любому типу используй один вызов:
+   `todoc docs list --root demo --type bug-report --status open --fields id,path,title,status --limit 1000`.
+   Проверь `data.meta.complete`/`truncated`, дочитай по `next_cursor`. Отсутствующий
+   статус — это `--status-missing` (JSON-зеркала `records/documents/`), а не «нет данных».
+   Только md без зеркал: `--origin document`.
+   HOME открывай для навигации по незнакомой области.
    Для нескольких типов используй `--type 'plan|idea|agent-skill'`.
    Условия по записанным полям передавай как `--attr-<имя> 'значение1|значение2'`.
    Список полей выбранного типа узнай одним вызовом `docs list --type <тип> --filter-fields`.
 2. Для поиска по содержимому используй `docs search --query "<термины>" --limit 5`. При наличии фильтра по метаданным `--query` можно опустить.
 3. Читай нужный фрагмент через `docs read --section` или `--line-range A-B`. Поля фрагмента находятся в `data.result`. `--budget` ограничивает символы текста.
-4. Записи читай через `records list/query`. Используй сохранённый `--query-file` или общий `--filter-file`. Строки находятся в `data.result.items`.
-5. Метаданные редактируй через `docs edit` или `records edit`. Проверь `--preview`, затем передай из него `expected_hash` в `--apply --if-hash`. Для правки тела используй `docs edit` или документированный `todoc sync`.
+4. Записи читай через `records list/query`. Используй сохранённый `--query-file` или общий `--filter-file`. Строки находятся в `data.result.items`. Помни: `records list` не видит документы по `doc_type` — для них только `docs list`.
+5. Существующие файлы (`md`/`json`/`csv`) правь напрямую штатным редактором, затем сразу `todoc sync --apply --root demo <path>` (обновит `updated`, историю, индекс, валидацию). `docs edit`/`records edit` — для внешних скриптов, агенту не навязываются.
 6. Шпаргалка команд: references/query-cheatsheet.md рядом с этим SKILL.md.
+7. Бэклог репортов и идей (триаж, счёт открытых, что чинить следующим) — скил `process/todoc-backlog`.
 
 ## Pitfalls
 
 - Проверь один вызов перед тем, как повторять форму команды для многих документов. При ошибке останови зависимый пакет и используй подсказку команды.
 - `--line-range` принимает `A-B`. При `usage.invalid_line_range` поправь диапазон и повтори вызов.
 - Не читай файлы напрямую, если есть CLI-проекция: CLI даёт bounded + метаданные; прямой cat — только когда CLI-пути нет.
+- `docs search` отдаёт `status`/`doc_type` в проекции; для полного обзора по
+  статусу всё равно используй `docs list` (пагинация, `--status`, `--origin`).
+- `records list --type <doc_type>` даёт `query.namespace_mismatch` (BUG-020 исправлен), а не пустой `ok`; для документов используй `docs list`.
+- `docs list` без `--origin` смешивает md-документы и JSON-зеркала `records/documents/`:
+  `--origin document` оставляет md, `--status-missing` показывает вторые; в ответе
+  всегда указывай, что считал.
+- Неизвестные `--type`/`--status` в `docs list` дают `docs.unknown_type`/`docs.unknown_status`
+  с guidance; сверяй имя с `todoc types list --root demo`.
 
 ## Verification
 

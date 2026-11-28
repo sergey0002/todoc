@@ -11,7 +11,7 @@ copied: true
 
 # 03. Контракт CLI и примеры
 
-[Полный справочник из Click](https://github.com/sergey0002/todoc/blob/master/docs/state/cli.md) перечисляет 67 листовых команд, группы, опции, позиционные аргументы и значения по умолчанию.
+Полный справочник из Click перечисляет 67 листовых команд, группы, опции, позиционные аргументы и значения по умолчанию.
 
 ## Вызов и ответ
 
@@ -34,6 +34,7 @@ JSON-ответы команд используют `schema_version: 2`, `ok`, `
 ```bash
 todoc --root demo docs list --type 'idea|plan|bug-report' --attr-lang ru --fields id,path,title,status
 todoc --root demo docs list --type idea --status 'captured|planned' --status-missing
+todoc --root demo docs list --type bug-report --status open --origin document
 todoc --root demo docs list --type idea --filter-fields
 todoc --root demo docs search --query 'единый cli' --tag-in 'cli|metadata' --limit 5
 todoc --root demo docs read --id doc:home --fields text --budget 500
@@ -52,6 +53,6 @@ todoc --root demo index rebuild --apply
 todoc --root demo validate --all
 ```
 
-Для команд с `--if-plan-hash` используйте полученный при preview `plan_hash`. Для структурированной правки метаданных `--if-hash` обязателен при применении. `--budget` текстовых проекций считает символы Unicode полезного содержимого. Объём сериализованных метаданных может быть больше.
+Для команд с `--if-plan-hash` используйте полученный при preview `plan_hash`. Для структурированной правки метаданных `--if-hash` обязателен при применении. `--budget` текстовых проекций считает символы Unicode полезного содержимого. Объём сериализованных метаданных может быть больше. У `docs search --budget N` единица другая — UTF-8 байты сериализованных элементов `data.result.items` без конверта; `data.meta.budget` содержит `limit`, `used_bytes` и `exhausted`.
 
 [Формы документов](05-formats.md) · [Поиск](07-search-and-read.md) · [Рабочий цикл агента](12-agent-operations.md)
