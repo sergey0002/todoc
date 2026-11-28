@@ -342,7 +342,8 @@ def test_main_success(root, monkeypatch):
 
 
 def test_main_todoc_error_exit(root, monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["todoc", "check", "--output", "json"])
+    monkeypatch.setattr(sys, "argv", ["todoc", "docs", "read", "--root", str(root),
+                                      "--id", "doc:absent", "--output", "json"])
     try:
         main()
     except SystemExit as exc:

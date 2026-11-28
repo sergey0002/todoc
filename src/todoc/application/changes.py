@@ -28,7 +28,7 @@ from todoc.application.history import add_tag, first_before
 from todoc.application.storage import HistoryStore, ParseCache
 from todoc.composition import default_history_store, default_parse_cache
 from todoc.domain.models import Diagnostic
-from todoc.errors import IncompleteError, ValidationError
+from todoc.errors import EXIT_USAGE, IncompleteError, TodocError, ValidationError
 
 SCHEMA_VERSION = 1
 DELTA_OPERATIONS = ("ADDED", "MODIFIED", "REMOVED")
@@ -80,13 +80,29 @@ def archive_dir(root: Path) -> Path:
     return changes_dir(root) / "archive"
 
 
+CHANGE_ID_PATTERN = re.compile(r"^change:[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def require_change_id(change_id: str) -> str:
+    """Reject identifiers that cannot name a change folder before touching the filesystem.
+
+    ``change:<id>`` with ``<id>`` = ``[A-Za-z0-9][A-Za-z0-9._-]*``; separators,
+    ``..``, an empty slug or an absolute path are usage errors, not "not found".
+    """
+    if not isinstance(change_id, str) or not CHANGE_ID_PATTERN.fullmatch(change_id) \
+            or ".." in change_id:
+        raise TodocError(f"Некорректный идентификатор изменения: {change_id!r}; "
+                         f"ожидается change:<id>", EXIT_USAGE, "usage.invalid_id")
+    return change_id
+
+
 def change_dir(root: Path, change_id: str) -> Path:
     """Папка изменения: активная, а после архивации — в ``changes/archive/`` (§4).
 
     Ищется по файлу записи, а не по имени папки: в архиве имя дополнено датой,
     поэтому ``change show`` обязан находить изменение и после переноса.
     """
-    slug = change_id.split(":", 1)[-1]
+    slug = require_change_id(change_id).split(":", 1)[-1]
     active = changes_dir(root) / slug
     if (active / "change.json").is_file():
         return active

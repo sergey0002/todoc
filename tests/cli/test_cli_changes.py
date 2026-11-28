@@ -258,6 +258,29 @@ def test_revert_requires_applied(kb):
     assert result.exception.code == "change.id_invalid"
 
 
+@pytest.mark.parametrize("command", ["show", "validate", "verify", "apply", "archive", "revert"])
+@pytest.mark.parametrize("bad_id", ["change:../../x", "change:a/b", "change:", "/etc/passwd"])
+def test_change_commands_reject_malformed_ids(kb, command, bad_id):
+    result = _run(CliRunner(), ["--root", str(kb["root"]), "change", command, bad_id])
+    assert result.exit_code == 2, (command, bad_id, result.output)
+    assert result.exception.code == "usage.invalid_id"
+
+
+def test_log_rejects_malformed_change_filter(kb):
+    result = _run(CliRunner(), ["--root", str(kb["root"]), "log", "--change", "change:../x"])
+    assert result.exit_code == 2
+    assert [d["code"] for d in _json(result)["diagnostics"]] == ["usage.invalid_id"]
+
+
+def test_malformed_id_does_not_touch_outside_paths(kb, tmp_path):
+    sentinel = tmp_path / "sentinel.md"
+    sentinel.write_text("SECRET", encoding="utf-8")
+    result = _run(CliRunner(), ["--root", str(kb["root"]), "change", "archive",
+                                "change:../sentinel.md", "--apply"])
+    assert result.exit_code == 2
+    assert sentinel.read_text(encoding="utf-8") == "SECRET"
+
+
 # --- context -----------------------------------------------------------------
 
 

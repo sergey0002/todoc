@@ -7,7 +7,7 @@ import re
 import pytest
 
 from todoc.application import changes as C
-from todoc.errors import ConflictError, ValidationError
+from todoc.errors import ConflictError, TodocError, ValidationError
 
 DELTA = """---
 target: notes/a.md
@@ -109,6 +109,23 @@ def test_load_change_ignores_non_dict(root):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("[1, 2]", encoding="utf-8")
     assert C.load_change(root, "change:spisok") is None
+
+
+@pytest.mark.parametrize("bad_id", [
+    "change:../../x", "change:a/b", "change:a\\b", "change:", "change:..", "/etc/passwd",
+    "changes:ok", "", "change: пробел",
+])
+def test_require_change_id_rejects_malformed_ids(root, bad_id):
+    with pytest.raises(TodocError) as info:
+        C.require_change_id(bad_id)
+    assert info.value.code == "usage.invalid_id" and info.value.exit_code == 2
+    with pytest.raises(TodocError):
+        C.load_change(root, bad_id)
+
+
+@pytest.mark.parametrize("good_id", ["change:a", "change:plan-v2", "change:v1.2_3", "change:0"])
+def test_require_change_id_accepts_valid_ids(good_id):
+    assert C.require_change_id(good_id) == good_id
 
 
 def test_list_changes_filters_by_status(change_root):

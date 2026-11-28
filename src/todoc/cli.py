@@ -28,7 +28,7 @@ from todoc.application.history import (add_tag, blame as history_blame, content_
                                        revert_plan, show as history_show)
 from todoc.application.changes import (TRANSLIT, apply_change, archive_change, change_id_for,
                                        collect_deltas, list_change_entries, load_change,
-                                       open_change, record_path, revert_change,
+                                       open_change, record_path, require_change_id, revert_change,
                                        validate_change, verify_change)
 from todoc.application.flow_view import build_flow_view
 from todoc.application.interop import (anchor_for, build_export_doc, flow_to_asl,
@@ -958,6 +958,8 @@ def log_cmd(roots: tuple[str, ...], output: str, no_input: bool, path: str | Non
         if path is not None:
             path = normalize_scope(path)
             _contained_out(ctx.root, path)
+        if change_id is not None:
+            require_change_id(change_id)
         meta["scope"] = {"dataset_id": ctx.dataset_id, "path": path}
         entries = ctx.history_store.read_events(strict=True)
         refs = ctx.history_store.read_refs() if tag else {}
@@ -1556,6 +1558,8 @@ def context_cmd(roots: tuple[str, ...], output: str, no_input: bool, change_id: 
     ctx = _single_context(roots, "change")
     if not change_id and not tag:
         raise TodocError("Нужен --change или --tag", EXIT_USAGE, "usage.error")
+    if change_id is not None:
+        require_change_id(change_id)
     limits = ctx.dataset.get("limits") or {}
     max_diff_lines = limits.get("max_diff_lines")
     result = build_context(ctx.root, ctx.dataset_id, change_id=change_id, tag=tag,
