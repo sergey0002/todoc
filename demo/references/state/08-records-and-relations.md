@@ -24,6 +24,29 @@ JSON-запись содержит `record_id` и `entity_type`. Тип сущн
 
 `records list` и `records query` проверяют `entity_type` до чтения индекса: известный тип без записей даёт пустой успех, неизвестный — `query.unknown_type`, тип из другого пространства имён — `query.namespace_mismatch`. QuerySpec принимает `schema_version: 1`, `name`, `entity_type`, `filters`, `limit` и `sort_hint`; неизвестные ключи, операторы и версия дают `query.invalid_file`.
 
+### QuerySpec: операторы и пример
+
+`filters` — объект «поле → условие». Поле может быть точечным путём (`volume.value`). Условие — либо скаляр (точное равенство), либо объект с одним из операторов `$in`, `$gte`, `$lte`:
+
+```json
+{
+  "schema_version": 1,
+  "name": "heavy-workouts",
+  "entity_type": "workout",
+  "filters": {
+    "date": {"$gte": "2026-11-01", "$lte": "2026-11-30"},
+    "volume.value": {"$gte": 50},
+    "status": {"$in": ["done", "planned"]}
+  },
+  "limit": 50
+}
+```
+
+- `$in` сравнивает значение целиком: для поля-списка (например, `tags`) он не означает «содержит элемент». Теги отбирайте флагами `--tag-in`/`--tag-all`.
+- `$gte`/`$lte` сравнивают числа или строки; несравнимые типы дают `query.invalid_file`.
+- Неизвестный оператор или лишний ключ — `query.invalid_file`; файл проверяется до чтения индекса.
+- Готовый минимальный пример — `demo/.todoc/queries/tasks-by-project.json`.
+
 Структурированная правка использует массив `metadata` с операциями `set`, `remove`, `add_item` и `remove_item`. Ключ идентификации и обязательные поля защищены контрактом. Для применения передайте хеш предпросмотра.
 
 ## Связи и время
