@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-034
-status: open
+status: fixed
 severity: critical
 agent_impact: none
 component: engine
@@ -135,3 +135,5 @@ $ cat "$KB/../outside.md"
 "containment path traversal DATA_ROOT"` и `--query "change apply target"` —
 совпадений по корневой причине нет (BUG-031/032 — Windows-пути, BUG-021 — guidance).
 Связанные: BUG-035 (history читает вне корня), BUG-036 (skills import пишет вне корня).
+
+- 2026-11-28: `fixed` — коммит `06d2a7b`. `validate_change` резолвит цель дельты через `contained_delta_target`: пустой/абсолютный путь, `..` и симлинк наружу дают `change.delta_target_outside_root` (exit 3) до чтения, хеширования и записи. Проверка: `tools/bug_acceptance.py --only BUG-034-change` → `fixed`; файл вне корня не читается и не меняется. Тесты: `tests/unit/test_changes.py::test_validate_rejects_target_outside_root`, `tests/cli/test_cli_changes.py::test_apply_refuses_delta_target_outside_root`.

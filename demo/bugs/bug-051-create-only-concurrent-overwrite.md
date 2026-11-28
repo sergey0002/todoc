@@ -4,9 +4,9 @@ title: "BUG-051: Конкурентное создание нарушает га
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-051
-status: open
+status: fixed
 severity: critical
 agent_impact: none
 component: engine
@@ -48,3 +48,5 @@ apply_write_plan возвращает успех. Итоговый текст `f
 ## Заметки
 
 Дедуп 2026-11-28: `apply_write_plan`, `write.target_exists`; отчёта с этой гонкой не найдено. BUG-034 — другой механизм, выход за DATA_ROOT. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813` (код уже был в рабочем дереве). Эксклюзивное создание использует `os.link` и при конкуренте даёт `write.target_exists`; чужие байты сохраняются, временный файл не остаётся. Проверка: `tools/bug_acceptance.py --only BUG-051` → `fixed`. Регрессия: `tests/unit/test_storage_contracts.py::test_atomic_write_plan_keeps_a_competing_creation`.

@@ -6,7 +6,7 @@ lang: ru
 created: 2026-11-28
 updated: 2026-11-28
 bug_id: BUG-036
-status: open
+status: fixed
 severity: critical
 agent_impact: none
 component: cli
@@ -106,3 +106,5 @@ exists
 "skills import into"` — совпадений по containment нет (BUG-027 — падение
 `skills tree`, BUG-029 — два хранилища). Связанные: BUG-034 (change apply),
 BUG-035 (history).
+
+- 2026-11-28: `fixed` — коммит `7d32813` (код уже был в рабочем дереве). `--into ../escaped` отклоняется на нормализации области как `docs.invalid_scope` (exit 2) до создания каталога; разрешённый путь дополнительно проверяет `_contained_out`. Проверка: `tools/bug_acceptance.py --only BUG-036` → `fixed`. Регрессия: `tests/cli/test_cli_skills_import.py::test_import_refuses_into_outside_root`.

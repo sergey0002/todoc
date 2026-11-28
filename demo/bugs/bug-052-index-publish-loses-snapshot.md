@@ -4,9 +4,9 @@ title: "BUG-052: Сбой rename при публикации уничтожае�
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-052
-status: open
+status: fixed
 severity: major
 agent_impact: friction
 component: engine
@@ -46,3 +46,5 @@ RegistryStore.publish удаляет текущий снимок до успеш
 ## Заметки
 
 Дедуп 2026-11-28: `RegistryStore`, `tmp-current`; совпадения по компоненту без этой причины не дублируются. Подтверждено инъекцией отказа, не реальным дисковым сбоем. Фикс не реализован.
+
+- 2026-11-28: `fixed` — коммит `7d32813` (код уже был в рабочем дереве). Публикация индекса откатывается к прежнему поколению при отказе на переключении и записи указателя; старое поколение остаётся читаемым. Проверка: `tools/bug_acceptance.py --only BUG-052` → `fixed`. Тест: `tests/unit/test_coverage_extra.py::test_publish_failure_cleans_tmp_and_restores_snapshot`.

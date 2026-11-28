@@ -113,3 +113,16 @@ def test_adopt_validates_existing_folder(tmp_path):
                          "--skill", "absent", "--adopt", "--into", "coding/review"])
     assert miss.exit_code != 0
     assert miss.exception.code == "skills.not_found"
+
+
+def test_import_refuses_into_outside_root(tmp_path):
+    runner = CliRunner()
+    demo = _demo(tmp_path)
+    src = tmp_path / "src-repo"
+    _mk_skill(src, "skills/alpha", "alpha")
+    result = _run(runner, ["skills", "import", "--root", str(demo), "--src", str(src),
+                           "--into", "../escaped", "--apply"])
+    assert result.exit_code == 2
+    assert result.exception.code == "docs.invalid_scope"
+    assert not (tmp_path / "escaped").exists()
+    assert not (demo.parent / "escaped").exists()

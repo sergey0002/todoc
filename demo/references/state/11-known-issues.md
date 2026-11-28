@@ -55,11 +55,11 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-031: Тест test_open_reports_path_and_status падает на Windows из-за разделителей путей](../../bugs/bug-031-windows-path-separator-test-failure.md) | open |
 | [BUG-032: CLI возвращает Windows-пути с backslash в JSON вместо POSIX](../../bugs/bug-032-cli-returns-windows-paths-with-backslash.md) | open |
 | [BUG-033: History revert не сохраняет line endings (CRLF на Windows)](../../bugs/bug-033-history-revert-line-endings-windows.md) | open |
-| [BUG-034: change apply пишет за пределы DATA_ROOT по target дельты](../../bugs/bug-034-change-apply-target-outside-root.md) | open |
+| [BUG-034: change apply пишет за пределы DATA_ROOT по target дельты](../../bugs/bug-034-change-apply-target-outside-root.md) | fixed |
 | [BUG-034: Тесты истории падают на Windows из-за chmod и line endings](../../bugs/bug-034-history-tests-windows-chmod-line-endings.md) | open |
 | [BUG-035: history show/diff/blame читают файлы вне DATA_ROOT по --path](../../bugs/bug-035-history-path-outside-root.md) | open |
 | [BUG-035: DUPLICATE of BUG-027: skills tree падает при наличии SKILL.md в корне vault](../../bugs/bug-035-skills-tree-crash-root-skill-md.md) | duplicate |
-| [BUG-036: skills import --into выходит за пределы DATA_ROOT](../../bugs/bug-036-skills-import-outside-root.md) | open |
+| [BUG-036: skills import --into выходит за пределы DATA_ROOT](../../bugs/bug-036-skills-import-outside-root.md) | fixed |
 | [BUG-037: глобальный --output игнорируется подкомандами](../../bugs/bug-037-global-output-ignored.md) | fixed |
 | [BUG-038: records read --view с неизвестным именем молча возвращает всю запись](../../bugs/bug-038-records-read-unknown-view.md) | fixed |
 | [BUG-039: records aggregate без --type молча выбирает тип workout](../../bugs/bug-039-records-aggregate-hidden-default.md) | fixed |
@@ -74,8 +74,8 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-048: Поиск падает на файле с невалидным UTF-8](../../bugs/bug-048-invalid-utf8-search-crash.md) | fixed |
 | [BUG-049: Preview правки одобряет неисполнимый патч](../../bugs/bug-049-edit-preview-invalid-ops.md) | fixed |
 | [BUG-050: Нулевой limit зацикливает курсор поиска](../../bugs/bug-050-zero-limit-search-cursor.md) | fixed |
-| [BUG-051: Конкурентное создание нарушает гарантию create-only](../../bugs/bug-051-create-only-concurrent-overwrite.md) | open |
-| [BUG-052: Сбой rename при публикации уничтожает предыдущий снимок индекса](../../bugs/bug-052-index-publish-loses-snapshot.md) | open |
+| [BUG-051: Конкурентное создание нарушает гарантию create-only](../../bugs/bug-051-create-only-concurrent-overwrite.md) | fixed |
+| [BUG-052: Сбой rename при публикации уничтожает предыдущий снимок индекса](../../bugs/bug-052-index-publish-loses-snapshot.md) | fixed |
 | [BUG-053: Контрактные тесты пропускают вложенные команды flow](../../bugs/bug-053-contract-tests-missing-nested-leaves.md) | fixed |
 | [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](../../bugs/bug-054-current-docs-search-csv-drift.md) | open |
 | [BUG-055: Неизвестный --type/--within в docs search даёт тихий пустой результат](../../bugs/bug-055-unknown-search-filter-silent-empty.md) | open |
