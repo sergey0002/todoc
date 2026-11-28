@@ -334,6 +334,43 @@ def test_plan_ack_rejects_unclosed_front_matter(corpus):
         plan_ack(corpus["root"], "docs/state/10-testing.md", "причина", "2026-11-25T00:00:00Z", ["sha256:aa"])
 
 
+def test_fragment_hash_rejects_paths_outside_root(root):
+    outside = root.parent / "secret.md"
+    outside.write_text("SECRET", encoding="utf-8")
+    digest, status = fragment_hash(root, {"path": "../secret.md"})
+    assert digest is None and status == "outside"
+    assert fragment_hash(root, {"path": "/etc/passwd"})[1] == "outside"
+    assert fragment_hash(root, {"path": ""})[1] == "outside"
+
+
+def test_check_owner_reports_outside_dependency(root):
+    (root / "owner.md").write_text('---\ntitle: "O"\n---\n\n# O\n', encoding="utf-8")
+    owner = {"derived_from": ["../secret.md@sha256:" + "0" * 64]}
+    diags = check_owner("ds", "owner.md", owner, root)
+    assert [d.code for d in diags] == ["staleness.dependency_outside_root"]
+    assert diags[0].severity == "error"
+
+
+def test_plan_ack_preserves_crlf_and_trailing_newline(corpus):
+    doc = corpus["doc"]
+    doc.write_bytes(b'---\r\ntitle: "\xd0\x9a"\r\nderived_from: ["a.json@sha256:aa"]\r\n---\r\n'
+                    b"# Body\r\n\r\nline\r\n")
+    before_body = doc.read_bytes().split(b"---\r\n", 2)[2]
+    text = plan_ack(corpus["root"], "docs/state/10-testing.md", "ok", "2026-11-25T00:00:00Z",
+                    ["sha256:bb"])
+    assert text.startswith("---\r\n")
+    assert text.endswith(before_body.decode("utf-8"))
+    assert "stale_ack_hashes: [\"sha256:bb\"]" in text
+    assert text.count("derived_from") == 1
+
+
+def test_plan_ack_keeps_no_trailing_newline(corpus):
+    doc = corpus["doc"]
+    doc.write_bytes(b'---\ntitle: "K"\n---\n# Body')
+    text = plan_ack(corpus["root"], "docs/state/10-testing.md", "ok", "2026-11-25T00:00:00Z", [])
+    assert text.endswith("---\n# Body")
+
+
 def test_collect_owners_skips_binary_document(root, corpus):
     from todoc.service import DatasetContext
 

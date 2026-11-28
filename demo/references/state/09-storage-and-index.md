@@ -157,6 +157,8 @@ derived_from: ["bench/results/benchmark.json#/meta/date@sha256:661df7…"]
 `staleness.dependency_changed` либо `staleness.dependency_missing` (severity `warning`).
 Если указатель или заголовок перестал разрешаться, это тоже `dependency_changed`, но с сообщением
 «якорь не разрешается» — средство другое: переименованный якорь, а не изменившиеся данные.
+Путь зависимости вне DATA_ROOT (включая `..`, абсолютный путь и симлинк наружу) — ошибка
+`staleness.dependency_outside_root` (severity `error`); такой файл не читается.
 
 Подтверждение, что дрейф не релевантен:
 

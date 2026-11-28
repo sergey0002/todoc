@@ -18,10 +18,12 @@ from typing import Any
 
 from todoc.adapters.formats.jsonfmt import parse_json, resolve_pointer
 from todoc.adapters.formats.markdown import parse_markdown
+from todoc.adapters.filesystem.scanner import is_within_root
 from todoc.domain.models import Diagnostic
 
 DEPENDENCY_MISSING = "staleness.dependency_missing"
 DEPENDENCY_CHANGED = "staleness.dependency_changed"
+DEPENDENCY_OUTSIDE = "staleness.dependency_outside_root"
 
 #: Front matter keys that carry an acknowledgement. Flat on purpose: the markdown
 #: front matter layer is YAML-lite (``key: value`` plus inline ``[a, b]`` lists), so a
@@ -69,6 +71,8 @@ def fragment_hash(root: Path, dep: dict[str, Any]) -> tuple[str | None, str]:
     """
     rel = str(dep.get("path") or "")
     target = root / rel
+    if not rel or not is_within_root(root, target):
+        return None, "outside"
     if not target.is_file():
         return None, "missing"
     try:
@@ -172,6 +176,17 @@ def check_owner(dataset_id: str, owner_path: str, owner: dict[str, Any], root: P
                 message=f"Зависимость отсутствует: {rel}. Файл удалён или перемещён.",
             ))
             continue
+        if status == "outside":
+            diagnostics.append(Diagnostic(
+                dataset_id=dataset_id,
+                id=_diag_id(owner_path, DEPENDENCY_OUTSIDE, anchor),
+                code=DEPENDENCY_OUTSIDE, severity="error", path=owner_path,
+                location={"line": line} if line else {},
+                evidence=anchor,
+                message=f"Зависимость вне DATA_ROOT: {rel}. derived_from указывает только "
+                        f"на файлы датасета.",
+            ))
+            continue
         if status in ("unreadable", "unresolved"):
             diagnostics.append(Diagnostic(
                 dataset_id=dataset_id,
@@ -257,22 +272,23 @@ def plan_ack(root: Path, rel_path: str, reason: str, at: str,
              current: list[str]) -> str:
     """Return the new text of a markdown document with an acknowledgement recorded.
 
-    Only the front matter block is rewritten; the body is preserved byte for byte. The
-    recorded hashes are the fragments' *current* hashes, so the acknowledgement lapses
-    the moment any of them moves again.
+    Only the front matter block is rewritten; the body keeps its bytes, line endings
+    and trailing newline. The recorded hashes are the fragments' *current* hashes, so
+    the acknowledgement lapses the moment any of them moves again.
     """
-    text = (root / rel_path).read_text(encoding="utf-8")
-    lines = text.splitlines()
+    raw = (root / rel_path).read_bytes().decode("utf-8")
+    lines = raw.splitlines(keepends=True)
     if not lines or lines[0].strip() != "---":
         raise ValueError(f"{rel_path}: нет блока front matter, подтверждение некуда записать")
     end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
     if end is None:
         raise ValueError(f"{rel_path}: блок front matter не закрыт")
-    fm_lines = [ln for ln in lines[1:end]
+    newline = "\r\n" if lines[0].endswith("\r\n") else "\n"
+    fm_lines = [ln.rstrip("\r\n") for ln in lines[1:end]
                 if not ln.split(":", 1)[0].strip() in (ACK_AT, ACK_REASON, ACK_HASHES)]
     hashes = ", ".join(f'"{h}"' for h in current)
     fm_lines.append(f'{ACK_AT}: "{at}"')
     fm_lines.append(f'{ACK_REASON}: "{reason.replace(chr(34), chr(39))}"')
     fm_lines.append(f"{ACK_HASHES}: [{hashes}]")
-    body = "\n".join(lines[end + 1 :])
-    return "---\n" + "\n".join(fm_lines) + "\n---\n" + (body + "\n" if body else "")
+    head = "---" + newline + newline.join(fm_lines) + newline + "---" + newline
+    return head + "".join(lines[end + 1:])

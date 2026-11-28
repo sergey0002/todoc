@@ -283,3 +283,51 @@ def test_stale_ack_expected_hash_match(root):
     envelope = _json(_run(runner, ["--root", str(root), "stale", "--ack", "docs/state/10-testing.md",
                                    "--reason", "x", "--apply", "--expected-hash", actual]))
     assert envelope["data"]["result"]["applied"] is True
+
+
+def test_stale_ack_preserves_crlf_body_bytes(root):
+    """Acknowledgement rewrites only front matter; a CRLF body keeps every byte."""
+    runner = CliRunner()
+    seeded = _seed(root)
+    _set_date(seeded["bench"], "2026-11-26")
+    body = "# Качество\r\n\r\nДата: 2026-11-25.\r\n"
+    seeded["doc"].write_bytes(
+        ('---\r\ntitle: "Качество"\r\ndoc_type: note\r\n'
+         f'derived_from: ["{seeded["anchor"]}"]\r\n---\r\n{body}').encode("utf-8"))
+    before = seeded["doc"].read_bytes()
+
+    applied = _json(_run(runner, ["--root", str(root), "stale", "--ack", "docs/state/10-testing.md",
+                                  "--reason", "дату проверил", "--apply"]))
+    assert applied["data"]["result"]["applied"] is True
+    after = seeded["doc"].read_bytes()
+    assert after.startswith(b"---\r\n")
+    assert after.endswith(body.encode("utf-8"))
+    assert b"stale_acknowledged_at:" in after
+    assert before.split(b"---\r\n", 2)[2] == after.split(b"---\r\n", 2)[2]
+    assert _json(_run(runner, ["--root", str(root), "stale"]))["data"]["result"]["stale"] == 0
+
+
+def test_stale_ack_without_front_matter_reports_owner_not_found(root):
+    runner = CliRunner()
+    plain = root / "plain.md"
+    plain.write_text("# Без front matter\n", encoding="utf-8")
+    result = _run(runner, ["--root", str(root), "stale", "--ack", "plain.md", "--reason", "x", "--apply"])
+    assert result.exit_code == 1
+    assert isinstance(result.exception, TodocError)
+    assert result.exception.code == "staleness.owner_not_found"
+    assert plain.read_text(encoding="utf-8") == "# Без front matter\n"
+
+
+def test_stale_reports_dependency_outside_root(root, tmp_path):
+    runner = CliRunner()
+    secret = tmp_path / "secret.md"
+    secret.write_text("SECRET", encoding="utf-8")
+    owner = root / "docs" / "state" / "outside.md"
+    owner.parent.mkdir(parents=True, exist_ok=True)
+    owner.write_text('---\ntitle: "Внешняя"\ndoc_type: note\n'
+                     'derived_from: ["../secret.md@sha256:' + "0" * 64 + '"]\n---\n\n# Внешняя\n',
+                     encoding="utf-8")
+    _run(runner, ["--root", str(root), "index", "rebuild", "--apply"])
+    envelope = _json(_run(runner, ["--root", str(root), "stale"]))
+    assert [d["code"] for d in envelope["diagnostics"]] == ["staleness.dependency_outside_root"]
+    assert envelope["diagnostics"][0]["severity"] == "error"
