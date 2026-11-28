@@ -4,9 +4,9 @@ title: "BUG-016: фильтры records query не документирован�
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 bug_id: BUG-016
-status: open
+status: fixed
 severity: docs
 agent_impact: friction
 component: docs
@@ -68,3 +68,5 @@ $ cat demo/.todoc/queries/bugs-agent-friction.json  # форма выясняе�
 
 - Связан с реестрами демо (bugs-agent-friction, tasks-by-project) — они
   де-факто единственная документация синтаксиса.
+
+- 2026-11-28: `fixed` — коммит `0b61f9c` (документация). `docs/state/08-records-and-relations.md` описывает семантику `$in`/`$gte`/`$lte`, точечные пути, отказ на неизвестных операторах (`query.invalid_file`), различие `$in` и теговых флагов и даёт рабочий пример QuerySpec со ссылкой на `demo/.todoc/queries/tasks-by-project.json`. Сверено с `src/todoc/application/query.py` и `_QUERY_OPERATORS` в `cli.py`.

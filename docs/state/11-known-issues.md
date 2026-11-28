@@ -26,7 +26,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep](../../demo/bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | fixed |
 | [BUG-014: docs edit --preview не показывает нумерацию результата](../../demo/bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | fixed |
 | [BUG-015: YAML-lite front matter не обрабатывает backslash-escape кавычек](../../demo/bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md) | fixed |
-| [BUG-016: фильтры records query не документированы в справках](../../demo/bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | open |
+| [BUG-016: фильтры records query не документированы в справках](../../demo/bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | fixed |
 | [BUG-017: docs tree молча усекает дерево до 50 папок и 50 документов без truncated](../../demo/bugs/bug-017-docs-tree-silent-truncation.md) | fixed |
 | [BUG-018: docs read без --section игнорирует --budget](../../demo/bugs/bug-018-docs-read-full-ignores-budget.md) | fixed |
 | [BUG-019: docs search с пустым --query возвращает ok:true и total 0](../../demo/bugs/bug-019-docs-search-empty-query.md) | fixed |
@@ -66,7 +66,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-051: Конкурентное создание нарушает гарантию create-only](../../demo/bugs/bug-051-create-only-concurrent-overwrite.md) | fixed |
 | [BUG-052: Сбой rename при публикации уничтожает предыдущий снимок индекса](../../demo/bugs/bug-052-index-publish-loses-snapshot.md) | fixed |
 | [BUG-053: Контрактные тесты пропускают вложенные команды flow](../../demo/bugs/bug-053-contract-tests-missing-nested-leaves.md) | fixed |
-| [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](../../demo/bugs/bug-054-current-docs-search-csv-drift.md) | open |
+| [BUG-054: Актуальная справка описывает отменённое поведение поиска и CSV](../../demo/bugs/bug-054-current-docs-search-csv-drift.md) | fixed |
 | [BUG-055: Неизвестный --type/--within в docs search даёт тихий пустой результат](../../demo/bugs/bug-055-unknown-search-filter-silent-empty.md) | fixed |
 | [BUG-056: Нет CLI-команды для списка тегов и фильтра записей по тегу](../../demo/bugs/bug-056-no-tag-listing-or-record-filter.md) | open |
 | [BUG-057: Обзор открытых баг-репортов не получается одной командой](../../demo/bugs/bug-057-open-bugs-list-not-discoverable.md) | fixed |

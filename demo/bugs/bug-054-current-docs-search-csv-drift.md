@@ -4,9 +4,9 @@ title: "BUG-054: Актуальная справка описывает отме
 doc_type: bug-report
 lang: ru
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 bug_id: BUG-054
-status: open
+status: fixed
 severity: docs
 agent_impact: friction
 component: docs
@@ -46,3 +46,5 @@ found: 2026-11-28
 ## Заметки
 
 Дедуп 2026-11-28: `устаревшая документация`, `breadcrumb cursor`; подходящего по этим пяти контрактам отчёта не найдено. Фикс документации не реализован в рамках аудита.
+
+- 2026-11-28: `fixed` — коммит `0b61f9c` (документация). Устаревшие утверждения в `02-architecture.md` (чтение не публикует индекс), `05-formats.md` (CSV-фильтр до `--rows`) и `07-search-and-read.md` (курсор и полнота) сверены с кодом и регрессиями `tests/cli/test_cli_extra.py::test_docs_read_where_applies_before_rows`; demo-копии обновлены через `tools/refresh_demo_state.py`.
