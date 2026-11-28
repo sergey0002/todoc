@@ -4,9 +4,9 @@ title: "BUG-014: docs edit --preview не показывает нумераци�
 doc_type: bug-report
 lang: ru
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-28
 bug_id: BUG-014
-status: open
+status: fixed
 severity: minor
 agent_impact: friction
 tokens_extra_est: 800
@@ -79,3 +79,5 @@ $ todoc docs edit … --apply          # Error [edit.line_out_of_range]: Line ou
 
 - Развитие BUG-004 (line-ops); инцидент тика DoD 26.11 задокументирован в §8
   плана «Интероп-экспорты».
+
+- 2026-11-28: `fixed` — коммит `42037d7`. `docs edit --preview` возвращает `numbered` (итоговые номера после всех операций) и `result_lines`; ошибка диапазона называет текущую длину и последовательную нумерацию; `expect` в replace-операции даёт `edit.expect_mismatch` без записи. Проверка: `tools/bug_acceptance.py --only BUG-014` → `fixed`. Тесты: `tests/cli/test_cli_extra.py::test_docs_edit_preview_numbers_the_result`, `tests/unit/test_storage_contracts.py::test_edit_replace_refuses_expect_mismatch_without_writing`.

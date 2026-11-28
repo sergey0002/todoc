@@ -35,7 +35,7 @@ todoc --root demo docs list --type bug-report --status 'open|triaged|in_progress
 | [BUG-011: дрейф derived_from при смене статуса/тела исходника требует ручного ре-анкоринга](../../bugs/bug-011-dreyf-derived-from-pri-smene-statusa-tela-ishodnika-trebuet-ruchnogo-re-ankoringa.md) | open |
 | [BUG-012: history-ревизии мутирующих команд загрязняют git-статус](../../bugs/bug-012-history-revizii-mutiruyuschih-komand-zagryaznyayut-git-status.md) | fixed |
 | [BUG-013: неоднородные id и output-контракты — резолв идентификатора требует ручного grep](../../bugs/bug-013-neodnorodnye-id-i-output-kontrakty-rezolv-identifikatora-trebuet-ruchnogo-grep.md) | fixed |
-| [BUG-014: docs edit --preview не показывает нумерацию результата](../../bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | open |
+| [BUG-014: docs edit --preview не показывает нумерацию результата](../../bugs/bug-014-docs-edit-preview-ne-pokazyvaet-numeraciyu-rezultata.md) | fixed |
 | [BUG-015: YAML-lite front matter не обрабатывает backslash-escape кавычек](../../bugs/bug-015-yaml-lite-front-matter-ne-obrabatyvaet-backslash-escape-kavychek.md) | fixed |
 | [BUG-016: фильтры records query не документированы в справках](../../bugs/bug-016-filtry-records-query-ne-dokumentirovany-v-spravkah.md) | open |
 | [BUG-017: docs tree молча усекает дерево до 50 папок и 50 документов без truncated](../../bugs/bug-017-docs-tree-silent-truncation.md) | fixed |
