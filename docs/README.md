@@ -75,6 +75,7 @@
 |---|---|
 | [cli-for-agents.md](guides/cli-for-agents.md) | Как агенту работать через CLI |
 | [mcp-for-agents.md](guides/mcp-for-agents.md) | Требования к MCP-интеграции |
+| [python-api-for-agents.md](guides/python-api-for-agents.md) | Архитектура и постулаты Python API (`todoc.sdk`) и PTC для агентов |
 | [markdown-knowledge-for-agents.md](guides/markdown-knowledge-for-agents.md) | Работа с markdown-базой знаний |
 
 ### `research/` — исследования
@@ -83,6 +84,8 @@
 |---|---|
 | [knowledge-base-comparative-audit.md](research/knowledge-base-comparative-audit.md) | Сравнительный аудит баз знаний |
 | [mcp-cli-agents.md](research/mcp-cli-agents.md) | MCP и CLI-агенты |
+| [cli-architecture-refactoring.md](research/cli-architecture-refactoring.md) | Архитектура рефакторинга CLI и ядра |
+| [programmatic-tool-calling-and-python-api.md](research/programmatic-tool-calling-and-python-api.md) | Замеры PTC и ревизия 64 команд CLI под Python Agent API |
 | [skills-audit/](research/skills-audit) | Материалы аудита навыков |
 
 ## Связанные каталоги вне `docs/`
