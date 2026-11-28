@@ -1,6 +1,7 @@
 """Failure contracts for selectors, review-first actions, and ambiguous sources."""
 
 import json
+import os
 
 import pytest
 from click.testing import CliRunner
@@ -57,12 +58,22 @@ def test_unsupported_modes_and_selectors_refuse_without_writing(root, sample_md,
     (("relations", "graph", "--from", "note:x"), "relations.multiple_roots"),
     (("relations", "tree", "--from", "note:x"), "relations.multiple_roots"),
     (("records", "list"), "records.multiple_roots"),
+    (("docs", "edit", "--id", "doc:notes/design.md", "--patch-file", "patch.json"), "docs.multiple_roots"),
+    (("records", "edit", "--id", "workout:2026-11-24-sergei-01", "--patch-file", "patch.json"),
+     "records.multiple_roots"),
+    (("types", "metadata"), "types.multiple_roots"),
 ])
 def test_selectors_reject_ambiguous_dataset_scope(root, tmp_path, args, code):
     other = tmp_path / "second"
     init_dataset(other)
     result = CliRunner().invoke(cli, ["--root", str(root), "--root", str(other), *args])
     assert diagnostic_code(result) == code, (args, result.output, result.exception)
+
+
+def test_separators_only_todoc_root_is_missing(monkeypatch):
+    monkeypatch.setenv("TODOC_ROOT", os.pathsep)
+    result = CliRunner().invoke(cli, ["docs", "list"])
+    assert diagnostic_code(result) == "usage.missing_root"
 
 
 def test_duplicate_record_and_document_identity_are_rejected(root, sample_md, sample_record):
@@ -264,6 +275,14 @@ def test_skill_truncation_action_preserves_line_range(root):
     envelope = json.loads(result.output)
     assert envelope["data"]["result"]["truncated"]
     assert envelope["next_actions"][0]["argv"][-2:] == ["--line-range", "1-3"]
+
+
+def test_skill_line_range_past_end_is_rejected(root):
+    path = root / "skills/example/SKILL.md"
+    path.parent.mkdir(parents=True)
+    path.write_text("---\nname: example\ndescription: Example\n---\nSome body.\n", encoding="utf-8")
+    result = call(root, "skills", "read", "--path", "example", "--line-range", "99-100")
+    assert diagnostic_code(result) == "usage.invalid_line_range"
 
 
 @pytest.mark.parametrize("fault", ["redirect", "unreadable", "changed-metadata"])
@@ -503,7 +522,6 @@ def test_main_reports_errors_raised_before_command_context(monkeypatch, capsys):
         raise ValidationError("Unable to load defaults", "config.invalid")
 
     monkeypatch.setattr(entry, "cli", fail)
-    monkeypatch.setattr(entry, "_group_output", "json")
     with pytest.raises(SystemExit) as caught:
         entry.main()
     assert caught.value.code != 0
@@ -646,6 +664,79 @@ def test_invalid_record_comparisons_are_diagnosed(root, sample_record, tmp_path)
     sample_record.write_text(json.dumps(record), encoding="utf-8")
     dates = call(root, "records", "list", "--since", "2026-01-01")
     assert diagnostic_code(dates) == "filter.invalid"
+
+
+@pytest.mark.parametrize("spec", [
+    {"schema_version": 2},
+    {"unknown": True},
+    {"name": 1},
+    {"entity_type": ""},
+    {"filters": []},
+    {"filters": {"": 1}},
+    {"filters": {"date": {}}},
+    {"filters": {"date": {"$regex": "x"}}},
+    {"filters": {"date": {"$in": "x"}}},
+    {"filters": {"date": {"$gte": [1]}}},
+    {"filters": {"tags": ["a"]}},
+    {"filters": {"date": {"$gte": 1, "$in": [1]}}},
+    {"limit": 0},
+])
+def test_invalid_query_spec_is_rejected_before_index_read(root, tmp_path, monkeypatch, spec):
+    file = tmp_path / "query.json"
+    file.write_text(json.dumps(spec), encoding="utf-8")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("index must not be read for an invalid spec")
+
+    monkeypatch.setattr(DatasetContext, "read_index", forbidden)
+    result = call(root, "records", "query", "--query-file", str(file))
+    assert diagnostic_code(result) == "query.invalid_file", (spec, result.output, result.exception)
+
+
+@pytest.mark.parametrize("filters", [
+    {"date": {"$in": ["2026-11-24"]}},
+    {"date": "2026-11-24"},
+    {"date": {"$gte": "2026-01-01", "$lte": "2026-12-31"}},
+])
+def test_valid_query_spec_filters_are_accepted(root, tmp_path, filters):
+    file = tmp_path / "query.json"
+    file.write_text(json.dumps({"entity_type": "workout", "filters": filters}), encoding="utf-8")
+    result = call(root, "records", "query", "--query-file", str(file))
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert json.loads(result.output)["ok"] is True
+
+
+@pytest.mark.parametrize(("args", "code"), [
+    (("records", "list", "--type", "adr"), "query.namespace_mismatch"),
+    (("records", "list", "--type", "ghost"), "query.unknown_type"),
+])
+def test_records_type_namespace_is_checked_before_index(root, monkeypatch, args, code):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("index must not be read")
+
+    monkeypatch.setattr(DatasetContext, "read_index", forbidden)
+    result = call(root, *args)
+    assert diagnostic_code(result) == code, (args, result.output, result.exception)
+
+
+def test_query_spec_namespace_is_checked_before_index(root, tmp_path, monkeypatch):
+    file = tmp_path / "query.json"
+    file.write_text(json.dumps({"entity_type": "adr"}), encoding="utf-8")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("index must not be read")
+
+    monkeypatch.setattr(DatasetContext, "read_index", forbidden)
+    result = call(root, "records", "query", "--query-file", str(file))
+    assert diagnostic_code(result) == "query.namespace_mismatch"
+
+
+def test_known_record_type_without_records_is_an_empty_success(root):
+    result = call(root, "records", "list", "--type", "link")
+    assert result.exit_code == 0, result.exception
+    envelope = json.loads(result.output)
+    assert envelope["ok"] and envelope["data"]["result"]["items"] == []
+    assert envelope["data"]["meta"]["total"] == 0
 
 
 def test_relations_tree_refuses_matching_cursor_beyond_selection(root, sample_md):

@@ -74,16 +74,10 @@ def _table(items: list[dict[str, Any]]) -> list[str]:
             *(row(item.get(field, "") for field in fields) for item in items)]
 
 
-def emit(envelope: Envelope, output: str, out_path: str | None = None) -> None:
-    """Emit in json/table/markdown mode. JSON stdout is exactly one JSON text."""
+def render(envelope: Envelope, output: str) -> str:
+    """Serialize an envelope without touching stdout or the filesystem."""
     if output == "json":
-        text = json.dumps(envelope.to_dict(), indent=2, ensure_ascii=False)
-        if out_path:
-            with open(out_path, "w", encoding="utf-8") as fh:
-                fh.write(text + "\n")
-        else:
-            sys.stdout.write(text + "\n")
-        return
+        return json.dumps(envelope.to_dict(), indent=2, ensure_ascii=False) + "\n"
     # Human modes: same machine facts, compact rendering.
     lines: list[str] = []
     lines.append(f"ok: {envelope.ok}")
@@ -109,9 +103,18 @@ def emit(envelope: Envelope, output: str, out_path: str | None = None) -> None:
     for action in envelope.next_actions:
         argv = " ".join(str(a) for a in action.get("argv", []))
         lines.append(f"next: {argv} ({action.get('purpose', '')})")
-    text = "\n".join(lines) + "\n"
+    return "\n".join(lines) + "\n"
+
+
+def write(text: str, out_path: str | None = None) -> None:
+    """Transport only: send rendered text to a file or stdout."""
     if out_path:
         with open(out_path, "w", encoding="utf-8") as fh:
             fh.write(text)
     else:
         sys.stdout.write(text)
+
+
+def emit(envelope: Envelope, output: str, out_path: str | None = None) -> None:
+    """Render in json/table/markdown mode, then write to stdout or ``out_path``."""
+    write(render(envelope, output), out_path)

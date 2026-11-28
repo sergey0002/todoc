@@ -1,6 +1,8 @@
 """Scripted conformance probes for the agent's bounded navigation workflow."""
 
 import json
+import sys
+
 import click
 import pytest
 from click.testing import CliRunner
@@ -97,11 +99,61 @@ def test_main_reports_click_errors_without_command_context(monkeypatch, capsys):
         raise click.ClickException("Cannot process the command")
 
     monkeypatch.setattr(entry, "cli", fail)
-    monkeypatch.setattr(entry, "_group_output", "json")
     with pytest.raises(SystemExit) as error:
         entry.main()
     assert error.value.code == 2
     assert json.loads(capsys.readouterr().out)["diagnostics"][0]["code"] == "usage.error"
+
+
+def test_main_uses_nearest_parsed_output_for_early_errors(monkeypatch, capsys):
+    import todoc.cli as entry
+
+    monkeypatch.setattr(sys, "argv", ["todoc", "--output", "table", "records", "--bogus"])
+    with pytest.raises(SystemExit) as error:
+        entry.main()
+    assert error.value.code == 2
+    out = capsys.readouterr().out
+    assert out.startswith("ok: False") and "usage.error" in out
+
+
+def test_main_does_not_leak_output_between_invocations(monkeypatch, capsys):
+    import todoc.cli as entry
+
+    monkeypatch.setattr(sys, "argv", ["todoc", "--output", "table", "records", "--bogus"])
+    with pytest.raises(SystemExit):
+        entry.main()
+    capsys.readouterr()
+    monkeypatch.setattr(sys, "argv", ["todoc", "records", "--bogus"])
+    with pytest.raises(SystemExit):
+        entry.main()
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["diagnostics"][0]["code"] == "usage.error"
+    assert envelope["data"]["meta"]["command"] == "records"
+    assert envelope["next_actions"][0]["argv"] == ["todoc", "records", "--help"]
+
+
+def test_main_use_case_error_keeps_group_output(root, monkeypatch, capsys):
+    import todoc.cli as entry
+
+    monkeypatch.setattr(sys, "argv", ["todoc", "--output", "table", "--root", str(root),
+                                      "docs", "read", "--id", "doc:absent"])
+    with pytest.raises(SystemExit) as error:
+        entry.main()
+    assert error.value.code == 3
+    out = capsys.readouterr().out
+    assert out.startswith("ok: False") and "docs.not_found" in out
+
+
+def test_main_use_case_error_honors_leaf_output_override(root, monkeypatch, capsys):
+    import todoc.cli as entry
+
+    monkeypatch.setattr(sys, "argv", ["todoc", "--output", "table", "--root", str(root),
+                                      "docs", "read", "--id", "doc:absent", "--output", "json"])
+    with pytest.raises(SystemExit) as error:
+        entry.main()
+    assert error.value.code == 3
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["diagnostics"][0]["code"] == "docs.not_found"
 
 
 def test_read_and_preview_work_with_read_only_dataset_and_state(root, sample_md, tmp_path, monkeypatch):

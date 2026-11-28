@@ -422,13 +422,38 @@ def test_search_metadata_and_unicode_budget(root, sample_md):
     (root / "unicode.md").write_text("# 🐍пример\n\nпример кириллицы и emoji 🐍\n", encoding="utf-8")
     search = runner.invoke(cli, [*base, "--query", "пример", "--budget", "4"])
     assert search.exit_code == 0
-    snippet = json.loads(search.output)["data"]["result"]["items"][0]["snippet"]
-    assert len(snippet["text"]) == 4 and snippet["snippet_truncated"]
+    body = json.loads(search.output)
+    assert body["data"]["result"]["items"] == []
+    assert body["data"]["meta"]["budget"] == {"limit": 4, "used_bytes": 0, "exhausted": True}
+    assert body["data"]["meta"]["truncated"] is True
     read = runner.invoke(cli, ["docs", "read", "--root", str(root), "--id", "doc:unicode.md",
                                "--line-range", "1-1", "--budget", "4"])
     assert read.exit_code == 0
     data = json.loads(read.output)["data"]["result"]
     assert data["text"] == "# 🐍п" and data["truncated"] is True
+
+
+def test_search_budget_counts_serialized_utf8_items(root):
+    runner = CliRunner()
+    (root / "unicode.md").write_text("# пример\n\nпример кириллицы и emoji 🐍\n", encoding="utf-8")
+    base = ["docs", "search", "--root", str(root), "--query", "пример"]
+    generous = json.loads(runner.invoke(cli, [*base, "--budget", "100000"]).output)
+    items = generous["data"]["result"]["items"]
+    assert items
+    measured = len(json.dumps(items, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    assert generous["data"]["meta"]["budget"] == {
+        "limit": 100000, "used_bytes": measured, "exhausted": False,
+    }
+    assert measured > len(json.dumps(items, ensure_ascii=False, separators=(",", ":")))
+
+    single = len(json.dumps([items[0]], ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    tight = json.loads(runner.invoke(cli, [*base, "--budget", str(single - 1)]).output)
+    budget = tight["data"]["meta"]["budget"]
+    assert budget["limit"] == single - 1
+    assert budget["used_bytes"] <= single - 1
+    assert budget["exhausted"] is True
+    if tight["data"]["result"]["items"]:
+        assert tight["data"]["result"]["items"][0]["snippet"]["snippet_truncated"] is True
 
 
 def test_document_schema_install_preview_and_create_in_both_formats(tmp_path):
@@ -520,3 +545,50 @@ def test_idea_overview_cursor_covers_large_selections_without_writes(root, count
         cursor = ["--cursor", next_cursor]
     assert page_count == count // 50 and len(seen) == len(set(seen)) == count
     assert _snapshot(root) == before
+
+
+def test_docs_search_projects_lifecycle_status_and_type(root):
+    _fixture(root)
+    result = CliRunner().invoke(cli, [
+        "docs", "search", "--root", str(root), "--type", "idea", "--query", "Идея",
+        "--limit", "5", "--fields", "id,path,status,doc_type",
+    ])
+    assert result.exit_code == 0, result.output
+    items = json.loads(result.output)["data"]["result"]["items"]
+    assert items and set(items[0]) == {"id", "path", "status", "doc_type"}
+    assert {item["doc_type"] for item in items} == {"idea"}
+    assert {item["status"] for item in items} <= {"captured", "planned", "done", None}
+
+
+def test_docs_list_origin_distinguishes_json_mirrors(root):
+    _fixture(root)
+    mirrors = root / "records" / "documents"
+    mirrors.mkdir(parents=True)
+    (mirrors / "idea-00.json").write_text(json.dumps({
+        "record_id": "document:idea-00", "entity_type": "document",
+        "title": "Идея 0", "source_path": "ideas/idea-00.md", "doc_type": "idea",
+    }), encoding="utf-8")
+    DatasetContext(root).rebuild_index(observe=False)
+    code, body = _list(root, "--type", "idea", "--fields", "id,path,origin,status", "--limit", "100")
+    assert code == 0
+    rows = {row["path"]: row for row in body["data"]["result"]["items"]}
+    assert rows["ideas/idea-00.md"]["origin"] == "document"
+    assert rows["records/documents/idea-00.json"]["origin"] == "record"
+    assert rows["records/documents/idea-00.json"]["status"] is None
+    code, only_docs = _list(root, "--type", "idea", "--origin", "document", "--fields", "path", "--limit", "100")
+    assert code == 0
+    assert only_docs["data"]["meta"]["total"] == 20
+    assert all(not row["path"].startswith("records/") for row in only_docs["data"]["result"]["items"])
+
+
+@pytest.mark.parametrize(("args", "expected"), [
+    (("--type", "ghost"), "docs.unknown_type"),
+    (("--status", "ghost"), "docs.unknown_status"),
+])
+def test_docs_list_rejects_unknown_type_and_status(root, args, expected):
+    _fixture(root)
+    code, body = _list(root, *args)
+    assert code == 2
+    assert body["diagnostics"][0]["code"] == expected
+    assert body["guidance"]["items"][0]["code"] == expected
+    assert body["next_actions"][0]["argv"] == ["todoc", "docs", "list", "--help"]

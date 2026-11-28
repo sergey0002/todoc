@@ -304,6 +304,7 @@ def resolve_roots(roots: tuple[str, ...]) -> list[Path]:
         return [Path(r) for r in roots]
     import os
     env = os.environ.get("TODOC_ROOT")
-    if env:
-        return [Path(p) for p in env.split(os.pathsep) if p]
+    paths = [Path(p) for p in (env or "").split(os.pathsep) if p]
+    if paths:
+        return paths
     raise ValidationError("No --root given and TODOC_ROOT is not set", "usage.missing_root")

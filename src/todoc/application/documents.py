@@ -10,7 +10,14 @@ from todoc.application.paging import page
 from todoc.application.filters import compile_conditions, matches_conditions, tag_matches
 
 
-FIELDS = ("id", "path", "title", "doc_type", "status", "parse_status", "tags", "updated", "hash")
+FIELDS = ("id", "path", "title", "doc_type", "status", "origin", "parse_status", "tags", "updated", "hash")
+
+
+def document_origin(doc: dict[str, Any]) -> str:
+    """Distinguish authored documents from JSON mirrors under records/documents."""
+    if doc["format"] == "json" and doc["path"].startswith("records/"):
+        return "record"
+    return "document"
 
 
 def normalize_scope(within: str) -> str:
@@ -48,14 +55,18 @@ def list_documents(payload: dict[str, Any], *, types: tuple[str, ...], within: s
                    tag: str | None, any_tags: tuple[str, ...], all_tags: tuple[str, ...],
                    file_format: str | None, statuses: tuple[str, ...], status_missing: bool,
                    attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
-                   declared: dict[str, Any], limit: int, cursor: str | None
+                   declared: dict[str, Any], limit: int, cursor: str | None,
+                   origin: str | None = None
                    ) -> tuple[list[dict[str, Any]], int, str | None]:
     candidates = matching_documents(payload["documents"], within, types, file_format)
+    if origin is not None:
+        candidates = [doc for doc in candidates if document_origin(doc) == origin]
     candidates, conditions = select_document_attributes(
         candidates, declared, attributes, filter_file, tag, any_tags, all_tags,
     )
     selection = [2, "docs list", payload["dataset_id"], payload["corpus_digest"], within,
-                 types, tag, any_tags, all_tags, file_format, sorted(set(statuses)), status_missing, conditions]
+                 types, tag, any_tags, all_tags, file_format, sorted(set(statuses)), status_missing,
+                 conditions, origin]
     items = []
     for doc in candidates:
         tags = doc.get("tags", [])
@@ -64,9 +75,9 @@ def list_documents(payload: dict[str, Any], *, types: tuple[str, ...], within: s
             continue
         items.append({
             "id": doc["document_id"], "path": doc["path"], "title": doc["title"],
-            "doc_type": doc["doc_type"], "status": status, "parse_status": doc["status"],
-            "tags": tags, "updated": doc.get("updated"), "hash": doc["hash"],
-            "attributes": doc["attributes"],
+            "doc_type": doc["doc_type"], "status": status, "origin": document_origin(doc),
+            "parse_status": doc["status"], "tags": tags, "updated": doc.get("updated"),
+            "hash": doc["hash"], "attributes": doc["attributes"],
         })
     items.sort(key=lambda item: (item["path"], item["id"]))
     rows, next_cursor = page(items, selection, limit, cursor)

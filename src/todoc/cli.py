@@ -59,7 +59,8 @@ from todoc.errors import (EXIT_CONFLICT, EXIT_INCOMPLETE, EXIT_OPERATION, EXIT_U
                           AccessError, ConflictError, IncompleteError, TodocError, ValidationError)
 from todoc.output.envelope import Envelope, emit
 from todoc.output.guidance import guidance_for
-from todoc.output.capabilities import UnifiedCommand, command_name, command_preferences, group_discovery
+from todoc.output.capabilities import (UnifiedCommand, command_name, command_preferences, group_discovery,
+                                       resolved_output)
 from todoc.output.filter_options import AttributeFilterCommand
 from todoc.output.views import mermaid_graph, project_fields, selected_fields
 from todoc.service import DatasetContext, resolve_roots
@@ -85,7 +86,7 @@ def _emit_result(data: dict[str, Any], output: str, diagnostics: list[dict[str, 
             ]
         else:
             response.next_actions = [
-                {"argv": ["todoc", command, "--help"], "purpose": "Посмотреть инструкции команды"}
+                {"argv": ["todoc", *command.split(), "--help"], "purpose": "Посмотреть инструкции команды"}
             ]
     emit(response, output)
     if failed:
@@ -100,8 +101,6 @@ def _scan_sources(ctx: DatasetContext):
 
 
 SECTION_MAX_LINES = 40
-
-_group_output: str = "json"
 
 
 def _effective_roots(roots: tuple[str, ...]) -> tuple[str, ...]:
@@ -174,6 +173,14 @@ def _parse_line_range(line_range: str) -> tuple[int, int]:
     return start, end
 
 
+def _check_line_start(start: int, total: int, line_range: str) -> None:
+    """A range starting after the last line is a bad selector, not an empty success."""
+    if start > total:
+        raise ValidationError(
+            f"Invalid --line-range: {line_range!r} starts after the file end ({total} lines).",
+            "usage.invalid_line_range")
+
+
 class DiscoverableGroup(click.Group):
     group_class = type
 
@@ -222,8 +229,6 @@ def _emit_group_discovery(group: click.Group, ctx: click.Context, output: str) -
 def cli(ctx: click.Context, roots: tuple[str, ...], output: str, no_input: bool) -> None:
     """todoc — portable typed knowledge substrate (validator + bounded search/read)."""
     ctx.ensure_object(dict)
-    global _group_output
-    _group_output = output
     ctx.obj["roots"] = roots
     ctx.obj["output"] = output
     ctx.obj["no_input"] = no_input
@@ -620,7 +625,9 @@ def skills_read(roots: tuple[str, ...], vault: str, p: str | None, line_range: s
         raise IncompleteError(f"Skill metadata changed while reading: {p}", "read.changed")
     if line_range:
         start, end = _parse_line_range(line_range)
-        source = "".join(source.splitlines(keepends=True)[start - 1:end])
+        lines = source.splitlines(keepends=True)
+        _check_line_start(start, len(lines), line_range)
+        source = "".join(lines[start - 1:end])
     content = source[:budget]
     meta["scope"] = {"dataset_id": ctx.dataset_id, "vault": vault, "path": skill.skill_md}
     response = Envelope.result(meta, {
@@ -1787,6 +1794,8 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
 @click.option("--filter-fields", is_flag=True, help="List declared and observed metadata fields in this scope.")
 @click.option("--status", "statuses", multiple=True)
 @click.option("--status-missing", is_flag=True)
+@click.option("--origin", type=click.Choice(["document", "record"]),
+              help="Authored documents or JSON mirrors under records/.")
 @click.option("--fields", "include")
 @click.option("--exclude-fields", "exclude")
 @click.option("--fields-help", is_flag=True)
@@ -1798,6 +1807,7 @@ def docs_list(roots: tuple[str, ...], output: str, no_input: bool,
               tag_all: tuple[str, ...], file_format: str | None,
               attributes: tuple[tuple[str, str], ...], filter_file: Path | None,
               filter_fields: bool, statuses: tuple[str, ...], status_missing: bool,
+              origin: str | None,
               include: str | None, exclude: str | None, fields_help: bool,
               view: str, limit: int, cursor: str | None) -> None:
     """List current document metadata. Filter with --attr-NAME 'value1|value2'."""
@@ -1826,6 +1836,22 @@ def docs_list(roots: tuple[str, ...], output: str, no_input: bool,
         ctx = DatasetContext(resolved[0])
         meta["scope"] = {"dataset_id": ctx.dataset_id, "within": within}
         payload = ctx.read_index(sections=())
+        known_types = set(ctx.registry_types.doc_types) | {"unknown"}
+        known_types.update(doc["doc_type"] for doc in payload["documents"])
+        unknown_types = sorted(set(doc_types) - known_types)
+        if unknown_types:
+            raise TodocError(
+                f"Unknown document types: {', '.join(unknown_types)}. See types list.",
+                EXIT_USAGE, "docs.unknown_type")
+        known_statuses = {status for descriptor in ctx.registry_types.doc_types.values()
+                          for status in (descriptor.get("allowed_statuses") or [])}
+        known_statuses.update(doc.get("lifecycle_status") for doc in payload["documents"]
+                              if doc.get("lifecycle_status"))
+        unknown_statuses = sorted(set(statuses) - known_statuses)
+        if unknown_statuses:
+            raise TodocError(
+                f"Unknown document statuses: {', '.join(unknown_statuses)}.",
+                EXIT_USAGE, "docs.unknown_status")
         if failures := _document_read_failures(payload, within):
             emit(Envelope.collection(meta, [], diagnostics=failures), output)
             raise click.exceptions.Exit(EXIT_INCOMPLETE)
@@ -1842,6 +1868,7 @@ def docs_list(roots: tuple[str, ...], output: str, no_input: bool,
             payload, types=doc_types, within=within, tag=tag, any_tags=any_tags, all_tags=all_tags,
             file_format=file_format, statuses=statuses, status_missing=status_missing,
             attributes=attributes, filter_file=filter_file, declared=declared, limit=limit, cursor=cursor,
+            origin=origin,
         )
     except TodocError as exc:
         _emit_collection_error(meta, exc.code, exc.message, output)
@@ -1918,8 +1945,54 @@ def _emit_collection_error(meta: dict[str, Any], code: str, message: str, output
     emit(envelope, output)
 
 
-_SEARCH_FIELDS = ("id", "path", "title", "heading_path", "rank", "relevance",
+_SEARCH_FIELDS = ("id", "path", "title", "doc_type", "status", "heading_path", "rank", "relevance",
                   "matched_terms", "snippet")
+
+
+def _search_items_bytes(items: list[dict[str, Any]]) -> int:
+    """UTF-8 bytes of the serialized result items (envelope excluded)."""
+    if not items:
+        return 0
+    return len(json.dumps(items, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def _trim_first_search_item(item: dict[str, Any], budget: int) -> dict[str, Any] | None:
+    """Largest snippet prefix whose item still fits ``budget``; ``None`` if even metadata does not."""
+    snippet = item.get("snippet")
+    if not isinstance(snippet, dict):
+        return None
+    text = str(snippet.get("text") or "")
+    trial = {**item, "snippet": {**snippet, "text": "", "snippet_truncated": True}}
+    if _search_items_bytes([trial]) > budget:
+        return None
+    best = trial
+    low, high = 0, len(text)
+    while low <= high:
+        middle = (low + high) // 2
+        candidate = {**trial, "snippet": {**trial["snippet"], "text": text[:middle]}}
+        if _search_items_bytes([candidate]) <= budget:
+            best = candidate
+            low = middle + 1
+        else:
+            high = middle - 1
+    return best
+
+
+def _fit_search_items(items: list[dict[str, Any]], budget: int) -> tuple[list[dict[str, Any]], int, bool]:
+    """Keep the highest-ranked hits that fit; trim only the first one when it alone overflows."""
+    kept: list[dict[str, Any]] = []
+    for item in items:
+        candidate = [*kept, item]
+        if _search_items_bytes(candidate) <= budget:
+            kept = candidate
+            continue
+        if not kept:
+            trimmed = _trim_first_search_item(item, budget)
+            if trimmed is not None:
+                kept = [trimmed]
+        break
+    used = _search_items_bytes(kept)
+    return kept, used, used != _search_items_bytes(items)
 
 
 @docs.command("search", cls=AttributeFilterCommand)
@@ -1929,7 +2002,7 @@ _SEARCH_FIELDS = ("id", "path", "title", "heading_path", "rank", "relevance",
 @click.option("--type", "types", multiple=True, help="Effective document type; separate alternatives by |.")
 @click.option("--query")
 @click.option("--budget", type=click.IntRange(min=1),
-              help="Maximum number of Unicode characters across result snippets.")
+              help="Maximum UTF-8 bytes of the serialized result items (envelope excluded).")
 @click.option("--limit", type=click.IntRange(1, 1000), default=10)
 @click.option("--within", default=".")
 @click.option("--cursor")
@@ -1950,6 +2023,7 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, types: tupl
     """Search document text or apply metadata filters with --attr-NAME 'value1|value2'."""
     meta = _collection_meta("docs search", view)
     meta["actual_view"] = "flat"
+    budget_meta: dict[str, Any] | None = None
     if query is None and not any((types, tag, tag_in, tag_all, file_format, attributes, filter_file, within != ".")):
         emit(Envelope(True, {
             "meta": meta, "executed": False,
@@ -1977,6 +2051,7 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, types: tupl
         candidates, conditions = select_document_attributes(
             candidates, _document_filter_fields(ctx, doc_types), attributes, filter_file, tag, any_tags, all_tags,
         )
+        metadata = {doc["document_id"]: doc for doc in candidates}
         selection = [2, "docs search", ctx.dataset_id, payload["corpus_digest"], scope,
                      doc_types, file_format, tag, any_tags, all_tags, conditions, query]
         if query is None:
@@ -1984,23 +2059,38 @@ def docs_search(roots: tuple[str, ...], output: str, no_input: bool, types: tupl
             selected, next_cursor = page(candidates, selection, limit, cursor)
             total = len(candidates)
             items = [
-                {"id": doc["document_id"], "path": doc["path"], "title": doc["title"]} for doc in selected
+                {"id": doc["document_id"], "path": doc["path"], "title": doc["title"],
+                 "doc_type": doc["doc_type"], "status": doc.get("lifecycle_status")}
+                for doc in selected
             ]
         else:
             key = selection_key(selection)
             offset = cursor_offset(cursor, key)
             searchable = [doc for doc in candidates if doc["format"] != "opaque"]
-            hits, total, _ = search_documents(ctx.root, searchable, query, limit=limit, budget=budget,
+            hits, total, _ = search_documents(ctx.root, searchable, query, limit=limit, budget=None,
                                              offset=offset, verify_sources=True)
             if cursor is not None and offset >= total:
                 raise TodocError("Cursor is outside this selection.", EXIT_USAGE, "cursor.invalid")
-            items = [hit.to_dict() for hit in hits]
+            items = []
+            for hit in hits:
+                doc = metadata.get(hit.id, {})
+                items.append({**hit.to_dict(), "doc_type": doc.get("doc_type"),
+                              "status": doc.get("lifecycle_status")})
             next_cursor = next_page_cursor(key, offset + len(items), total)
+            if budget is not None:
+                items, used_bytes, exhausted = _fit_search_items(items, budget)
+                budget_meta = {"limit": budget, "used_bytes": used_bytes, "exhausted": exhausted}
+                if exhausted:
+                    next_cursor = (next_page_cursor(key, offset + len(items), total)
+                                   if items else None)
     except TodocError as exc:
         _emit_collection_error(meta, exc.code, exc.message, output)
         raise click.exceptions.Exit(exc.exit_code) from exc
     meta.update(complete=True, total=total, returned=len(items),
-                truncated=next_cursor is not None, next_cursor=next_cursor)
+                truncated=next_cursor is not None or bool(budget_meta and budget_meta["exhausted"]),
+                next_cursor=next_cursor)
+    if budget_meta is not None:
+        meta["budget"] = budget_meta
     diagnostics = []
     if view != "flat":
         diagnostics.append({"code": "view.fallback", "severity": "info", "path": "",
@@ -2113,6 +2203,7 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str |
         elif line_range:
             start, end = _parse_line_range(line_range)
             lines = text.splitlines()
+            _check_line_start(start, len(lines), line_range)
             selected_lines = lines[start - 1:end]
             requested_text = "\n".join(selected_lines)
             excerpt = requested_text[:budget]
@@ -2120,6 +2211,7 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str |
             data["text"] = excerpt
             data["line_start"] = start
             data["line_end"] = start + len(data["lines"]) - 1
+            data["line_total"] = len(lines)
             data["truncated"] = len(excerpt) < len(requested_text)
         else:
             data["title"] = md.title
@@ -2616,7 +2708,7 @@ def _execute_metadata_patch(
 def docs_edit(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str, patch_file: str,
               if_hash: str | None, preview: bool, apply_: bool) -> None:
     """Review-first patch edit (preview default, --apply to write)."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "docs")
     payload = ctx.read_index(sections=())
     doc = next((d for d in payload["documents"] if d["document_id"] == doc_id), None)
     if doc is None:
@@ -2672,7 +2764,7 @@ def records(ctx: click.Context) -> None:
 def records_edit(roots: tuple[str, ...], output: str, record_id: str, patch_file: str,
                  if_hash: str | None, preview: bool, apply_: bool) -> None:
     """Preview or apply a structured patch to a typed record."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "records")
     patch = _load_patch_file(patch_file)
     if set(patch) != {"metadata"} or (preview and apply_):
         raise ValidationError("Expected one metadata patch and one mode.", "edit.invalid_patch")
@@ -2786,6 +2878,7 @@ def records_list(roots: tuple[str, ...], output: str, no_input: bool, entity_typ
                  include: str | None, exclude: str | None, cursor: str | None) -> None:
     """List records with optional filters."""
     ctx = _single_context(roots, "records")
+    _require_record_type(ctx, entity_type)
     payload = ctx.read_index(sections=("records", "relations"))
     filters: dict[str, Any] = {}
     if since:
@@ -2899,8 +2992,9 @@ def records_query(roots: tuple[str, ...], output: str, no_input: bool, query_fil
     if query_file is None and not any((attributes, filter_file, tag_in, tag_all)):
         raise TodocError("Pass --query-file or a metadata filter.", EXIT_USAGE, "usage.error")
     ctx = _single_context(roots, "records")
-    payload = ctx.read_index(sections=("records",))
     spec = _query_spec(query_file) if query_file is not None else {}
+    _require_record_type(ctx, spec.get("entity_type"))
+    payload = ctx.read_index(sections=("records",))
     candidates, predicate = _select_records(ctx, payload["records"], spec.get("entity_type"),
                                              attributes, filter_file, tag_in, tag_all)
     try:
@@ -2954,12 +3048,84 @@ def _query_spec(path: str) -> dict[str, Any]:
         value, errors = parse_json(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeError) as exc:
         raise ValidationError(f"Invalid query file: {exc}", "query.invalid_file") from exc
-    if (errors or not isinstance(value, dict)
-            or not isinstance(value.get("filters", {}), dict)
-            or (value.get("entity_type") is not None and not isinstance(value["entity_type"], str))
-            or type(value.get("limit", 200)) is not int or value.get("limit", 200) < 1):
-        raise ValidationError("Expected an object with valid QuerySpec filters, type and limit.", "query.invalid_file")
+    problem = _query_spec_problem(value, errors)
+    if problem:
+        raise ValidationError(f"Invalid query file: {problem}", "query.invalid_file")
     return value
+
+
+_QUERY_SPEC_KEYS = frozenset({"schema_version", "name", "entity_type", "filters", "limit", "sort_hint"})
+_QUERY_OPERATORS = frozenset({"$in", "$gte", "$lte"})
+
+
+def _query_spec_problem(value: Any, errors: list[str] | None) -> str | None:
+    if errors or not isinstance(value, dict):
+        return "expected a JSON object"
+    unknown = sorted(set(value) - _QUERY_SPEC_KEYS)
+    if unknown:
+        return f"unknown keys: {', '.join(unknown)}"
+    version = value.get("schema_version", 1)
+    if type(version) is not int or version != 1:
+        return f"unsupported schema_version {version!r} (expected 1)"
+    for key in ("name", "sort_hint"):
+        if key in value and not isinstance(value[key], str):
+            return f"{key} must be a string"
+    entity_type = value.get("entity_type")
+    if entity_type is not None and (not isinstance(entity_type, str) or not entity_type.strip()):
+        return "entity_type must be a non-empty string"
+    filters = value.get("filters", {})
+    if not isinstance(filters, dict):
+        return "filters must be an object"
+    for field, expected in filters.items():
+        if not isinstance(field, str) or not field:
+            return "filter field names must be non-empty strings"
+        problem = _filter_problem(expected)
+        if problem:
+            return f"filter {field!r}: {problem}"
+    limit = value.get("limit", 200)
+    if type(limit) is not int or limit < 1:
+        return "limit must be a positive integer"
+    return None
+
+
+def _filter_problem(expected: Any) -> str | None:
+    if isinstance(expected, dict):
+        unknown = sorted(set(expected) - _QUERY_OPERATORS)
+        if unknown:
+            return f"unsupported operators: {', '.join(unknown)}"
+        if not expected:
+            return "empty operator object"
+        if "$in" in expected:
+            if len(expected) > 1:
+                return "$in cannot be combined with range operators"
+            if not isinstance(expected["$in"], list):
+                return "$in expects an array"
+            return None
+        for operator in ("$gte", "$lte"):
+            if operator in expected and isinstance(expected[operator], (dict, list)):
+                return f"{operator} expects a scalar"
+        return None
+    if isinstance(expected, list):
+        return "use $in for array membership"
+    return None
+
+
+def _require_record_type(ctx: DatasetContext, entity_type: str | None) -> None:
+    """Reject a document/relation type used as an entity type before any index read."""
+    if entity_type is None or entity_type in ctx.registry_types.entity_types:
+        return
+    namespaces = (("doc_type", ctx.registry_types.doc_types),
+                  ("dir_type", ctx.registry_types.dir_types),
+                  ("relation_type", ctx.registry_types.relation_types))
+    for namespace, declared in namespaces:
+        if entity_type in declared:
+            raise TodocError(
+                f"{entity_type!r} is a {namespace}, not an entity_type. "
+                f"Use `todoc docs search` or `todoc types list`.",
+                EXIT_USAGE, "query.namespace_mismatch")
+    raise TodocError(
+        f"Unknown entity_type: {entity_type!r}. List declared types with `todoc types list`.",
+        EXIT_USAGE, "query.unknown_type")
 
 
 def _select_records(
@@ -3400,7 +3566,7 @@ def _type_base(ctx: DatasetContext, kind: str, type_id: str) -> Path:
 @click.option("--cursor")
 def types_metadata(roots: tuple[str, ...], output: str, limit: int, cursor: str | None) -> None:
     """Preview adoption of the common document metadata schema."""
-    ctx = _contexts(roots)[0]
+    ctx = _single_context(roots, "types")
     configured = load_metadata_schema(ctx.root)
     schema = configured if configured is not None else default_metadata_schema()
     payload = ctx.read_index(sections=())
@@ -3689,7 +3855,8 @@ DOCTOR_SCOPES = {"dataset": ("config", "index"), "environment": ("python",),
                  "all": ("config", "index", "python")}
 
 
-def _emit_error(code: str, message: str, exit_code: int) -> None:
+def _emit_error(code: str, message: str, exit_code: int, output: str = "json",
+                command: str | None = None) -> None:
     """Failures are envelopes too: one valid JSON per invocation, plus a human line.
 
     Callers (agents, scripts, MCP) parse stdout; a bare text line on stderr is
@@ -3698,9 +3865,10 @@ def _emit_error(code: str, message: str, exit_code: int) -> None:
     """
     diagnostic = {"dataset_id": "", "id": stable_id(code, message), "code": code, "severity": "error",
                   "path": "", "location": {}, "evidence": "", "message": message, "suggested_fixes": []}
-    envelope = Envelope.result({"command": "todoc", "scope": None}, {}, diagnostics=[diagnostic])
-    envelope.next_actions = [{"argv": ["todoc", "--help"], "purpose": "Показать список команд и опций"}]
-    emit(envelope, _group_output)
+    envelope = Envelope.result({"command": command or "todoc", "scope": None}, {}, diagnostics=[diagnostic])
+    envelope.next_actions = [{"argv": ["todoc", *(command.split() if command else ()), "--help"],
+                              "purpose": "Показать список команд и опций"}]
+    emit(envelope, output)
     sys.stderr.write(f"Error [{code}]: {message}\n")
     sys.exit(exit_code)
 
@@ -3799,8 +3967,12 @@ def _emit_unified_error(ctx: click.Context, code: str, message: str, exit_code: 
     name = command_name(ctx) or "todoc"
     default = {"docs tree": "tree", "skills tree": "tree", "relations tree": "tree", "relations graph": "graph"}
     meta = _collection_meta(name, default.get(name, "flat"))
-    _emit_collection_error(meta, code, message, ctx.params.get("output") or command_preferences(ctx).get("output", _group_output))
+    _emit_collection_error(meta, code, message, resolved_output(ctx))
     sys.exit(exit_code)
+
+
+def _click_error_output(ctx: click.Context | None) -> str:
+    return resolved_output(ctx) if ctx is not None else "json"
 
 
 def main() -> None:
@@ -3814,10 +3986,12 @@ def main() -> None:
             _emit_unified_error(ctx, exc.code, exc.message, exc.exit_code)
         _emit_error(exc.code, exc.message, exc.exit_code)
     except click.ClickException as exc:
-        if (isinstance(exc, click.UsageError) and exc.ctx is not None
-                and isinstance(exc.ctx.command, (UnifiedCommand, DiscoverableGroup))):
-            _emit_unified_error(exc.ctx, "usage.error", exc.format_message(), EXIT_USAGE)
-        _emit_error("usage.error", exc.format_message(), EXIT_USAGE)
+        ctx = getattr(exc, "ctx", None)
+        if (isinstance(exc, click.UsageError) and ctx is not None
+                and isinstance(ctx.command, (UnifiedCommand, DiscoverableGroup))):
+            _emit_unified_error(ctx, "usage.error", exc.format_message(), EXIT_USAGE)
+        _emit_error("usage.error", exc.format_message(), EXIT_USAGE, _click_error_output(ctx),
+                    command_name(ctx) if ctx is not None else None)
 
 
 if __name__ == "__main__":

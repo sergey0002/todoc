@@ -70,6 +70,20 @@ def command_preferences(ctx: click.Context) -> dict:
     return {**root.params, **(ctx.obj or {})}
 
 
+def resolved_output(ctx: click.Context) -> str:
+    """Nearest parsed ``--output`` for this invocation; JSON when none was parsed.
+
+    A leaf declares its own ``--output`` with a default, so its raw ``ctx.params``
+    cannot distinguish an explicit value from that default. The parameter source
+    does: an explicit command-line value wins, otherwise the nearest inherited
+    preference applies.
+    """
+    source = ctx.get_parameter_source("output")
+    if source is click.core.ParameterSource.COMMANDLINE:
+        return ctx.params.get("output") or "json"
+    return command_preferences(ctx).get("output") or "json"
+
+
 class UnifiedCommand(click.Command):
     """Keep the command and renderer available to the application error boundary."""
 
@@ -77,8 +91,7 @@ class UnifiedCommand(click.Command):
         try:
             return super().parse_args(ctx, args)
         except click.MissingParameter:
-            output = ctx.params.get("output") if ctx.get_parameter_source("output") is click.core.ParameterSource.COMMANDLINE else None
-            output = output or command_preferences(ctx).get("output", "json")
+            output = resolved_output(ctx)
             fields = [Parameter.from_click(item) for item in self.params if not getattr(item, "hidden", False)]
             response = Envelope.result({"command": command_name(ctx), "scope": None}, {
                 "summary": (self.short_help or self.help or "").split("\n", 1)[0],

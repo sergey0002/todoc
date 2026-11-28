@@ -50,6 +50,11 @@ def test_docs_read_line_range(root, sample_md):
     assert result.exit_code == 0, result.output
     data = _json(result)["data"]["result"]
     assert data["lines"][0] == "---"
+    assert data["line_total"] >= 3
+    clipped = _run(runner, ["--root", str(root), "docs", "read", "--id", "doc:notes/design.md",
+                            "--line-range", "1-1000", "--output", "json"])
+    assert clipped.exit_code == 0, clipped.output
+    assert _json(clipped)["data"]["result"]["line_end"] == data["line_total"]
 
 
 def test_docs_read_pointer_not_found(root, sample_record):
@@ -264,6 +269,8 @@ def test_invalid_cursor_is_an_envelope_not_a_traceback(root, sample_md):
                        (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "abc"],
                         "usage.invalid_line_range"),
                        (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "5-2"],
+                        "usage.invalid_line_range"),
+                       (["docs", "read", "--id", "doc:notes/design.md", "--line-range", "9999-10000"],
                         "usage.invalid_line_range")):
         proc = _run_cli(root, args)
         assert proc.returncode == (2 if code == "cursor.invalid" else 3), proc.stderr

@@ -44,11 +44,12 @@ def metadata_errors(data: dict[str, Any], schema: dict[str, Any], prefix: str) -
             pointer = f"{prefix}/{suffix}" if suffix else (prefix or "/")
             result.append((pointer, error.message))
     except Exception as exc:
-        # Unresolved refs use jsonschema's private wrapping exception. Report a
-        # configuration error when its cause comes from the reference registry.
+        # Unresolved refs use jsonschema's private wrapping exception. Depending
+        # on the jsonschema version the original error is attached as ``__cause__``
+        # or only as ``__context__``, so accept either link to the registry error.
         from referencing.exceptions import Unresolvable
 
-        if not isinstance(exc.__cause__, Unresolvable):
+        if not any(isinstance(cause, Unresolvable) for cause in (exc.__cause__, exc.__context__)):
             raise
         raise ValidationError(f"Metadata schema reference cannot be resolved: {exc}",
                               "metadata.invalid_schema") from exc

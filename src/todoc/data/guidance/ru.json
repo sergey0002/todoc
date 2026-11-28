@@ -2,6 +2,24 @@
   "cursor.invalid": "Запросите первую страницу с текущими фильтрами и используйте курсор из её ответа.",
   "docs.invalid_scope": "Укажите путь относительно DATA_ROOT, например ideas.",
   "docs.multiple_roots": "Укажите один --root для обзора документов.",
+  "docs.unknown_type": {
+    "hint": "Сверьте --type с объявленными типами через types list. Для списка доступных полей типа используйте docs list --type <тип> --filter-fields.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "docs.unknown_status": {
+    "hint": "Сверьте --status с наблюдаемыми статусами: docs list --type <тип> --fields status. Для документов без статуса используйте --status-missing.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
   "fields.conflict": "Выберите --fields или --exclude-fields.",
   "fields.unknown": "Проверь поля выбранной команды. Для списка документов доступен docs list --fields-help.",
   "file.permission_denied": "Проверьте доступ к файлу из диагностики и повторите выборку.",
@@ -11,6 +29,24 @@
   "markdown.front_matter.yaml_unsafe": "Проверьте front matter файла из диагностики.",
   "usage.error": "Проверьте синтаксис в справке команды.",
   "usage.missing_root": "Передайте --root с путём к датасету.",
+  "query.namespace_mismatch": {
+    "hint": "Для doc_type используйте docs search. Список объявленных типов даёт types list.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
+  "query.unknown_type": {
+    "hint": "Сверьте entity_type с объявленными типами через types list и повторите запрос.",
+    "skills": [
+      "docs/todoc-docs"
+    ],
+    "docs": [
+      "doc:state-cli"
+    ]
+  },
   "filter.invalid": {
     "hint": "Сверь ключ и его тип через docs list --filter-fields. Передавай значения через | одним аргументом; даты задавай календарным YYYY-MM-DD.",
     "skills": [

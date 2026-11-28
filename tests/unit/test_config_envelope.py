@@ -132,6 +132,18 @@ def test_envelope_table_out_file(tmp_path):
     assert "ok: True" in out.read_text()
 
 
+def test_render_does_not_touch_filesystem_or_stdout(monkeypatch, capsys):
+    from todoc.output.envelope import render
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("render must not perform I/O")
+
+    monkeypatch.setattr("builtins.open", forbidden)
+    text = render(make_envelope(True, {"a": 1}), "json")
+    assert json.loads(text)["data"] == {"a": 1}
+    assert capsys.readouterr().out == ""
+
+
 def test_init_dataset_accepts_an_explicit_id(tmp_path):
     """Явный идентификатор делает демо-датасет воспроизводимым (P2)."""
     dataset = init_dataset(tmp_path, "demo-fixed")

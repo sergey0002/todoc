@@ -609,3 +609,23 @@ def test_resolve_file_rule_no_matchers():
     doc_type, source, _ = resolve_type(rules, "x.md", "x.md", None, "doc_type", {}, "unknown")
     assert doc_type == "unknown"
     assert source == "default"
+
+
+def test_search_budget_helpers_cover_edges():
+    from todoc.cli import _fit_search_items, _search_items_bytes, _trim_first_search_item
+
+    item = {"id": "x", "snippet": {"text": "abcdef", "snippet_truncated": False}}
+    full = _search_items_bytes([item])
+    assert _trim_first_search_item({"id": "x"}, full) is None
+    assert _trim_first_search_item(item, 1) is None
+    trimmed = _trim_first_search_item(item, full - 2)
+    assert trimmed is not None and len(trimmed["snippet"]["text"]) < 6
+    assert trimmed["snippet"]["snippet_truncated"] is True
+
+    second = {"id": "y", "snippet": {"text": "zzz", "snippet_truncated": False}}
+    kept, used, exhausted = _fit_search_items([item, second], full)
+    assert kept == [item] and used == full and exhausted is True
+
+    kept_all, used_all, exhausted_all = _fit_search_items([item], full)
+    assert kept_all == [item] and used_all == full and exhausted_all is False
+    assert _fit_search_items([], 5) == ([], 0, False)
