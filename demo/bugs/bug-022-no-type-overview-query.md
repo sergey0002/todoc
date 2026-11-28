@@ -4,14 +4,14 @@ title: "BUG-022: нет обзорной выборки по типу докум
 doc_type: bug-report
 lang: ru
 bug_id: BUG-022
-status: open
+status: fixed
 severity: major
 agent_impact: [friction, token_overrun]
 tokens_extra_est: 15000
 component: cli
 found: 2026-11-28
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 tags: [bugs, bug-report, cli, projection, status, overview]
 ---
 
@@ -197,3 +197,14 @@ front matter и в усечённом дереве. Это ~15k токенов �
   а не только тем, что каждая отдельная команда проходит unit-тест.
 
 Статус остаётся open: это дополнение backlog исправлений, код не исправлен.
+
+### Приёмка 2026-11-28
+
+- Исправление выпущено в `60b9f29`, окончательные проверки в `9c255fd`.
+- Один `docs list --type idea --fields id,path,title,status --limit 100`
+  вернул 20 идей со статусами 11 captured, 2 planned, 6 done и 1 null.
+  Полный JSON stdout занял 3654 байта и 1077 токенов `o200k_base`.
+- Пагинация по 50 строк вернула 100 и 500 уникальных ID без пропусков.
+  Зависимый сценарий остановился после первой ошибки выбора поля.
+- Все критерии K1–K30 прошли. Полный pytest и покрытие ветвей 100% прошли.
+  Сценарии зафиксированы в `test_unified_docs.py` и `test_unified_e2e.py`.
