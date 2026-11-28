@@ -327,6 +327,8 @@ todoc revert --change ID [--preview|--apply] [--if-plan-hash H]
 
 ### Итог исполнения v1 — 2026-11-28
 
+Закрыт по команде пользователя. Коммит реализации: `2c0e829`. После закрытия повторно: 1923 теста PASS, TOTAL 100%; linkcheck repository 1505 / demo 918 относительных ссылок, broken=0. Основная ветка репозитория — `master`.
+
 - Задачи 1–9 выполнены последовательно, после реализации каждой запускались её тесты. По прямой инструкции пользователя RED-прогоны до реализации задач не выполнялись (приоритет над прежними чекбоксами TDD); исправления после целевого прогона перепроверялись. Задача 10: полный финальный набор **1923 теста PASS**, `coverage run --branch --source=src/todoc -m pytest -q` + `coverage report -m --fail-under=100`: **9627 statements, 3654 branches, 0 misses, 0 partial, TOTAL 100%**.
 - Фактический inventory: **69 листовых spellings (68 публичных + hidden `docs mv`)**; типы: 25 dir / 31 doc / 25 entity / 18 relation. Демо: 529 документов / 205 записей. Validate: 0 диагностик; check-config: 0 issues/warnings. `docs links`: 926 ссылок, total=0, complete=true, truncated=false, cursor=null; linkcheck: 913 относительных, broken=0.
 - Stale сравнивается по owner+dependency+expected, не по счётчику: сохранены те же две опоры (interop plan → ideas/interop-exports; superseded metadata-overview plan → BUG-022). ACK не добавлялись. Отдельная регрессия `test_secondary_stale_reported_not_acked` доказывает, что новый stale не скрывается за прежним stale другого dependency у того же владельца.

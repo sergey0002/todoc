@@ -71,4 +71,4 @@ record_write(... before: bytes | None, after: bytes, ...); GitBackend.needs_snap
 - Поиск перед созданием (2026-11-28): `docs search --root demo --type bug-report --query "move" --limit 100 --budget 45000 --fields id,path,title` и такой же запрос `--query "план"`; выдачи полны, совпадения по компоненту и корневой причине не найдены.
 - 2026-11-28: требования исправлены в плане по результатам аудита; код не менялся, статус оставлен `open` до реализации и проверки. Репорт не удалять.
 
-- 2026-11-28: исправлено и закрыто по явному подтверждению пользователя вместе с v1 docs move. Проверки: полный pytest (1923 теста), 100% branch coverage; подробные regression-сценарии — §8 [плана](../plan/docs-move-implementation.md). Commit: включён в общий коммит `feat(docs): implement transactional document moves and safe revert` этой ветки.
+- 2026-11-28: исправлено и закрыто по явному подтверждению пользователя вместе с v1 docs move. Проверки: полный pytest (1923 теста), 100% branch coverage; подробные regression-сценарии — §8 [плана](../plan/docs-move-implementation.md). Commit реализации: `2c0e829` (`feat(docs): implement transactional document moves and safe revert`).
