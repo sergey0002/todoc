@@ -644,3 +644,51 @@ def test_search_existing_folder_without_matches_is_clean(root):
     code, body = _search(root, "--query", "идея", "--within", "empty", "--limit", "5")
     assert code == 0
     assert body["data"]["meta"]["total"] == 0 and body["diagnostics"] == []
+
+
+def _write_mirror(root: Path, record_id: str, payload: dict) -> None:
+    folder = root / "records" / "documents"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{record_id.replace(':', '-')}.json").write_text(
+        json.dumps({"schema_version": 1, "record_id": record_id, "entity_type": "document", **payload}),
+        encoding="utf-8")
+    CliRunner().invoke(cli, ["--root", str(root), "index", "rebuild", "--apply"])
+
+
+def _read(root: Path, doc_id: str):
+    result = CliRunner().invoke(cli, ["docs", "read", "--root", str(root), "--id", doc_id])
+    return result.exit_code, json.loads(result.stdout)
+
+
+def test_docs_new_returns_canonical_id(root):
+    result = CliRunner().invoke(
+        cli, ["docs", "new", "--root", str(root), "--type", "note", "--title", "T", "--apply"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]["result"]
+    assert data["id"] == f"doc:{data['path']}"
+    assert data["record_id"] is None
+    read_code, read_body = _read(root, data["id"])
+    assert read_code == 0 and read_body["data"]["result"]["path"] == data["path"]
+
+
+def test_docs_read_resolves_record_id_via_source_path(root, sample_md):
+    _write_mirror(root, "document:design", {"source_path": "notes/design.md"})
+    code, body = _read(root, "document:design")
+    assert code == 0
+    data = body["data"]["result"]
+    assert data["id"] == "doc:notes/design.md"
+    assert data["resolved_from"] == "document:design"
+    assert data["path"] == "notes/design.md"
+
+
+@pytest.mark.parametrize(("missing", "payload"), [
+    ("document:orphan", {}),
+    ("document:dangling", {"source_path": "notes/absent.md"}),
+    ("ghost:absent", None),
+])
+def test_docs_read_unresolvable_id_is_not_found(root, sample_md, missing, payload):
+    if payload is not None:
+        _write_mirror(root, missing, payload)
+    result = CliRunner().invoke(cli, ["docs", "read", "--root", str(root), "--id", missing])
+    assert result.exception.exit_code == 3
+    assert result.exception.code == "docs.not_found"

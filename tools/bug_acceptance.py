@@ -312,8 +312,12 @@ def probe_bug_013(ctx: Ctx) -> tuple[str, str]:
     root = ctx.fresh("docs-new")
     code, body, _ = call(root, "docs", "new", "--type", "note", "--title", "T", "--apply")
     r = result(body)
-    ok = code == 0 and r.get("id") == f"doc:{r.get('path')}"
-    return (FIXED if ok else OPEN, f"docs new result keys={sorted(r)} id={r.get('id')!r}")
+    doc_id = r.get("id")
+    saved = code == 0 and doc_id == f"doc:{r.get('path')}" and "record_id" in r
+    read_code, read_body, _ = call(root, "docs", "read", "--id", doc_id or "doc:absent")
+    readable = read_code == 0 and result(read_body).get("resolved_from") is None
+    return (FIXED if saved and readable else OPEN,
+            f"docs new id={doc_id!r} record_id={r.get('record_id')!r}; read exit={read_code}")
 
 
 def probe_bug_014(ctx: Ctx) -> tuple[str, str]:

@@ -1774,10 +1774,15 @@ def docs_new(roots: tuple[str, ...], output: str, no_input: bool, title: str, di
                                    "preview": True, "applied": False, "attributes": metadata}, output)
         return
     apply_write_plan(ctx.root, plan, history=ctx.history_recorder(), parse_cache=ctx.parse_cache)
-    ctx.ensure_index()
-    _emit_command_result(ctx, {"path": rel, "title": title, "doc_type": type_id, "template": source,
+    payload = ctx.ensure_index()
+    saved = next((item for item in payload["documents"] if item["path"] == rel), None)
+    doc_id = saved["document_id"] if saved else f"doc:{rel}"
+    mirror = next((item.get("record_id") for item in payload.get("records") or []
+                   if isinstance(item.get("data"), dict) and item["data"].get("source_path") == rel), None)
+    _emit_command_result(ctx, {"path": rel, "id": doc_id, "record_id": mirror, "title": title,
+                               "doc_type": type_id, "template": source,
                                "hash": plan.new_hash, "applied": True, "plan_hash": plan_hash}, output,
-                         next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", f"doc:{rel}"],
+                         next_actions=[{"argv": _root_argv(roots) + ["docs", "read", "--id", doc_id],
                                         "purpose": "Прочитать созданный документ"},
                                        {"argv": _root_argv(roots) + ["types", "prompt", type_id or "note", "--op", "edit"],
                                         "purpose": "Взять стартовый промпт правки для этого типа"}])
@@ -2151,7 +2156,7 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str |
     if len(resolved) != 1:
         raise TodocError("Choose exactly one DATA_ROOT.", EXIT_USAGE, "docs.multiple_roots")
     ctx = DatasetContext(resolved[0])
-    payload = ctx.read_index(sections=())
+    payload = ctx.read_index(sections=("records",))
     # план entity-catalog З3/T5: fragment в id — синоним --section; конфликт — usage.error
     id_base, hash_sep, id_fragment = doc_id.partition("#")
     if hash_sep and section:
@@ -2159,6 +2164,18 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str |
     if hash_sep:
         doc_id, section = id_base, id_fragment
     matches = [item for item in payload["documents"] if item["document_id"] == doc_id]
+    resolved_from: str | None = None
+    if not matches:
+        # A record id resolves through its documented ``source_path`` to the md document,
+        # so an agent that only has the mirror id does not have to grep for the path.
+        record = next((item for item in payload.get("records") or []
+                       if item.get("record_id") == doc_id), None)
+        source = (record.get("data") or {}).get("source_path") if record else None
+        if source:
+            matches = [item for item in payload["documents"] if item["path"] == source]
+            resolved_from = doc_id
+            if matches:
+                doc_id = matches[0]["document_id"]
     if not matches:
         raise ValidationError(f"Document not found: {doc_id}", "docs.not_found")
     if len(matches) != 1:
@@ -2166,7 +2183,8 @@ def docs_read(roots: tuple[str, ...], output: str, no_input: bool, doc_id: str |
     doc = matches[0]
     text = read_verified_text(ctx.root, doc["path"], doc["hash"])
     data: dict[str, Any] = {"dataset_id": ctx.dataset_id, "id": doc_id, "path": doc["path"],
-                            "format": doc["format"], "doc_type": doc["doc_type"], "hash": doc["hash"]}
+                            "format": doc["format"], "doc_type": doc["doc_type"], "hash": doc["hash"],
+                            "resolved_from": resolved_from}
     if budget is not None and doc["format"] in ("json", "csv"):
         raise TodocError("--budget applies to text projections. Use --pointer or --rows for structured data.",
                          EXIT_USAGE, "docs.budget_not_applicable")
